@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
-import { Id } from '../../../convex/_generated/dataModel';
+import { api } from 'convex/_generated/api';
+import { Id } from 'convex/_generated/dataModel';
 import { Button } from '@/components/ui/Button';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
@@ -394,13 +394,13 @@ export default function CreateOrderPage() {
         </form>
         
         {/* Sticky CTA Button */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 md:p-6 shadow-lg mt-6 -mx-4 md:-mx-6">
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 md:px-6 py-2 md:py-3 shadow-lg mt-6 -mx-4 md:-mx-6 flex items-stretch">
           <Button
             type="submit"
             form="pedido-form"
             variant="primary"
             disabled={isSubmitting}
-            className="w-full md:w-auto"
+            className="w-full md:w-auto h-full py-2 md:py-3"
           >
             {isSubmitting ? 'Enviando...' : 'Enviar a almacén'}
           </Button>

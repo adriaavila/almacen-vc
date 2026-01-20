@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
-import { Id } from '../../../convex/_generated/dataModel';
+import { api } from 'convex/_generated/api';
+import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
@@ -241,7 +241,7 @@ export default function InventoryPage() {
           ) : (
             filteredItems.map((item) => {
               const lowStock = isLowStock(item);
-              const isAdjusting = adjustingId === item.id;
+              const isAdjusting = adjustingId === item._id;
               
               return (
                 <div
