@@ -8,7 +8,6 @@ import { Id } from 'convex/_generated/dataModel';
 import { Button } from '@/components/ui/Button';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
-import { StockIndicator } from '@/components/ui/StockIndicator';
 import { QuantityInput } from '@/components/ui/QuantityInput';
 import { Area } from '@/types';
 
@@ -350,29 +349,22 @@ export default function CreateOrderPage() {
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="divide-y divide-gray-200">
                     {categoriaItems.map((item) => (
-                      <div key={item._id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                      <div key={item._id} className="p-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-gray-50 transition-colors">
                         <div className="flex-1 min-w-0">
-                          <div className="mb-2">
-                            <span className="text-base font-semibold text-gray-900">{item.nombre}</span>
+                          <div className="mb-1">
+                            <span className="text-lg md:text-base font-semibold text-gray-900 truncate block">
+                              {item.nombre}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2 flex-wrap mb-2">
-                            <span className="text-xs text-gray-500">
+                          <div className="mb-0">
+                            <span className="text-xs text-gray-500 truncate block">
                               {item.categoria}
                               {item.subcategoria && ` · ${item.subcategoria}`}
                               {item.marca && item.marca !== 'Genérica' && ` · ${item.marca}`}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-600">
-                              Stock: <span className="font-medium">{item.stock_actual}</span> {item.unidad}
-                            </span>
-                            <StockIndicator 
-                              stock_actual={item.stock_actual} 
-                              stock_minimo={item.stock_minimo} 
-                            />
-                          </div>
                         </div>
-                        <div className="ml-4">
+                        <div className="w-full md:w-auto md:ml-4 flex justify-center md:justify-end">
                           <QuantityInput
                             itemId={item._id}
                             value={quantities[item._id] || 0}

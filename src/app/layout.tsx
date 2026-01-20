@@ -6,7 +6,9 @@ export const metadata: Metadata = {
   title: "Almacén - Control de Stock",
   description: "Sistema de control de stock y pedidos internos",
   icons: {
-    icon: "/vistacampo-favicon.png",
+    icon: [
+      { url: "/vistacampo-favicon.png", type: "image/png" },
+    ],
     shortcut: "/vistacampo-favicon.png",
     apple: "/vistacampo-favicon.png",
   },

@@ -12,6 +12,8 @@ import type * as items from "../items.js";
 import type * as orderItems from "../orderItems.js";
 import type * as orders from "../orders.js";
 import type * as seed from "../seed.js";
+import type * as stockMovements from "../stockMovements.js";
+import type * as uiConfig from "../uiConfig.js";
 
 import type {
   ApiFromModules,
@@ -24,6 +26,8 @@ declare const fullApi: ApiFromModules<{
   orderItems: typeof orderItems;
   orders: typeof orders;
   seed: typeof seed;
+  stockMovements: typeof stockMovements;
+  uiConfig: typeof uiConfig;
 }>;
 
 /**

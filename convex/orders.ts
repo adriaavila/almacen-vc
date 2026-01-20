@@ -47,13 +47,16 @@ export const getById = query({
 // Query: Get pending orders sorted by date (oldest first)
 export const getPending = query({
   handler: async (ctx) => {
+    // Use composite index to get pending orders already sorted by createdAt
+    // The index ["status", "createdAt"] automatically sorts by createdAt ascending
     const orders = await ctx.db
       .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "pendiente"))
+      .withIndex("by_status_createdAt", (q) => 
+        q.eq("status", "pendiente")
+      )
       .collect();
 
-    // Sort by createdAt (oldest first)
-    return orders.sort((a, b) => a.createdAt - b.createdAt);
+    return orders;
   },
 });
 
@@ -175,6 +178,7 @@ export const deliver = mutation({
       stock_actual: number;
       stock_minimo: number;
     }> = [];
+    const movementIds: Array<string> = [];
 
     // Decrement stock for each item
     for (const oi of orderItems) {
@@ -182,6 +186,18 @@ export const deliver = mutation({
       if (!item) {
         continue; // Skip if item doesn't exist
       }
+
+      // Create stock movement (egreso, consumo, referencia=orderId)
+      const movementId = await ctx.db.insert("stock_movements", {
+        itemId: oi.itemId,
+        type: "egreso",
+        cantidad: oi.cantidad,
+        motivo: "consumo",
+        referencia: args.id,
+        createdAt: Date.now(),
+        createdBy: undefined, // TODO: Add when auth is implemented
+      });
+      movementIds.push(movementId);
 
       const newStock = Math.max(0, item.stock_actual - oi.cantidad);
       const status = newStock <= item.stock_minimo ? "bajo_stock" : "ok";
@@ -215,6 +231,7 @@ export const deliver = mutation({
     return {
       deliveredItems,
       lowStockItems,
+      movementIds,
     };
   },
 });

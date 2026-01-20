@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -181,8 +182,11 @@ export default function InventoryPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <PageContainer>
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Lista de Inventario</h1>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900">Lista</h1>
+          <Link href="/admin/dashboard">
+            <Button variant="secondary">Dashboard</Button>
+          </Link>
         </div>
         
         {/* Search Bar */}
@@ -254,9 +258,11 @@ export default function InventoryPage() {
                     <div className="flex items-start justify-between gap-4">
                       {/* Left Side - Product Info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {item.nombre}
-                        </h3>
+                        <Link href={`/admin/inventario/${item._id}`}>
+                          <h3 className="text-lg font-semibold text-emerald-600 hover:text-emerald-800 mb-1 cursor-pointer">
+                            {item.nombre}
+                          </h3>
+                        </Link>
                         <div className="flex items-center gap-2 flex-wrap mb-2">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             {item.subcategoria || item.categoria}

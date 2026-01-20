@@ -14,6 +14,7 @@ export default defineSchema({
     location: v.string(),
     extra_notes: v.optional(v.string()),
     status: v.union(v.literal("ok"), v.literal("bajo_stock")),
+    active: v.boolean(),
   })
     .index("by_status", ["status"])
     .index("by_categoria", ["categoria"]),
@@ -25,7 +26,8 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_area", ["area"])
-    .index("by_area_status", ["area", "status"]),
+    .index("by_area_status", ["area", "status"])
+    .index("by_status_createdAt", ["status", "createdAt"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),
@@ -34,4 +36,34 @@ export default defineSchema({
   })
     .index("by_orderId", ["orderId"])
     .index("by_itemId", ["itemId"]),
+
+  stock_movements: defineTable({
+    itemId: v.id("items"),
+    type: v.union(v.literal("ingreso"), v.literal("egreso")),
+    cantidad: v.number(),
+    motivo: v.union(v.literal("compra"), v.literal("consumo"), v.literal("ajuste")),
+    referencia: v.optional(v.string()),
+    createdAt: v.number(),
+    createdBy: v.optional(v.string()),
+  })
+    .index("by_itemId", ["itemId"])
+    .index("by_type", ["type"])
+    .index("by_itemId_createdAt", ["itemId", "createdAt"])
+    .index("by_createdAt", ["createdAt"]),
+
+  ui_config: defineTable({
+    userId: v.string(),
+    page: v.string(),
+    config: v.object({
+      columns: v.array(
+        v.object({
+          key: v.string(),
+          label: v.string(),
+          visible: v.boolean(),
+          order: v.number(),
+        })
+      ),
+      showOnlyActive: v.boolean(),
+    }),
+  }).index("by_user_page", ["userId", "page"]),
 });

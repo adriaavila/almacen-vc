@@ -118,6 +118,7 @@ export const create = mutation({
     package_size: v.optional(v.string()),
     location: v.string(),
     extra_notes: v.optional(v.string()),
+    active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     if (args.stock_actual < 0) {
@@ -138,8 +139,71 @@ export const create = mutation({
       location: args.location,
       extra_notes: args.extra_notes,
       status,
+      active: args.active ?? true,
     });
 
     return itemId;
+  },
+});
+
+// Mutation: Update any field of an item
+export const update = mutation({
+  args: {
+    id: v.id("items"),
+    nombre: v.optional(v.string()),
+    categoria: v.optional(v.string()),
+    subcategoria: v.optional(v.string()),
+    marca: v.optional(v.string()),
+    unidad: v.optional(v.string()),
+    stock_actual: v.optional(v.number()),
+    stock_minimo: v.optional(v.number()),
+    package_size: v.optional(v.string()),
+    location: v.optional(v.string()),
+    extra_notes: v.optional(v.string()),
+    active: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+
+    const item = await ctx.db.get(id);
+    if (!item) {
+      throw new Error(`Item con ID ${id} no encontrado`);
+    }
+
+    // Calculate status if stock fields are being updated
+    let status = item.status;
+    const stock_actual = updates.stock_actual ?? item.stock_actual;
+    const stock_minimo = updates.stock_minimo ?? item.stock_minimo;
+    status = calculateStatus(stock_actual, stock_minimo);
+
+    if (stock_actual < 0) {
+      throw new Error("El stock no puede ser negativo");
+    }
+
+    await ctx.db.patch(id, {
+      ...updates,
+      status,
+    });
+
+    return { id, status };
+  },
+});
+
+// Mutation: Toggle active status
+export const toggleActive = mutation({
+  args: {
+    id: v.id("items"),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.id);
+    if (!item) {
+      throw new Error(`Item con ID ${args.id} no encontrado`);
+    }
+
+    await ctx.db.patch(args.id, {
+      active: !item.active,
+    });
+
+    return { id: args.id, active: !item.active };
   },
 });

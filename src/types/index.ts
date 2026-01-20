@@ -1,3 +1,5 @@
+import { Id } from 'convex/_generated/dataModel';
+
 export type PedidoStatus = 'pendiente' | 'entregado';
 
 export type Area = 'Cocina' | 'Cafetín' | 'Limpieza';
@@ -5,6 +7,10 @@ export type Area = 'Cocina' | 'Cafetín' | 'Limpieza';
 export type ItemStatus = 'ok' | 'bajo_stock';
 
 export type StockStatus = 'sufficient' | 'just_enough' | 'low';
+
+export type MovementType = 'ingreso' | 'egreso';
+
+export type MovementMotivo = 'compra' | 'consumo' | 'ajuste';
 
 export interface DeliveryResult {
   deliveredItems: Array<{ itemId: string; cantidad: number; newStock: number }>;
@@ -38,4 +44,29 @@ export interface Pedido {
   status: PedidoStatus;
   createdAt: Date;
   items?: Item[]; // Populated when needed
+}
+
+export interface StockMovement {
+  _id: Id<'stock_movements'>;
+  itemId: Id<'items'>;
+  type: MovementType;
+  cantidad: number;
+  motivo: MovementMotivo;
+  referencia?: string;
+  createdAt: number;
+  createdBy?: string;
+  // Populated fields
+  item?: Item;
+}
+
+export interface ColumnConfig {
+  key: string;
+  label: string;
+  visible: boolean;
+  order: number;
+}
+
+export interface ItemsEditorConfig {
+  columns: ColumnConfig[];
+  showOnlyActive: boolean;
 }

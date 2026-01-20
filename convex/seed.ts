@@ -56,6 +56,7 @@ export const seedItems = mutation({
         location: item.location,
         extra_notes: item.extra_notes,
         status,
+        active: true,
       });
 
       insertedIds.push(itemId);
