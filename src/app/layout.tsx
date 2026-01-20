@@ -3,14 +3,24 @@ import "./globals.css";
 import { ConvexProvider } from "@/lib/convex/provider";
 
 export const metadata: Metadata = {
-  title: "Almacén - Control de Stock",
+  title: "Vistacampo",
   description: "Sistema de control de stock y pedidos internos",
   icons: {
     icon: [
-      { url: "/vistacampo-favicon.png", type: "image/png" },
+      { url: "/vistacampo-favicon.png", type: "image/png", sizes: "512x512" },
+      { url: "/vistacampo-favicon.png", type: "image/png", sizes: "192x192" },
     ],
     shortcut: "/vistacampo-favicon.png",
-    apple: "/vistacampo-favicon.png",
+    apple: [
+      { url: "/vistacampo-favicon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  manifest: "/manifest.json",
+  themeColor: "#10b981",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Vistacampo",
   },
 };
 
@@ -22,6 +32,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/vistacampo-favicon.png" />
+        <meta name="theme-color" content="#10b981" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"

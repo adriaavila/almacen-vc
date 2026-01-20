@@ -21,7 +21,7 @@ export default function Home() {
             />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Almacén - Control de Stock
+            Vistacampo
           </h1>
           <p className="text-lg text-gray-600 mb-12 text-center max-w-md">
             Sistema de control de stock y pedidos internos
