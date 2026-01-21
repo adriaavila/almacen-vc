@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,14 +76,11 @@ export default function DashboardPage() {
     recentMovements === undefined
   ) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <PageContainer>
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando dashboard...</p>
-          </div>
-        </PageContainer>
-      </div>
+      <PageContainer>
+        <div className="text-center py-12 text-gray-500">
+          <p>Cargando dashboard...</p>
+        </div>
+      </PageContainer>
     );
   }
 
@@ -95,13 +91,7 @@ export default function DashboardPage() {
   const recentPendingOrders = pendingOrders.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <PageContainer>
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Vista general del inventario y actividad</p>
-        </div>
+    <PageContainer>
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -375,7 +365,6 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </PageContainer>
-    </div>
+    </PageContainer>
   );
 }

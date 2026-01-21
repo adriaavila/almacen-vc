@@ -9,40 +9,64 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <PageContainer>
-        <div className="flex flex-col items-center justify-center min-h-[80vh]">
-          <div className="mb-8">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
+          <div className="mb-6">
             <Image
               src="/logo-vistacampo.png"
               alt="Vistacampo Centro Terapéutico"
               width={240}
               height={80}
-              className="h-20 w-auto"
+              className="h-16 w-auto"
               priority
             />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Vistacampo
-          </h1>
-          <p className="text-lg text-gray-600 mb-12 text-center max-w-md">
-            Sistema de control de stock y pedidos internos
+          <p className="text-base text-gray-600 mb-8 text-center max-w-md">
+            Operaciones Internas Vistacampo
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-6 w-full max-w-md">
-            <Link href="/requester/pedido" className="flex-1">
-              <Button variant="primary" className="w-full py-4 text-lg">
-                Entrar como Solicitante
-              </Button>
-            </Link>
+          <div className="w-full max-w-lg">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">
+                Áreas Operativas
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Link href="/requester/pedido?area=Cafetín">
+                  <Button variant="primary" className="w-full py-3 text-base">
+                    Cafetin
+                  </Button>
+                </Link>
+                
+                <Link href="/requester/pedido?area=Cocina">
+                  <Button variant="primary" className="w-full py-3 text-base">
+                    Cocina
+                  </Button>
+                </Link>
+                
+                <Link href="/requester/pedido?area=Limpieza">
+                  <Button variant="primary" className="w-full py-3 text-base">
+                    Limpieza
+                  </Button>
+                </Link>
+              </div>
+            </div>
             
-            <Link href="/admin/pedidos" className="flex-1">
-              <Button variant="secondary" className="w-full py-4 text-lg">
-                Entrar como Admin
-              </Button>
-            </Link>
-          </div>
-          
-          <div className="mt-12 text-sm text-gray-500 text-center max-w-md">
-            <p>Selecciona tu rol para acceder al sistema</p>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">
+                Administración
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Link href="/mantenimiento">
+                  <Button variant="secondary" className="w-full py-3 text-base">
+                    Mantenimiento
+                  </Button>
+                </Link>
+                <Link href="/admin/pedidos">
+                  <Button variant="secondary" className="w-full py-3 text-base">
+                    Admin
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </PageContainer>

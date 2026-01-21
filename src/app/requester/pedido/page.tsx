@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -11,16 +11,21 @@ import { Navbar } from '@/components/layout/Navbar';
 import { QuantityInput } from '@/components/ui/QuantityInput';
 import { Area } from '@/types';
 
-export default function CreateOrderPage() {
+const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
+
+function CreateOrderPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const items = useQuery(api.items.list);
   const createOrder = useMutation(api.orders.create);
-  const lastOrder = useQuery(
-    api.orders.getLastByArea,
-    { area: 'Cocina' } // Will be updated when selectedArea changes
-  );
   
-  const [selectedArea, setSelectedArea] = useState<Area>('Cocina');
+  // Get area from URL query param, default to 'Cocina'
+  const areaFromUrl = searchParams?.get('area');
+  const initialArea: Area = (areaFromUrl && validAreas.includes(areaFromUrl as Area)) 
+    ? (areaFromUrl as Area) 
+    : 'Cocina';
+  
+  const [selectedArea, setSelectedArea] = useState<Area>(initialArea);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [suggestedQuantities, setSuggestedQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -41,6 +46,14 @@ export default function CreateOrderPage() {
     api.orders.getById,
     lastOrderForArea ? { id: lastOrderForArea._id } : "skip"
   );
+  
+  // Update area when URL query param changes
+  useEffect(() => {
+    const areaFromUrl = searchParams?.get('area');
+    if (areaFromUrl && validAreas.includes(areaFromUrl as Area)) {
+      setSelectedArea(areaFromUrl as Area);
+    }
+  }, [searchParams, setSelectedArea]);
   
   // Pre-fill quantities when area changes
   useEffect(() => {
@@ -120,23 +133,28 @@ export default function CreateOrderPage() {
     }
   };
   
-  // Get all unique subcategories
+  // Get all unique subcategories filtered by area
   const subcategories = useMemo(() => {
     if (!items || items.length === 0) return [];
     const subcats = new Set<string>();
     items.forEach(item => {
-      if (item.subcategoria) {
+      // Apply area filter: if area is Limpieza, only include Limpieza category items
+      const matchesArea = selectedArea !== 'Limpieza' || item.categoria === 'Limpieza';
+      if (matchesArea && item.subcategoria) {
         subcats.add(item.subcategoria);
       }
     });
     return Array.from(subcats).sort();
-  }, [items]);
+  }, [items, selectedArea]);
 
-  // Filter items by search and subcategory
+  // Filter items by search, subcategory, and area
   const filteredItems = useMemo(() => {
     if (!items || items.length === 0) return [];
     
     return items.filter(item => {
+      // Area filter: if area is Limpieza, only show Limpieza category items
+      const matchesArea = selectedArea !== 'Limpieza' || item.categoria === 'Limpieza';
+      
       // Search filter
       const matchesSearch = searchQuery === '' || 
         item.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -147,9 +165,9 @@ export default function CreateOrderPage() {
       const matchesSubcategory = selectedSubcategory === 'all' || 
         item.subcategoria === selectedSubcategory;
       
-      return matchesSearch && matchesSubcategory;
+      return matchesArea && matchesSearch && matchesSubcategory;
     });
-  }, [items, searchQuery, selectedSubcategory]);
+  }, [items, searchQuery, selectedSubcategory, selectedArea]);
 
   // Group filtered items by category
   const itemsByCategory = useMemo(() => {
@@ -399,5 +417,22 @@ export default function CreateOrderPage() {
         </div>
       </PageContainer>
     </div>
+  );
+}
+
+export default function CreateOrderPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <PageContainer>
+          <div className="text-center py-12 text-gray-500">
+            <p>Cargando...</p>
+          </div>
+        </PageContainer>
+      </div>
+    }>
+      <CreateOrderPageContent />
+    </Suspense>
   );
 }

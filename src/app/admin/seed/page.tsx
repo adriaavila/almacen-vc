@@ -77,7 +77,6 @@ export default function SeedPage() {
       <Navbar />
       <PageContainer>
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Cargar Datos Iniciales</h1>
           <p className="text-sm text-gray-500">
             Utiliza esta página para cargar los datos de inventario iniciales en Convex.
           </p>

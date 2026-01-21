@@ -40,6 +40,7 @@ export function EditableCell({
   const [editValue, setEditValue] = useState<string>(getDefaultValue());
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync editValue when value prop changes (but not while editing)
@@ -66,13 +67,47 @@ export function EditableCell({
     }
   }, [isEditing]);
 
+  useEffect(() => {
+    return () => {
+      if (clickTimeout) {
+        clearTimeout(clickTimeout);
+      }
+    };
+  }, [clickTimeout]);
+
   const handleClick = () => {
     if (type === 'toggle') {
       handleToggle();
-    } else {
+      return;
+    }
+
+    // Single click - wait to see if there's a second click
+    if (clickTimeout) {
+      // Double click detected - start editing immediately
+      clearTimeout(clickTimeout);
+      setClickTimeout(null);
       setIsEditing(true);
       setEditValue(getDefaultValue());
+    } else {
+      // Single click - wait for potential double click
+      const timeout = setTimeout(() => {
+        // No second click within timeout - this was just a single click
+        // Don't do anything for single click (keeps current behavior)
+        setClickTimeout(null);
+      }, 300);
+      setClickTimeout(timeout);
     }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (type === 'toggle') return;
+    if (clickTimeout) {
+      clearTimeout(clickTimeout);
+      setClickTimeout(null);
+    }
+    setIsEditing(true);
+    setEditValue(getDefaultValue());
   };
 
   const handleToggle = async () => {
@@ -209,32 +244,34 @@ export function EditableCell({
   if (isEditing) {
     if (type === 'select' && options) {
       return (
-        <Select
-          value={editValue}
-          onValueChange={handleSelectChange}
-          onOpenChange={(open) => {
-            if (!open && saveStatus === 'idle') {
-              setIsEditing(false);
-            }
-          }}
-        >
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="relative animate-fade-in">
+          <Select
+            value={editValue}
+            onValueChange={handleSelectChange}
+            onOpenChange={(open) => {
+              if (!open && saveStatus === 'idle') {
+                setIsEditing(false);
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 text-sm ring-2 ring-emerald-500 border-emerald-500 focus:ring-emerald-500">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       );
     }
 
     if (type === 'textarea') {
       return (
-        <div className="relative w-full">
+        <div className="relative w-full animate-fade-in">
           <textarea
             ref={inputRef as any}
             value={editValue}
@@ -249,8 +286,8 @@ export function EditableCell({
                 handleBlur();
               }
             }}
-            className={`w-full min-h-[60px] max-h-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-y ${
-              saveStatus === 'error' ? 'border-red-500' : ''
+            className={`w-full min-h-[60px] max-h-[120px] px-3 py-2 text-sm border-2 border-emerald-500 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-y bg-emerald-50 transition-all ${
+              saveStatus === 'error' ? 'border-red-500 bg-red-50' : ''
             } ${className || ''}`}
             disabled={isSaving}
             placeholder={placeholder}
@@ -271,7 +308,7 @@ export function EditableCell({
     }
 
     return (
-      <div className="relative">
+      <div className="relative animate-fade-in">
         <Input
           ref={inputRef}
           type={type}
@@ -279,7 +316,9 @@ export function EditableCell({
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className={`h-8 text-sm ${saveStatus === 'error' ? 'border-red-500' : ''} ${className || ''}`}
+          className={`h-8 text-sm border-2 border-emerald-500 bg-emerald-50 focus:ring-2 focus:ring-emerald-500 transition-all ${
+            saveStatus === 'error' ? 'border-red-500 bg-red-50' : ''
+          } ${className || ''}`}
           disabled={isSaving}
           placeholder={placeholder}
         />
@@ -318,20 +357,26 @@ export function EditableCell({
   return (
     <div
       onClick={handleClick}
-      className={`cursor-pointer hover:bg-gray-50 px-2 py-1 rounded min-h-[32px] flex items-center ${
-        required && isEmpty ? 'border-l-2 border-l-red-300' : ''
-      } ${className || ''}`}
-      title={required && isEmpty ? 'Campo requerido - Click para editar' : 'Click para editar'}
+      onDoubleClick={handleDoubleClick}
+      className={`cursor-pointer hover:bg-emerald-50/50 px-2 py-1 rounded-md min-h-[32px] flex items-center transition-all duration-150 group ${
+        required && isEmpty ? 'border-l-2 border-l-red-400 bg-red-50/30' : ''
+      } ${isEditing ? 'ring-2 ring-emerald-500 bg-emerald-50 animate-pulse' : ''} ${className || ''}`}
+      title={required && isEmpty ? 'Campo requerido - Doble click para editar' : 'Doble click para editar rápidamente'}
     >
-      <span className={`text-sm ${isEmpty && !required ? 'text-gray-400 italic' : ''}`}>
+      <span className={`text-sm transition-colors flex-1 ${isEmpty && !required ? 'text-gray-400 italic' : 'text-gray-900'}`}>
         {isEmpty && !required ? (placeholder || 'Opcional') : displayValue}
       </span>
       {required && (
-        <span className="ml-1 text-red-500 text-xs">*</span>
+        <span className="ml-1 text-red-500 text-xs font-bold">*</span>
       )}
       {saveStatus === 'saved' && (
-        <span className="ml-2 text-xs text-emerald-600">✓</span>
+        <span className="ml-2 text-xs text-emerald-600 animate-fade-in font-semibold">✓</span>
       )}
+      <span className="ml-auto text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+      </span>
     </div>
   );
 }

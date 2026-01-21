@@ -1,27 +1,30 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ConvexProvider } from "@/lib/convex/provider";
 
 export const metadata: Metadata = {
   title: "Vistacampo",
-  description: "Sistema de control de stock y pedidos internos",
+  description: "app de operacion interna de VC",
   icons: {
     icon: [
-      { url: "/vistacampo-favicon.png", type: "image/png", sizes: "512x512" },
-      { url: "/vistacampo-favicon.png", type: "image/png", sizes: "192x192" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
     ],
-    shortcut: "/vistacampo-favicon.png",
+    shortcut: "/favicon-32x32.png",
     apple: [
-      { url: "/vistacampo-favicon.png", sizes: "180x180", type: "image/png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
   manifest: "/manifest.json",
-  themeColor: "#10b981",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Vistacampo",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#10b981",
 };
 
 export default function RootLayout({
@@ -33,7 +36,9 @@ export default function RootLayout({
     <html lang="es">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/vistacampo-favicon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <meta name="theme-color" content="#10b981" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link

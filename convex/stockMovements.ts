@@ -109,7 +109,7 @@ export const registerIngreso = mutation({
   args: {
     itemId: v.id("items"),
     cantidad: v.number(),
-    motivo: v.optional(v.union(v.literal("compra"), v.literal("ajuste"))),
+    motivo: v.optional(v.union(v.literal("compra"), v.literal("ajuste"), v.literal("mantenimiento"))),
     referencia: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

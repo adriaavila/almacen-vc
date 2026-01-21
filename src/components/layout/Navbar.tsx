@@ -9,13 +9,19 @@ export function Navbar() {
   
   const isRequester = pathname?.startsWith('/requester');
   const isAdmin = pathname?.startsWith('/admin');
+  const isMantenimientoBasico = pathname?.startsWith('/mantenimiento') && !pathname?.startsWith('/admin');
+  
+  // Hide navbar completely on admin routes (sidebar is used instead)
+  if (isAdmin) {
+    return null;
+  }
   
   return (
     <nav className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-4 md:space-x-6">
-            {!isAdmin && (
+            {!isMantenimientoBasico && (
               <Link href="/" className="flex items-center flex-shrink-0">
                 <Image
                   src="/logo-vistacampo.png"
@@ -26,6 +32,41 @@ export function Navbar() {
                   priority
                 />
               </Link>
+            )}
+            
+            {isMantenimientoBasico && (
+              <>
+                <Link
+                  href="/mantenimiento/repuestos"
+                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                    pathname?.startsWith('/mantenimiento/repuestos')
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Repuestos
+                </Link>
+                <Link
+                  href="/mantenimiento/activos"
+                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                    pathname?.startsWith('/mantenimiento/activos')
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Activos
+                </Link>
+                <Link
+                  href="/mantenimiento/trabajos"
+                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                    pathname?.startsWith('/mantenimiento/trabajos')
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Trabajos
+                </Link>
+              </>
             )}
             
             {isRequester && (
@@ -53,46 +94,12 @@ export function Navbar() {
               </>
             )}
             
-            {isAdmin && (
-              <>
-                <Link
-                  href="/admin/pedidos"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-                    pathname?.startsWith('/admin/pedidos')
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  Pedidos
-                </Link>
-                <Link
-                  href="/admin/inventario"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-                    pathname?.startsWith('/admin/inventario')
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  Inventario
-                </Link>
-                <Link
-                  href="/admin/movements"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-                    pathname?.startsWith('/admin/movements')
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  Movimientos
-                </Link>
-              </>
-            )}
           </div>
           
           {!isRequester && (
             <div className="flex items-center">
               <Link
-                href="/"
+                href={isMantenimientoBasico ? "/mantenimiento" : "/"}
                 className="p-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
                 aria-label="Volver a inicio"
               >

@@ -13,7 +13,7 @@ export function StatusCell({ status, className }: StatusCellProps) {
   return (
     <div className={`flex items-center gap-2 ${className || ''}`}>
       <div
-        className={`h-2 w-2 rounded-full ${
+        className={`h-2.5 w-2.5 rounded-full animate-pulse ${
           isLowStock ? 'bg-red-500' : 'bg-emerald-500'
         }`}
       />

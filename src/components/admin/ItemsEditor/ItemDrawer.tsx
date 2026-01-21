@@ -28,7 +28,9 @@ type ConvexItem = {
   location: string;
   extra_notes?: string;
   status: "ok" | "bajo_stock";
-  active: boolean;
+  active?: boolean;
+  updatedBy?: string;
+  updatedAt?: number;
 };
 
 interface ItemDrawerProps {

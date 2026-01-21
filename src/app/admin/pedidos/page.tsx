@@ -58,10 +58,6 @@ export default function PendingOrdersPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <PageContainer>
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">¿Qué entrego ahora?</h1>
-          <p className="text-sm text-gray-500 mt-1">Pedidos pendientes ordenados por antigüedad</p>
-        </div>
         
         {pendingOrders.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">

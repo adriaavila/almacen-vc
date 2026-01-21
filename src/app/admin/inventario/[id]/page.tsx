@@ -90,9 +90,6 @@ export default function ItemDetailPage() {
           >
             ← Volver a inventario
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {item.nombre}
-          </h1>
         </div>
 
         {/* Header with Stock */}

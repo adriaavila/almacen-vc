@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -17,6 +17,9 @@ export default function MyOrdersPage() {
   
   const [selectedArea, setSelectedArea] = useState<Area | 'all'>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<Id<"orders"> | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<Id<"orders"> | null>(null);
+  
+  const deleteOrder = useMutation(api.orders.remove);
   
   // Get filtered orders based on selected area
   const filteredOrders = selectedArea === 'all'
@@ -41,6 +44,26 @@ export default function MyOrdersPage() {
       hour: '2-digit',
       minute: '2-digit',
     }).format(new Date(timestamp));
+  };
+
+  const handleDeleteOrder = async (orderId: Id<"orders">) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este pedido?')) {
+      return;
+    }
+
+    try {
+      setDeletingOrderId(orderId);
+      await deleteOrder({ id: orderId });
+      // Close expanded order if it was the one being deleted
+      if (expandedOrderId === orderId) {
+        setExpandedOrderId(null);
+      }
+    } catch (error) {
+      console.error('Error al eliminar pedido:', error);
+      alert('No se pudo eliminar el pedido. Intente de nuevo.');
+    } finally {
+      setDeletingOrderId(null);
+    }
   };
 
   // Loading state
@@ -98,12 +121,12 @@ export default function MyOrdersPage() {
                     key={order._id}
                     className={`bg-white rounded-md shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden transition-colors`}
                   >
-                    <div
-                      className="p-4 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setExpandedOrderId(isExpanded ? null : order._id)}
-                    >
+                    <div className="p-4">
                       <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
+                        <div
+                          className="flex-1 min-w-0 hover:bg-gray-50 cursor-pointer p-2 -m-2 rounded"
+                          onClick={() => setExpandedOrderId(isExpanded ? null : order._id)}
+                        >
                           <div className="mb-1">
                             <span className="text-lg font-semibold text-gray-900">{order.area}</span>
                           </div>
@@ -119,20 +142,46 @@ export default function MyOrdersPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center">
-                          <svg
-                            className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        <div className="flex items-center gap-2">
+                          {order.status === 'pendiente' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteOrder(order._id);
+                              }}
+                              disabled={deletingOrderId === order._id}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Eliminar pedido"
+                            >
+                              {deletingOrderId === order._id ? (
+                                <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                              ) : (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => setExpandedOrderId(isExpanded ? null : order._id)}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
+                            <svg
+                              className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -66,6 +66,7 @@ export const updateStock = mutation({
     await ctx.db.patch(args.id, {
       stock_actual: args.newStock,
       status,
+      updatedAt: Date.now(),
     });
 
     return { id: args.id, stock_actual: args.newStock, status };
@@ -94,6 +95,7 @@ export const decrementStock = mutation({
     await ctx.db.patch(args.id, {
       stock_actual: newStock,
       status,
+      updatedAt: Date.now(),
     });
 
     return {
@@ -126,6 +128,7 @@ export const create = mutation({
     }
 
     const status = calculateStatus(args.stock_actual, args.stock_minimo);
+    const now = Date.now();
 
     const itemId = await ctx.db.insert("items", {
       nombre: args.nombre,
@@ -140,6 +143,7 @@ export const create = mutation({
       extra_notes: args.extra_notes,
       status,
       active: args.active ?? true,
+      updatedAt: now,
     });
 
     return itemId;
@@ -147,6 +151,7 @@ export const create = mutation({
 });
 
 // Mutation: Update any field of an item
+// This function allows updating any field(s) of an existing item
 export const update = mutation({
   args: {
     id: v.id("items"),
@@ -161,6 +166,7 @@ export const update = mutation({
     location: v.optional(v.string()),
     extra_notes: v.optional(v.string()),
     active: v.optional(v.boolean()),
+    updatedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -183,6 +189,7 @@ export const update = mutation({
     await ctx.db.patch(id, {
       ...updates,
       status,
+      updatedAt: Date.now(),
     });
 
     return { id, status };
@@ -200,10 +207,41 @@ export const toggleActive = mutation({
       throw new Error(`Item con ID ${args.id} no encontrado`);
     }
 
+    // Default to true if active is undefined
+    const currentActive = item.active ?? true;
+    const newActive = !currentActive;
+
     await ctx.db.patch(args.id, {
-      active: !item.active,
+      active: newActive,
+      updatedAt: Date.now(),
     });
 
-    return { id: args.id, active: !item.active };
+    return { id: args.id, active: newActive };
+  },
+});
+
+// Migration: Add active field to all items that don't have it
+// This should be run once to fix existing items
+export const migrateAddActiveField = mutation({
+  handler: async (ctx) => {
+    const items = await ctx.db.query("items").collect();
+    let updatedCount = 0;
+
+    for (const item of items) {
+      // TypeScript might not know about missing fields, so we check at runtime
+      if (!("active" in item) || item.active === undefined) {
+        await ctx.db.patch(item._id, {
+          active: true, // Default to active
+        });
+        updatedCount++;
+      }
+    }
+
+    return {
+      success: true,
+      message: `Updated ${updatedCount} items with active field`,
+      updatedCount,
+      totalItems: items.length,
+    };
   },
 });

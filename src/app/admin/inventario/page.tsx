@@ -6,7 +6,6 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -167,28 +166,17 @@ export default function InventoryPage() {
   // Loading state
   if (items === undefined) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <PageContainer>
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando inventario...</p>
-          </div>
-        </PageContainer>
-      </div>
+      <PageContainer>
+        <div className="text-center py-12 text-gray-500">
+          <p>Cargando inventario...</p>
+        </div>
+      </PageContainer>
     );
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
+    <>
       <PageContainer>
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Lista</h1>
-          <Link href="/admin/dashboard">
-            <Button variant="secondary">Dashboard</Button>
-          </Link>
-        </div>
-        
         {/* Search Bar */}
         <div className="mb-4">
           <div className="relative">
@@ -219,12 +207,12 @@ export default function InventoryPage() {
         
         {/* Category Filters */}
         <div className="mb-6">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 sm:mx-0 px-4 sm:px-0">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
                   selectedCategory === category
                     ? 'bg-gray-800 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -254,17 +242,17 @@ export default function InventoryPage() {
                     lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
                   }`}
                 >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-4">
+                  <div className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                       {/* Left Side - Product Info */}
                       <div className="flex-1 min-w-0">
                         <Link href={`/admin/inventario/${item._id}`}>
-                          <h3 className="text-lg font-semibold text-emerald-600 hover:text-emerald-800 mb-1 cursor-pointer">
+                          <h3 className="text-base sm:text-lg font-semibold text-emerald-600 hover:text-emerald-800 mb-1 cursor-pointer break-words">
                             {item.nombre}
                           </h3>
                         </Link>
                         <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             {item.subcategoria || item.categoria}
                           </span>
                           {item.marca && item.marca !== 'Genérica' && (
@@ -273,31 +261,36 @@ export default function InventoryPage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 mb-3">
+                        <div className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
                           {formatUnitDisplay(item)}
                           {item.extra_notes && (
-                            <span className="ml-2 text-gray-400">• {item.extra_notes}</span>
+                            <span className="ml-2 text-gray-400 hidden sm:inline">• {item.extra_notes}</span>
                           )}
                         </div>
+                        {item.extra_notes && (
+                          <div className="text-xs text-gray-400 mb-2 sm:hidden">
+                            {item.extra_notes}
+                          </div>
+                        )}
                         
                         {/* Stock Display */}
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="text-xs uppercase text-gray-500 font-medium">
                             Stock Actual
                           </span>
-                          <span className={`text-2xl font-bold ${
+                          <span className={`text-xl sm:text-2xl font-bold ${
                             lowStock ? 'text-red-600' : 'text-gray-900'
                           }`}>
                             {item.stock_actual}
                           </span>
-                          <span className="text-sm text-gray-500">
+                          <span className="text-xs sm:text-sm text-gray-500">
                             / {item.stock_minimo} mín
                           </span>
                         </div>
                       </div>
                       
                       {/* Right Side - Controls */}
-                      <div className="flex flex-col items-end gap-3">
+                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 sm:gap-3 flex-shrink-0">
                         {/* Status Badge */}
                         <div className="flex items-center gap-1">
                           <span className={`h-2 w-2 rounded-full ${
@@ -323,7 +316,7 @@ export default function InventoryPage() {
                                 min="0"
                                 value={adjustValue}
                                 onChange={(e) => setAdjustValue(e.target.value)}
-                                className="w-16 px-2 py-1 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                className="w-16 px-2 py-1 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                                 autoFocus
                               />
                               <button
@@ -349,48 +342,27 @@ export default function InventoryPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleQuickAdjust(item._id, -1)}
-                                className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium"
-                                title="Reducir stock en 1"
-                              >
-                                −
-                              </button>
-                              <button
-                                onClick={() => handleAdjustClick(item)}
-                                className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white"
-                                title="Ajustar cantidad"
-                              >
-                                Ajustar
-                              </button>
-                              <button
-                                onClick={() => handleQuickAdjust(item._id, 1)}
-                                className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium"
-                                title="Aumentar stock en 1"
-                              >
-                                +
-                              </button>
-                            </div>
+                          <div className="flex items-center gap-1 sm:gap-2">
                             <button
-                              onClick={() => handleDirectEdit(item)}
-                              className="p-2 text-gray-400 hover:text-gray-600"
-                              title="Editar stock"
+                              onClick={() => handleQuickAdjust(item._id, -1)}
+                              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm sm:text-base"
+                              title="Reducir stock en 1"
                             >
-                              <svg
-                                className="w-5 h-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
-                              </svg>
+                              −
+                            </button>
+                            <button
+                              onClick={() => handleAdjustClick(item)}
+                              className="px-2 sm:px-3 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white whitespace-nowrap"
+                              title="Ajustar cantidad"
+                            >
+                              Ajustar
+                            </button>
+                            <button
+                              onClick={() => handleQuickAdjust(item._id, 1)}
+                              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm sm:text-base"
+                              title="Aumentar stock en 1"
+                            >
+                              +
                             </button>
                           </div>
                         )}
@@ -462,6 +434,6 @@ export default function InventoryPage() {
           display: none;
         }
       `}</style>
-    </div>
+    </>
   );
 }

@@ -32,12 +32,12 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-fade-in backdrop-blur-sm"
       onClick={onClose}
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-md shadow-lg max-w-md w-full mx-4 animate-fade-in-up"
+        className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 animate-fade-in-up border border-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">

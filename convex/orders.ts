@@ -255,3 +255,30 @@ export const updateStatus = mutation({
     return args.id;
   },
 });
+
+// Mutation: Delete an order and its related orderItems
+export const remove = mutation({
+  args: { id: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.id);
+    if (!order) {
+      throw new Error(`Pedido con ID ${args.id} no encontrado`);
+    }
+
+    // Get all orderItems for this order
+    const orderItems = await ctx.db
+      .query("orderItems")
+      .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
+      .collect();
+
+    // Delete all orderItems
+    for (const orderItem of orderItems) {
+      await ctx.db.delete(orderItem._id);
+    }
+
+    // Delete the order
+    await ctx.db.delete(args.id);
+
+    return args.id;
+  },
+});

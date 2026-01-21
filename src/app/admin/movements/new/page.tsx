@@ -110,9 +110,6 @@ export default function RegisterIngresoPage() {
           >
             ← Volver
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Registrar Ingreso
-          </h1>
           <p className="text-sm text-gray-500">
             Agregar stock al inventario
           </p>
@@ -168,14 +165,14 @@ export default function RegisterIngresoPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Motivo *
             </label>
-            <div className="flex gap-4">
+            <div className="flex gap-4 flex-wrap">
               <label className="flex items-center">
                 <input
                   type="radio"
                   name="motivo"
                   value="compra"
                   checked={motivo === 'compra'}
-                  onChange={(e) => setMotivo(e.target.value as 'compra')}
+                  onChange={(e) => setMotivo(e.target.value as 'compra' | 'ajuste')}
                   className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
                 />
                 <span className="ml-2 text-sm text-gray-700">Compra</span>
@@ -186,7 +183,7 @@ export default function RegisterIngresoPage() {
                   name="motivo"
                   value="ajuste"
                   checked={motivo === 'ajuste'}
-                  onChange={(e) => setMotivo(e.target.value as 'ajuste')}
+                  onChange={(e) => setMotivo(e.target.value as 'compra' | 'ajuste')}
                   className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
                 />
                 <span className="ml-2 text-sm text-gray-700">Ajuste</span>

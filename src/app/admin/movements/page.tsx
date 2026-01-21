@@ -87,14 +87,7 @@ export default function MovementsPage() {
       <PageContainer>
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Movimientos de Stock
-              </h1>
-              <p className="text-sm text-gray-500">
-                Historial de ingresos y egresos
-              </p>
-            </div>
+            <div></div>
             <Link href="/admin/movements/new">
               <Button variant="primary" className="h-12">
                 Registrar Ingreso

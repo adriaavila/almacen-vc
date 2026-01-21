@@ -8,11 +8,14 @@
  * @module
  */
 
+import type * as activos from "../activos.js";
 import type * as items from "../items.js";
 import type * as orderItems from "../orderItems.js";
 import type * as orders from "../orders.js";
+import type * as repuestos from "../repuestos.js";
 import type * as seed from "../seed.js";
 import type * as stockMovements from "../stockMovements.js";
+import type * as trabajosMantenimiento from "../trabajosMantenimiento.js";
 import type * as uiConfig from "../uiConfig.js";
 
 import type {
@@ -22,11 +25,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activos: typeof activos;
   items: typeof items;
   orderItems: typeof orderItems;
   orders: typeof orders;
+  repuestos: typeof repuestos;
   seed: typeof seed;
   stockMovements: typeof stockMovements;
+  trabajosMantenimiento: typeof trabajosMantenimiento;
   uiConfig: typeof uiConfig;
 }>;
 
