@@ -30,6 +30,7 @@ export interface Item {
   location: string;
   extra_notes?: string;
   status: ItemStatus;
+  sharedAreas?: string[]; // Areas that can see this item: ["Cocina", "Cafetín", "Limpieza"]
   updatedBy?: string;
   updatedAt?: number;
 }

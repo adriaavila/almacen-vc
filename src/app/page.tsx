@@ -1,11 +1,20 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { setUserArea } from '@/lib/auth';
+import { Area } from '@/types';
 
 export default function Home() {
+  const router = useRouter();
+
+  const handleAreaClick = (area: Area) => {
+    setUserArea(area);
+    router.push(`/requester/pedido?area=${area}`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <PageContainer>
@@ -30,23 +39,29 @@ export default function Home() {
                 Áreas Operativas
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Link href="/requester/pedido?area=Cafetín">
-                  <Button variant="primary" className="w-full py-3 text-base">
-                    Cafetin
-                  </Button>
-                </Link>
+                <Button 
+                  variant="primary" 
+                  className="w-full py-3 text-base"
+                  onClick={() => handleAreaClick('Cafetín')}
+                >
+                  Cafetin
+                </Button>
                 
-                <Link href="/requester/pedido?area=Cocina">
-                  <Button variant="primary" className="w-full py-3 text-base">
-                    Cocina
-                  </Button>
-                </Link>
+                <Button 
+                  variant="primary" 
+                  className="w-full py-3 text-base"
+                  onClick={() => handleAreaClick('Cocina')}
+                >
+                  Cocina
+                </Button>
                 
-                <Link href="/requester/pedido?area=Limpieza">
-                  <Button variant="primary" className="w-full py-3 text-base">
-                    Limpieza
-                  </Button>
-                </Link>
+                <Button 
+                  variant="primary" 
+                  className="w-full py-3 text-base"
+                  onClick={() => handleAreaClick('Limpieza')}
+                >
+                  Limpieza
+                </Button>
               </div>
             </div>
             
@@ -55,16 +70,20 @@ export default function Home() {
                 Administración
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Link href="/mantenimiento">
-                  <Button variant="secondary" className="w-full py-3 text-base">
-                    Mantenimiento
-                  </Button>
-                </Link>
-                <Link href="/admin/pedidos">
-                  <Button variant="secondary" className="w-full py-3 text-base">
-                    Admin
-                  </Button>
-                </Link>
+                <Button 
+                  variant="secondary" 
+                  className="w-full py-3 text-base"
+                  onClick={() => router.push('/mantenimiento')}
+                >
+                  Mantenimiento
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  className="w-full py-3 text-base"
+                  onClick={() => router.push('/admin/pedidos')}
+                >
+                  Admin
+                </Button>
               </div>
             </div>
           </div>

@@ -28,6 +28,26 @@ export function AdminGuard({ children }: AdminGuardProps) {
     };
 
     checkAuth();
+
+    // Listen for storage changes (when login sets localStorage)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'admin_authenticated') {
+        checkAuth();
+      }
+    };
+
+    // Also listen for custom event for same-tab updates
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('adminAuthChange', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('adminAuthChange', handleAuthChange);
+    };
   }, [pathname]);
 
   if (isAuthenticated === null) {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface QuantityInputProps {
   value: number;
@@ -19,23 +19,58 @@ export function QuantityInput({
   suggested = false,
   itemId,
 }: QuantityInputProps) {
+  const [displayValue, setDisplayValue] = useState<string>(value.toString());
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sync display value when prop value changes (but not while user is typing)
+  useEffect(() => {
+    if (!isFocused) {
+      setDisplayValue(value.toString());
+    }
+  }, [value, isFocused]);
+
   const handleDecrement = () => {
     const newValue = Math.max(min, value - 1);
     onChange(newValue);
+    setDisplayValue(newValue.toString());
   };
 
   const handleIncrement = () => {
     const newValue = max !== undefined ? Math.min(max, value + 1) : value + 1;
     onChange(newValue);
+    setDisplayValue(newValue.toString());
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numValue = parseInt(e.target.value, 10) || 0;
+    const inputValue = e.target.value;
+    setDisplayValue(inputValue);
+    
+    // Allow empty input or just a dot while typing
+    if (inputValue === '' || inputValue === '.' || inputValue === '-') {
+      return;
+    }
+    
+    const numValue = parseFloat(inputValue);
+    if (isNaN(numValue)) {
+      return;
+    }
+    
     let newValue = Math.max(min, numValue);
     if (max !== undefined) {
       newValue = Math.min(max, newValue);
     }
     onChange(newValue);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    // Ensure display value matches the actual value on blur
+    // If the input was invalid, it will be corrected to the current value
+    setDisplayValue(value.toString());
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
   };
 
   return (
@@ -55,9 +90,11 @@ export function QuantityInput({
           id={itemId ? `qty-${itemId}` : undefined}
           min={min}
           max={max}
-          value={value}
+          value={displayValue}
           onChange={handleInputChange}
-          step="1"
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          step="0.1"
           className="w-20 h-12 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xl font-semibold"
         />
         {unit && (

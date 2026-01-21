@@ -29,6 +29,7 @@ type ConvexItem = {
   extra_notes?: string;
   status: "ok" | "bajo_stock";
   active?: boolean;
+  sharedAreas?: string[];
   updatedBy?: string;
   updatedAt?: number;
 };
@@ -62,6 +63,7 @@ export function ItemDrawer({
     location: '',
     extra_notes: '',
     active: true,
+    sharedAreas: [],
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -79,6 +81,7 @@ export function ItemDrawer({
         location: item.location,
         extra_notes: item.extra_notes || '',
         active: item.active,
+        sharedAreas: item.sharedAreas || [],
       });
     } else {
       setFormData({
@@ -93,6 +96,7 @@ export function ItemDrawer({
         location: '',
         extra_notes: '',
         active: true,
+        sharedAreas: [],
       });
     }
   }, [item, isCreating]);
@@ -263,6 +267,41 @@ export function ItemDrawer({
             <Label htmlFor="active" className="cursor-pointer">
               Item activo
             </Label>
+          </div>
+
+          {/* Shared Areas */}
+          <div>
+            <Label>Áreas que pueden ver este item</Label>
+            <div className="mt-2 space-y-2">
+              {['Cocina', 'Cafetín', 'Limpieza'].map((area) => (
+                <div key={area} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`area-${area}`}
+                    checked={formData.sharedAreas?.includes(area) || false}
+                    onCheckedChange={(checked) => {
+                      const currentAreas = formData.sharedAreas || [];
+                      if (checked) {
+                        setFormData({
+                          ...formData,
+                          sharedAreas: [...currentAreas, area],
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          sharedAreas: currentAreas.filter((a) => a !== area),
+                        });
+                      }
+                    }}
+                  />
+                  <Label htmlFor={`area-${area}`} className="cursor-pointer">
+                    {area}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Si no se selecciona ninguna área, el item solo será visible para administradores.
+            </p>
           </div>
         </div>
 

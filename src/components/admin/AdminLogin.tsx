@@ -23,7 +23,9 @@ export function AdminLogin() {
       // Redirect to intended destination or default to pedidos
       const redirectPath = sessionStorage.getItem('admin_redirect') || '/admin/pedidos';
       sessionStorage.removeItem('admin_redirect');
-      router.push(redirectPath);
+      // Use replace to avoid adding to history
+      // The AdminGuard will detect the auth change via the custom event
+      router.replace(redirectPath);
     } else {
       setError('Contraseña incorrecta');
       setIsLoading(false);

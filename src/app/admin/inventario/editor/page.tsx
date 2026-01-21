@@ -46,6 +46,7 @@ type ConvexItem = {
   extra_notes?: string;
   status: "ok" | "bajo_stock";
   active?: boolean;
+  sharedAreas?: string[];
   updatedBy?: string;
   updatedAt?: number;
 };
@@ -400,6 +401,7 @@ export default function ItemsEditorPage() {
         await updateItem({
           id: itemId,
           ...data,
+          sharedAreas: data.sharedAreas,
         });
         setToast({
           message: 'Item actualizado correctamente',
@@ -420,6 +422,7 @@ export default function ItemsEditorPage() {
           location: data.location || 'Almacén Principal',
           extra_notes: data.extra_notes,
           active: data.active ?? true,
+          sharedAreas: data.sharedAreas,
         });
         setToast({
           message: 'Item creado correctamente',

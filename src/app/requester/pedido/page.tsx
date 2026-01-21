@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { QuantityInput } from '@/components/ui/QuantityInput';
+import { setUserArea, getUserArea } from '@/lib/auth';
 import { Area } from '@/types';
 
 const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
@@ -16,16 +17,19 @@ const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
 function CreateOrderPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const items = useQuery(api.items.list);
-  const createOrder = useMutation(api.orders.create);
   
-  // Get area from URL query param, default to 'Cocina'
+  // Get area from URL query param, localStorage, or default to 'Cocina'
   const areaFromUrl = searchParams?.get('area');
+  const areaFromStorage = getUserArea();
   const initialArea: Area = (areaFromUrl && validAreas.includes(areaFromUrl as Area)) 
     ? (areaFromUrl as Area) 
-    : 'Cocina';
+    : (areaFromStorage || 'Cocina');
   
   const [selectedArea, setSelectedArea] = useState<Area>(initialArea);
+  
+  // Use role-based query to get items filtered by area
+  const items = useQuery(api.items.listItemsForRole, { role: selectedArea });
+  const createOrder = useMutation(api.orders.create);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [suggestedQuantities, setSuggestedQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -47,13 +51,38 @@ function CreateOrderPageContent() {
     lastOrderForArea ? { id: lastOrderForArea._id } : "skip"
   );
   
-  // Update area when URL query param changes
+  // Update area when URL query param changes and save to localStorage
   useEffect(() => {
     const areaFromUrl = searchParams?.get('area');
+    const storedArea = getUserArea();
+    
     if (areaFromUrl && validAreas.includes(areaFromUrl as Area)) {
-      setSelectedArea(areaFromUrl as Area);
+      const area = areaFromUrl as Area;
+      setSelectedArea(area);
+      setUserArea(area);
+    } else if (!areaFromUrl && storedArea) {
+      // If no area in URL but we have one in storage, use it
+      setSelectedArea(storedArea);
     }
-  }, [searchParams, setSelectedArea]);
+  }, [searchParams]);
+  
+  // Listen for area changes from other tabs/windows
+  useEffect(() => {
+    const handleAreaChange = () => {
+      const storedArea = getUserArea();
+      if (storedArea && !searchParams?.get('area')) {
+        setSelectedArea(storedArea);
+      }
+    };
+    
+    window.addEventListener('userAreaChange', handleAreaChange);
+    window.addEventListener('storage', handleAreaChange);
+    
+    return () => {
+      window.removeEventListener('userAreaChange', handleAreaChange);
+      window.removeEventListener('storage', handleAreaChange);
+    };
+  }, [searchParams]);
   
   // Pre-fill quantities when area changes
   useEffect(() => {
@@ -133,41 +162,35 @@ function CreateOrderPageContent() {
     }
   };
   
-  // Get all unique subcategories filtered by area
+  // Get all unique subcategories from filtered items
   const subcategories = useMemo(() => {
     if (!items || items.length === 0) return [];
     const subcats = new Set<string>();
     items.forEach(item => {
-      // Apply area filter: if area is Limpieza, only include Limpieza category items
-      const matchesArea = selectedArea !== 'Limpieza' || item.categoria === 'Limpieza';
-      if (matchesArea && item.subcategoria) {
+      if (item.subcategoria) {
         subcats.add(item.subcategoria);
       }
     });
     return Array.from(subcats).sort();
-  }, [items, selectedArea]);
+  }, [items]);
 
-  // Filter items by search, subcategory, and area
+  // Filter items by search and subcategory (area filtering is already done by the query)
   const filteredItems = useMemo(() => {
     if (!items || items.length === 0) return [];
     
     return items.filter(item => {
-      // Area filter: if area is Limpieza, only show Limpieza category items
-      const matchesArea = selectedArea !== 'Limpieza' || item.categoria === 'Limpieza';
-      
       // Search filter
       const matchesSearch = searchQuery === '' || 
         item.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.marca && item.marca.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (item.subcategoria && item.subcategoria.toLowerCase().includes(searchQuery.toLowerCase()));
       
       // Subcategory filter
       const matchesSubcategory = selectedSubcategory === 'all' || 
         item.subcategoria === selectedSubcategory;
       
-      return matchesArea && matchesSearch && matchesSubcategory;
+      return matchesSearch && matchesSubcategory;
     });
-  }, [items, searchQuery, selectedSubcategory, selectedArea]);
+  }, [items, searchQuery, selectedSubcategory]);
 
   // Group filtered items by category
   const itemsByCategory = useMemo(() => {
@@ -378,7 +401,7 @@ function CreateOrderPageContent() {
                             <span className="text-xs text-gray-500 truncate block">
                               {item.categoria}
                               {item.subcategoria && ` · ${item.subcategoria}`}
-                              {item.marca && item.marca !== 'Genérica' && ` · ${item.marca}`}
+                              {/* Brand is hidden for workers (aggregated view) */}
                             </span>
                           </div>
                         </div>

@@ -9,10 +9,11 @@ export function Navbar() {
   
   const isRequester = pathname?.startsWith('/requester');
   const isAdmin = pathname?.startsWith('/admin');
+  const isOwner = pathname?.startsWith('/owner');
   const isMantenimientoBasico = pathname?.startsWith('/mantenimiento') && !pathname?.startsWith('/admin');
   
-  // Hide navbar completely on admin routes (sidebar is used instead)
-  if (isAdmin) {
+  // Hide navbar completely on admin and owner routes (they have their own layouts)
+  if (isAdmin || isOwner) {
     return null;
   }
   
@@ -99,7 +100,7 @@ export function Navbar() {
           {!isRequester && (
             <div className="flex items-center">
               <Link
-                href={isMantenimientoBasico ? "/mantenimiento" : "/"}
+                href="/"
                 className="p-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
                 aria-label="Volver a inicio"
               >

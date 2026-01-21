@@ -9,6 +9,27 @@ function calculateStatus(
   return stock_actual <= stock_minimo ? "bajo_stock" : "ok";
 }
 
+// Helper function to normalize product name for brand aggregation
+// Removes brand-specific suffixes and normalizes the name
+function normalizeProductKey(nombre: string): string {
+  return nombre
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ") // Normalize multiple spaces
+    .replace(/\s*-\s*/g, " ") // Replace hyphens with spaces
+    .replace(/\s*\/\s*/g, " ") // Replace slashes with spaces
+    .replace(/\b(genérica|generic|marca|brand)\b/gi, "") // Remove generic brand indicators
+    .trim();
+}
+
+// Helper function to normalize string for comparison (removes accents)
+function normalizeForComparison(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // Remove diacritics
+}
+
 // Query: Get all items
 export const list = query({
   handler: async (ctx) => {
@@ -35,13 +56,100 @@ export const getByStatus = query({
   },
 });
 
-// Query: Get items with low stock
+// Query: Get items with low stock (admin-only, global evaluation)
 export const getLowStock = query({
   handler: async (ctx) => {
     return await ctx.db
       .query("items")
       .withIndex("by_status", (q) => q.eq("status", "bajo_stock"))
       .collect();
+  },
+});
+
+// Query: Get items filtered by role/area
+// Admin sees all active items, workers see only items assigned to their area
+export const listItemsForRole = query({
+  args: {
+    role: v.union(
+      v.literal("admin"),
+      v.literal("Cocina"),
+      v.literal("Cafetín"),
+      v.literal("Limpieza")
+    ),
+  },
+  handler: async (ctx, args) => {
+    const allItems = await ctx.db.query("items").collect();
+
+    // Admin sees all active items
+    if (args.role === "admin") {
+      return allItems.filter((item) => item.active !== false);
+    }
+
+    // Workers see items of their category OR items explicitly shared via sharedAreas
+    // This means:
+    // - Cocina sees: items with categoria="Cocina" OR items with sharedAreas including "Cocina"
+    // - Cafetín sees: items with categoria="Cafetín" (or "Cafetin" without accent) OR items with sharedAreas including "Cafetín"
+    // - Limpieza sees: items with categoria="Limpieza" OR items with sharedAreas including "Limpieza"
+    // Note: Category comparison is normalized to handle accent differences
+    const filteredItems = allItems.filter((item) => {
+      // Must be active
+      if (item.active === false) return false;
+
+      // Check if item belongs to the worker's category (normalized comparison to handle accents)
+      const normalizedCategory = normalizeForComparison(item.categoria);
+      const normalizedRole = normalizeForComparison(args.role);
+      const matchesCategory = normalizedCategory === normalizedRole;
+
+      // Check if item is explicitly shared with the worker's area
+      const matchesSharedAreas = 
+        item.sharedAreas && 
+        item.sharedAreas.length > 0 && 
+        item.sharedAreas.includes(args.role);
+
+      // Return true if item matches category OR is shared with the area
+      return matchesCategory || matchesSharedAreas;
+    });
+
+    // Apply brand aggregation for worker views
+    // Group items by normalized product name and aggregate stock
+    const productMap = new Map<
+      string,
+      {
+        item: typeof filteredItems[0];
+        totalStock: number;
+      }
+    >();
+
+    for (const item of filteredItems) {
+      const productKey = normalizeProductKey(item.nombre);
+      const existing = productMap.get(productKey);
+
+      if (existing) {
+        // Aggregate stock across brands
+        existing.totalStock += item.stock_actual;
+        // Keep the item with highest stock for metadata
+        if (item.stock_actual > existing.item.stock_actual) {
+          existing.item = item;
+        }
+      } else {
+        productMap.set(productKey, {
+          item,
+          totalStock: item.stock_actual,
+        });
+      }
+    }
+
+    // Return aggregated items with combined stock, hiding brand details
+    return Array.from(productMap.values()).map(({ item, totalStock }) => {
+      // Create a copy without marca field for workers
+      const { marca, ...itemWithoutBrand } = item;
+      return {
+        ...itemWithoutBrand,
+        stock_actual: totalStock, // Use aggregated stock
+        // Recalculate status based on aggregated stock
+        status: calculateStatus(totalStock, item.stock_minimo),
+      };
+    });
   },
 });
 
@@ -121,6 +229,7 @@ export const create = mutation({
     location: v.string(),
     extra_notes: v.optional(v.string()),
     active: v.optional(v.boolean()),
+    sharedAreas: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     if (args.stock_actual < 0) {
@@ -143,6 +252,7 @@ export const create = mutation({
       extra_notes: args.extra_notes,
       status,
       active: args.active ?? true,
+      sharedAreas: args.sharedAreas,
       updatedAt: now,
     });
 
@@ -166,6 +276,7 @@ export const update = mutation({
     location: v.optional(v.string()),
     extra_notes: v.optional(v.string()),
     active: v.optional(v.boolean()),
+    sharedAreas: v.optional(v.array(v.string())),
     updatedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -242,6 +353,61 @@ export const migrateAddActiveField = mutation({
       message: `Updated ${updatedCount} items with active field`,
       updatedCount,
       totalItems: items.length,
+    };
+  },
+});
+
+// Migration: Fix pasta tomate items and azúcar sharedAreas
+// Corrects product names and area assignments
+export const migrateFixProductNames = mutation({
+  handler: async (ctx) => {
+    const items = await ctx.db.query("items").collect();
+    let updatedCount = 0;
+    const updates: Array<{ id: string; changes: string[] }> = [];
+
+    for (const item of items) {
+      const changes: string[] = [];
+
+      // Fix "Pasta tomate Pafia" -> "Pasta tomate"
+      if (item.nombre === "Pasta tomate Pafia") {
+        await ctx.db.patch(item._id, {
+          nombre: "Pasta tomate",
+          sharedAreas: ["Cocina"],
+        });
+        changes.push("nombre corrected, sharedAreas set to Cocina");
+        updatedCount++;
+      }
+
+      // Fix "Pasta tomate Coma" -> "Pasta tomate"
+      if (item.nombre === "Pasta tomate Coma") {
+        await ctx.db.patch(item._id, {
+          nombre: "Pasta tomate",
+          sharedAreas: ["Cocina"],
+        });
+        changes.push("nombre corrected, sharedAreas set to Cocina");
+        updatedCount++;
+      }
+
+      // Fix Azúcar to be shared between Cocina and Cafetín
+      if (item.nombre === "Azúcar" && item.categoria === "Cocina") {
+        await ctx.db.patch(item._id, {
+          sharedAreas: ["Cocina", "Cafetín"],
+        });
+        changes.push("sharedAreas set to Cocina and Cafetín");
+        updatedCount++;
+      }
+
+      if (changes.length > 0) {
+        updates.push({ id: item._id, changes });
+      }
+    }
+
+    return {
+      success: true,
+      message: `Updated ${updatedCount} items with corrected names and sharedAreas`,
+      updatedCount,
+      totalItems: items.length,
+      updates,
     };
   },
 });

@@ -181,22 +181,22 @@ export default function MantenimientoBasicoDashboardPage() {
         {/* Quick Actions */}
         <div className="mb-6">
           <div className="flex flex-wrap gap-3">
-            <Link href="/mantenimiento/activos">
+            <Link href="/mantenimiento/activos" prefetch={false}>
               <Button variant="secondary" className="h-12">
                 Ver Activos
               </Button>
             </Link>
-            <Link href="/mantenimiento/repuestos">
+            <Link href="/mantenimiento/repuestos" prefetch={false}>
               <Button variant="secondary" className="h-12">
                 Ver Repuestos
               </Button>
             </Link>
-            <Link href="/mantenimiento/trabajos">
+            <Link href="/mantenimiento/trabajos" prefetch={false}>
               <Button variant="secondary" className="h-12">
                 Ver Trabajos
               </Button>
             </Link>
-            <Link href="/mantenimiento/repuestos/ingreso">
+            <Link href="/mantenimiento/repuestos/ingreso" prefetch={false}>
               <Button variant="primary" className="h-12">
                 Registrar Ingreso
               </Button>
@@ -214,7 +214,7 @@ export default function MantenimientoBasicoDashboardPage() {
                   <CardDescription>Últimos trabajos esperando ejecución</CardDescription>
                 </div>
                 {trabajosPendientes.length > 5 && (
-                  <Link href="/mantenimiento/trabajos">
+                  <Link href="/mantenimiento/trabajos" prefetch={false}>
                     <Button variant="secondary" className="text-xs px-3 py-1 h-auto">
                       Ver todos
                     </Button>
@@ -244,7 +244,7 @@ export default function MantenimientoBasicoDashboardPage() {
                           <span className="text-xs text-gray-500">{formatDate(trabajo.createdAt)}</span>
                         </div>
                       </div>
-                      <Link href={`/mantenimiento/trabajos/${trabajo._id}`}>
+                      <Link href={`/mantenimiento/trabajos/${trabajo._id}`} prefetch={false}>
                         <Button variant="primary" className="text-xs px-3 py-1 h-auto ml-3">
                           Ver
                         </Button>
@@ -265,7 +265,7 @@ export default function MantenimientoBasicoDashboardPage() {
                   <CardDescription>Repuestos que requieren atención</CardDescription>
                 </div>
                 {repuestosBajoStock.length > 5 && (
-                  <Link href="/mantenimiento/repuestos">
+                  <Link href="/mantenimiento/repuestos" prefetch={false}>
                     <Button variant="secondary" className="text-xs px-3 py-1 h-auto">
                       Ver todos
                     </Button>
@@ -291,7 +291,7 @@ export default function MantenimientoBasicoDashboardPage() {
                           Stock: <span className="text-red-600 font-medium">{repuesto.stock_actual}</span> / Mínimo: {repuesto.stock_minimo} {repuesto.unidad}
                         </p>
                       </div>
-                      <Link href={`/mantenimiento/repuestos/${repuesto._id}`}>
+                      <Link href={`/mantenimiento/repuestos/${repuesto._id}`} prefetch={false}>
                         <Button variant="primary" className="text-xs px-3 py-1 h-auto">
                           Ver
                         </Button>

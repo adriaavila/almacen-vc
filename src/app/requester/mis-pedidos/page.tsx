@@ -1,34 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
+import { getUserArea } from '@/lib/auth';
 import { Area } from '@/types';
 
 export default function MyOrdersPage() {
-  const allOrders = useQuery(api.orders.list);
+  const [userArea, setUserAreaState] = useState<Area | null>(getUserArea());
   const ordersCocina = useQuery(api.orders.getByArea, { area: 'Cocina' });
   const ordersCafetin = useQuery(api.orders.getByArea, { area: 'Cafetín' });
   const ordersLimpieza = useQuery(api.orders.getByArea, { area: 'Limpieza' });
   
-  const [selectedArea, setSelectedArea] = useState<Area | 'all'>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<Id<"orders"> | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<Id<"orders"> | null>(null);
   
   const deleteOrder = useMutation(api.orders.remove);
   
-  // Get filtered orders based on selected area
-  const filteredOrders = selectedArea === 'all'
-    ? allOrders
-    : selectedArea === 'Cocina'
+  // Listen for area changes
+  useEffect(() => {
+    const handleAreaChange = () => {
+      setUserAreaState(getUserArea());
+    };
+    
+    window.addEventListener('userAreaChange', handleAreaChange);
+    window.addEventListener('storage', handleAreaChange);
+    
+    return () => {
+      window.removeEventListener('userAreaChange', handleAreaChange);
+      window.removeEventListener('storage', handleAreaChange);
+    };
+  }, []);
+  
+  // Get filtered orders based on user's area
+  const filteredOrders = userArea === 'Cocina'
     ? ordersCocina
-    : selectedArea === 'Cafetín'
+    : userArea === 'Cafetín'
     ? ordersCafetin
-    : ordersLimpieza;
+    : userArea === 'Limpieza'
+    ? ordersLimpieza
+    : []; // Empty array if no area is set
 
   // Get order with items for expanded order
   const expandedOrder = useQuery(
@@ -86,26 +101,27 @@ export default function MyOrdersPage() {
       <PageContainer>
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Mis Pedidos</h1>
         
-        <div className="mb-6">
-          <label htmlFor="area-filter" className="block text-sm font-medium text-gray-700 mb-2">
-            Filtrar por área:
-          </label>
-          <select
-            id="area-filter"
-            value={selectedArea}
-            onChange={(e) => setSelectedArea(e.target.value as Area | 'all')}
-            className="block w-full max-w-xs h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-          >
-            <option value="all">Todas las áreas</option>
-            <option value="Cocina">Cocina</option>
-            <option value="Cafetín">Cafetín</option>
-            <option value="Limpieza">Limpieza</option>
-          </select>
-        </div>
+        {!userArea && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-amber-800 text-sm">
+              Por favor, selecciona tu área desde la página principal para ver tus pedidos.
+            </p>
+          </div>
+        )}
+        
+        {userArea && (
+          <div className="mb-6">
+            <p className="text-sm text-gray-600">
+              Mostrando pedidos del área: <span className="font-semibold text-gray-900">{userArea}</span>
+            </p>
+          </div>
+        )}
         
         {filteredOrders.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <p className="text-gray-500">No hay pedidos registrados</p>
+            <p className="text-gray-500">
+              {userArea ? 'No hay pedidos registrados para tu área' : 'Selecciona un área para ver tus pedidos'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">

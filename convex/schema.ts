@@ -15,6 +15,7 @@ export default defineSchema({
     extra_notes: v.optional(v.string()),
     status: v.union(v.literal("ok"), v.literal("bajo_stock")),
     active: v.optional(v.boolean()), // Optional to support existing items without this field
+    sharedAreas: v.optional(v.array(v.string())), // Areas that can see this item: ["Cocina", "Cafetín", "Limpieza"]
     updatedBy: v.optional(v.string()),
     updatedAt: v.optional(v.number()),
   })

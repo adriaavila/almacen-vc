@@ -347,7 +347,7 @@ export const transformedStockData: Omit<Item, 'status'>[] = [
   },
   {
     id: '19',
-    nombre: 'Pasta tomate Pafia',
+    nombre: 'Pasta tomate',
     categoria: 'Cocina',
     subcategoria: 'Salsas',
     marca: 'Pafia',
@@ -356,10 +356,11 @@ export const transformedStockData: Omit<Item, 'status'>[] = [
     stock_minimo: calculateStockMinimo(5, 'Cocina', 'Salsas'),
     location: 'Almacén Principal',
     extra_notes: '2,7kg',
+    sharedAreas: ['Cocina'],
   },
   {
     id: '20',
-    nombre: 'Pasta tomate Coma',
+    nombre: 'Pasta tomate',
     categoria: 'Cocina',
     subcategoria: 'Salsas',
     marca: 'Coma',
@@ -368,6 +369,7 @@ export const transformedStockData: Omit<Item, 'status'>[] = [
     stock_minimo: calculateStockMinimo(1, 'Cocina', 'Salsas'),
     location: 'Almacén Principal',
     extra_notes: '4kg',
+    sharedAreas: ['Cocina'],
   },
   {
     id: '21',
@@ -562,6 +564,7 @@ export const transformedStockData: Omit<Item, 'status'>[] = [
     stock_actual: 6,
     stock_minimo: calculateStockMinimo(6, 'Cocina', 'Endulzantes'),
     location: 'Almacén Principal',
+    sharedAreas: ['Cocina', 'Cafetín'],
   },
   {
     id: '37',
