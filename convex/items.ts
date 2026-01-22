@@ -85,10 +85,53 @@ export const listItemsForRole = query({
       return allItems.filter((item) => item.active !== false);
     }
 
-    // Workers see items of their category OR items explicitly shared via sharedAreas
+    // Cocina and Cafetín see all active items without restriction
+    if (args.role === "Cocina" || args.role === "Cafetín") {
+      const filteredItems = allItems.filter((item) => item.active !== false);
+      
+      // Apply brand aggregation for worker views
+      const productMap = new Map<
+        string,
+        {
+          item: typeof filteredItems[0];
+          totalStock: number;
+        }
+      >();
+
+      for (const item of filteredItems) {
+        const productKey = normalizeProductKey(item.nombre);
+        const existing = productMap.get(productKey);
+
+        if (existing) {
+          // Aggregate stock across brands
+          existing.totalStock += item.stock_actual;
+          // Keep the item with highest stock for metadata
+          if (item.stock_actual > existing.item.stock_actual) {
+            existing.item = item;
+          }
+        } else {
+          productMap.set(productKey, {
+            item,
+            totalStock: item.stock_actual,
+          });
+        }
+      }
+
+      // Return aggregated items with combined stock, hiding brand details
+      return Array.from(productMap.values()).map(({ item, totalStock }) => {
+        // Create a copy without marca field for workers
+        const { marca, ...itemWithoutBrand } = item;
+        return {
+          ...itemWithoutBrand,
+          stock_actual: totalStock, // Use aggregated stock
+          // Recalculate status based on aggregated stock
+          status: calculateStatus(totalStock, item.stock_minimo),
+        };
+      });
+    }
+
+    // Limpieza sees items of their category OR items explicitly shared via sharedAreas
     // This means:
-    // - Cocina sees: items with categoria="Cocina" OR items with sharedAreas including "Cocina"
-    // - Cafetín sees: items with categoria="Cafetín" (or "Cafetin" without accent) OR items with sharedAreas including "Cafetín"
     // - Limpieza sees: items with categoria="Limpieza" OR items with sharedAreas including "Limpieza"
     // Note: Category comparison is normalized to handle accent differences
     const filteredItems = allItems.filter((item) => {

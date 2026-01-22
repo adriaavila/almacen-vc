@@ -9,6 +9,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { normalizeSearchText } from '@/lib/utils';
 
 type ConvexItem = {
   _id: Id<"items">;
@@ -56,12 +57,12 @@ export default function InventoryPage() {
     
     // Filter by search query
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const query = normalizeSearchText(searchQuery);
       filtered = filtered.filter(item => 
-        item.nombre.toLowerCase().includes(query) ||
-        item.categoria.toLowerCase().includes(query) ||
-        (item.subcategoria && item.subcategoria.toLowerCase().includes(query)) ||
-        (item.marca && item.marca.toLowerCase().includes(query))
+        normalizeSearchText(item.nombre).includes(query) ||
+        normalizeSearchText(item.categoria).includes(query) ||
+        (item.subcategoria && normalizeSearchText(item.subcategoria).includes(query)) ||
+        (item.marca && normalizeSearchText(item.marca).includes(query))
       );
     }
     

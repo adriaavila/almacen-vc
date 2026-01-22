@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
+import { useRef } from 'react';
+import { Camera } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Navbar } from '@/components/layout/Navbar';
 import { QuantityInput } from '@/components/ui/QuantityInput';
 import { setUserArea, getUserArea } from '@/lib/auth';
+import { pluralizeUnit, normalizeSearchText } from '@/lib/utils';
 import { Area } from '@/types';
 
 const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
@@ -31,25 +33,15 @@ function CreateOrderPageContent() {
   const items = useQuery(api.items.listItemsForRole, { role: selectedArea });
   const createOrder = useMutation(api.orders.create);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [suggestedQuantities, setSuggestedQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [summaryExpanded, setSummaryExpanded] = useState(true);
-
-  // Get last order for selected area
-  const lastOrderForArea = useQuery(
-    api.orders.getLastByArea,
-    { area: selectedArea }
-  );
-
-  // Get order with items if last order exists
-  const lastOrderWithItems = useQuery(
-    api.orders.getById,
-    lastOrderForArea ? { id: lastOrderForArea._id } : "skip"
-  );
+  const [orderListPhoto, setOrderListPhoto] = useState<File | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   
   // Update area when URL query param changes and save to localStorage
   useEffect(() => {
@@ -84,38 +76,11 @@ function CreateOrderPageContent() {
     };
   }, [searchParams]);
   
-  // Pre-fill quantities when area changes
-  useEffect(() => {
-    if (lastOrderWithItems?.items) {
-      const suggested: Record<string, number> = {};
-      lastOrderWithItems.items.forEach((item: any) => {
-        suggested[item._id] = item.cantidad;
-      });
-      setSuggestedQuantities(suggested);
-      setQuantities(suggested);
-    } else {
-      setSuggestedQuantities({});
-      setQuantities({});
-    }
-  }, [lastOrderWithItems, selectedArea]);
-  
   const handleQuantityChange = (itemId: string, value: number) => {
     setQuantities((prev) => ({
       ...prev,
       [itemId]: Math.max(0, value),
     }));
-  };
-  
-  const handleUsePreviousOrder = () => {
-    if (lastOrderWithItems?.items) {
-      const newQuantities: Record<string, number> = {};
-      lastOrderWithItems.items.forEach((item: any) => {
-        newQuantities[item._id] = item.cantidad;
-      });
-      setQuantities(newQuantities);
-      setSuccessMessage('Pedido anterior cargado');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    }
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -144,12 +109,12 @@ function CreateOrderPageContent() {
       });
       
       // Immediate feedback
-      setSuccessMessage('Pedido enviado a almacén');
+      setSuccessMessage('Pedido enviado');
       setIsSubmitting(false);
       
       // Clear form
       setQuantities({});
-      setSuggestedQuantities({});
+      setOrderListPhoto(null);
       
       // Optional redirect after 1.5 seconds
       setTimeout(() => {
@@ -181,8 +146,8 @@ function CreateOrderPageContent() {
     return items.filter(item => {
       // Search filter
       const matchesSearch = searchQuery === '' || 
-        item.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.subcategoria && item.subcategoria.toLowerCase().includes(searchQuery.toLowerCase()));
+        normalizeSearchText(item.nombre).includes(normalizeSearchText(searchQuery)) ||
+        (item.subcategoria && normalizeSearchText(item.subcategoria).includes(normalizeSearchText(searchQuery)));
       
       // Subcategory filter
       const matchesSubcategory = selectedSubcategory === 'all' || 
@@ -192,19 +157,46 @@ function CreateOrderPageContent() {
     });
   }, [items, searchQuery, selectedSubcategory]);
 
-  // Group filtered items by category
+  // Group filtered items by category and sort by name
   const itemsByCategory = useMemo(() => {
     if (!filteredItems || filteredItems.length === 0) {
       return {};
     }
-    return filteredItems.reduce((acc, item) => {
+    const grouped = filteredItems.reduce((acc, item) => {
       if (!acc[item.categoria]) {
         acc[item.categoria] = [];
       }
       acc[item.categoria].push(item);
       return acc;
     }, {} as Record<string, typeof filteredItems>);
+    
+    // Sort items by name within each category
+    Object.keys(grouped).forEach(categoria => {
+      grouped[categoria].sort((a, b) => 
+        a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+      );
+    });
+    
+    // Initialize expanded state for new categories (default: expanded)
+    setExpandedCategories(prev => {
+      const updated = { ...prev };
+      Object.keys(grouped).forEach(categoria => {
+        if (!(categoria in updated)) {
+          updated[categoria] = true;
+        }
+      });
+      return updated;
+    });
+    
+    return grouped;
   }, [filteredItems]);
+  
+  const toggleCategory = (categoria: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoria]: !prev[categoria]
+    }));
+  };
   
   // Calculate selected items
   const selectedItems = useMemo(() => {
@@ -220,13 +212,7 @@ function CreateOrderPageContent() {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
       <PageContainer>
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Crear pedido – {selectedArea}</h1>
-          <p className="text-sm text-gray-500 mt-1">¿Qué pido y cuánto?</p>
-        </div>
-        
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
             {error}
@@ -279,7 +265,7 @@ function CreateOrderPageContent() {
                         {item.nombre}
                       </span>
                       <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {item.cantidad} {item.unidad}
+                        {item.cantidad} {pluralizeUnit(item.unidad, item.cantidad)}
                       </span>
                     </div>
                   ))}
@@ -290,36 +276,6 @@ function CreateOrderPageContent() {
         )}
         
         <form id="pedido-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <label htmlFor="area" className="block text-sm font-medium text-gray-700 mb-1">
-                Área
-              </label>
-              <select
-                id="area"
-                value={selectedArea}
-                onChange={(e) => setSelectedArea(e.target.value as Area)}
-                className="block w-full max-w-xs h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="Cocina">Cocina</option>
-                <option value="Cafetín">Cafetín</option>
-                <option value="Limpieza">Limpieza</option>
-              </select>
-            </div>
-            
-            {/* Recurring Orders Button (Mejora #6) */}
-            {lastOrderForArea && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleUsePreviousOrder}
-                className="px-6 py-2"
-              >
-                Usar pedido anterior
-              </Button>
-            )}
-          </div>
-          
           {/* Search and Filter Section */}
           <div className="bg-white rounded-md shadow-sm border border-gray-200 p-3 mb-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -327,14 +283,28 @@ function CreateOrderPageContent() {
                 <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
                   Buscar producto
                 </label>
-                <input
-                  id="search"
-                  type="text"
-                  placeholder="Buscar por nombre, marca o subcategoría..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                />
+                <div className="relative">
+                  <input
+                    id="search"
+                    type="text"
+                    placeholder="Buscar por nombre, marca o subcategoría..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="block w-full h-10 px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors"
+                      aria-label="Limpiar búsqueda"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <label htmlFor="subcategory" className="block text-sm font-medium text-gray-700 mb-1">
@@ -384,58 +354,101 @@ function CreateOrderPageContent() {
                 </p>
               </div>
             ) : (
-              Object.entries(itemsByCategory).map(([categoria, categoriaItems]) => (
-              <div key={categoria} className="mb-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">{categoria}</h3>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="divide-y divide-gray-200">
-                    {categoriaItems.map((item) => (
-                      <div key={item._id} className="p-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-gray-50 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <div className="mb-1">
-                            <span className="text-lg md:text-base font-semibold text-gray-900 truncate block">
-                              {item.nombre}
-                            </span>
-                          </div>
-                          <div className="mb-0">
-                            <span className="text-xs text-gray-500 truncate block">
-                              {item.categoria}
-                              {item.subcategoria && ` · ${item.subcategoria}`}
-                              {/* Brand is hidden for workers (aggregated view) */}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="w-full md:w-auto md:ml-4 flex justify-center md:justify-end">
-                          <QuantityInput
-                            itemId={item._id}
-                            value={quantities[item._id] || 0}
-                            onChange={(value) => handleQuantityChange(item._id, value)}
-                            min={0}
-                            max={item.stock_actual}
-                            unit={item.unidad}
-                            suggested={suggestedQuantities[item._id] !== undefined && quantities[item._id] === suggestedQuantities[item._id]}
-                          />
+              Object.entries(itemsByCategory).map(([categoria, categoriaItems]) => {
+                const isExpanded = expandedCategories[categoria] !== false; // Default to true
+                return (
+                  <div key={categoria} className="mb-6">
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(categoria)}
+                      className="flex items-center gap-2 text-lg font-medium text-gray-800 mb-3 hover:text-gray-900 transition-colors"
+                    >
+                      <svg
+                        className={`w-4 h-4 text-gray-600 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      <span>{categoria}</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="divide-y divide-gray-200">
+                          {categoriaItems.map((item) => (
+                            <div key={item._id} className="py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 hover:bg-gray-50 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <div className="mb-0">
+                                  <span className="text-sm font-semibold text-gray-900 truncate block">
+                                    {item.nombre}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-gray-500 truncate block">
+                                    {item.categoria}
+                                    {item.subcategoria && ` · ${item.subcategoria}`}
+                                    {/* Brand is hidden for workers (aggregated view) */}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="shrink-0">
+                                <QuantityInput
+                                  itemId={item._id}
+                                  value={quantities[item._id] || 0}
+                                  onChange={(value) => handleQuantityChange(item._id, value)}
+                                  min={0}
+                                  max={item.stock_actual}
+                                  unit={item.unidad}
+                                />
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              </div>
-              ))
+                );
+              })
             )}
           </div>
         </form>
         
-        {/* Sticky CTA Button */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 md:px-6 py-2 md:py-3 shadow-lg mt-6 -mx-4 md:-mx-6 flex items-stretch">
+        {/* Sticky CTA Buttons */}
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 md:px-6 py-2 md:py-3 shadow-lg mt-6 -mx-4 md:-mx-6 flex items-center gap-2 flex-wrap">
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            aria-hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setOrderListPhoto(f);
+              e.target.value = '';
+            }}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isSubmitting}
+            onClick={() => photoInputRef.current?.click()}
+            className="h-full py-2 md:py-3 px-3 md:px-4 shrink-0"
+            title="Subir foto de la lista de pedidos"
+          >
+            <Camera className="w-5 h-5 md:mr-1.5" />
+            <span className="hidden md:inline">
+              {orderListPhoto ? 'Foto adjunta' : 'Foto lista'}
+            </span>
+          </Button>
           <Button
             type="submit"
             form="pedido-form"
             variant="primary"
             disabled={isSubmitting}
-            className="w-full md:w-auto h-full py-2 md:py-3"
+            className="flex-1 md:flex-initial h-full py-2 md:py-3"
           >
-            {isSubmitting ? 'Enviando...' : 'Enviar a almacén'}
+            {isSubmitting ? 'Enviando...' : 'Enviar'}
           </Button>
         </div>
       </PageContainer>
@@ -447,7 +460,6 @@ export default function CreateOrderPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50">
-        <Navbar />
         <PageContainer>
           <div className="text-center py-12 text-gray-500">
             <p>Cargando...</p>

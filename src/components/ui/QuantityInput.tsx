@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { pluralizeUnit } from '@/lib/utils';
 
 interface QuantityInputProps {
   value: number;
@@ -74,17 +75,17 @@ export function QuantityInput({
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={handleDecrement}
         disabled={value <= min}
-        className="w-14 h-14 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-2xl transition-colors shadow-sm"
+        className="w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-colors shadow-sm"
         aria-label="Decrementar cantidad"
       >
         –
       </button>
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-0.5">
         <input
           type="number"
           id={itemId ? `qty-${itemId}` : undefined}
@@ -95,20 +96,20 @@ export function QuantityInput({
           onFocus={handleFocus}
           onBlur={handleBlur}
           step="0.1"
-          className="w-20 h-12 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xl font-semibold"
+          className="w-16 h-10 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base font-semibold"
         />
         {unit && (
-          <span className="text-xs text-gray-500">{unit}</span>
+          <span className="text-[10px] text-gray-500 leading-tight">{pluralizeUnit(unit, value)}</span>
         )}
         {suggested && (
-          <span className="text-xs text-gray-400">← sugerido</span>
+          <span className="text-[10px] text-gray-400 leading-tight">← sugerido</span>
         )}
       </div>
       <button
         type="button"
         onClick={handleIncrement}
         disabled={max !== undefined && value >= max}
-        className="w-14 h-14 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-2xl transition-colors shadow-sm"
+        className="w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-colors shadow-sm"
         aria-label="Incrementar cantidad"
       >
         +

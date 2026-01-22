@@ -5,13 +5,14 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Navbar } from '@/components/layout/Navbar';
+import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Badge } from '@/components/ui/Badge';
 import { getUserArea } from '@/lib/auth';
+import { pluralizeUnit } from '@/lib/utils';
 import { Area } from '@/types';
 
 export default function MyOrdersPage() {
-  const [userArea, setUserAreaState] = useState<Area | null>(getUserArea());
+  const [userArea, setUserAreaState] = useState<Area | null>(null);
   const ordersCocina = useQuery(api.orders.getByArea, { area: 'Cocina' });
   const ordersCafetin = useQuery(api.orders.getByArea, { area: 'Cafetín' });
   const ordersLimpieza = useQuery(api.orders.getByArea, { area: 'Limpieza' });
@@ -21,15 +22,17 @@ export default function MyOrdersPage() {
   
   const deleteOrder = useMutation(api.orders.remove);
   
-  // Listen for area changes
+  // Sync user area from localStorage (client-only). Initialize on mount to avoid SSR/client mismatch.
   useEffect(() => {
+    setUserAreaState(getUserArea());
+
     const handleAreaChange = () => {
       setUserAreaState(getUserArea());
     };
-    
+
     window.addEventListener('userAreaChange', handleAreaChange);
     window.addEventListener('storage', handleAreaChange);
-    
+
     return () => {
       window.removeEventListener('userAreaChange', handleAreaChange);
       window.removeEventListener('storage', handleAreaChange);
@@ -81,38 +84,27 @@ export default function MyOrdersPage() {
     }
   };
 
-  // Loading state
-  if (filteredOrders === undefined) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <PageContainer>
+  const isLoading = filteredOrders === undefined;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <PageContainer>
+        <RequesterHeader 
+          title="Mis Pedidos"
+          subtitle={userArea ? `Mostrando pedidos del área: ${userArea}` : undefined}
+        />
+
+        {isLoading ? (
           <div className="text-center py-12 text-gray-500">
             <p>Cargando pedidos...</p>
           </div>
-        </PageContainer>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <PageContainer>
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Mis Pedidos</h1>
+        ) : (
+          <>
         
         {!userArea && (
           <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
             <p className="text-amber-800 text-sm">
               Por favor, selecciona tu área desde la página principal para ver tus pedidos.
-            </p>
-          </div>
-        )}
-        
-        {userArea && (
-          <div className="mb-6">
-            <p className="text-sm text-gray-600">
-              Mostrando pedidos del área: <span className="font-semibold text-gray-900">{userArea}</span>
             </p>
           </div>
         )}
@@ -217,7 +209,7 @@ export default function MyOrdersPage() {
                               <div className="flex items-center gap-3">
                                 <span className="text-xs text-gray-500">{item.categoria}</span>
                                 <span className="text-sm font-medium text-gray-900">
-                                  {item.cantidad} {item.unidad}
+                                  {item.cantidad} {pluralizeUnit(item.unidad, item.cantidad)}
                                 </span>
                               </div>
                             </div>
@@ -229,6 +221,8 @@ export default function MyOrdersPage() {
                 );
               })}
           </div>
+        )}
+          </>
         )}
       </PageContainer>
     </div>

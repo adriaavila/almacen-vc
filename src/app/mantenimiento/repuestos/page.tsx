@@ -8,6 +8,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { normalizeSearchText } from '@/lib/utils';
 
 export default function RepuestosBasicoPage() {
   const repuestos = useQuery(api.repuestos.list);
@@ -41,13 +42,13 @@ export default function RepuestosBasicoPage() {
 
     // Filter by search query
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const query = normalizeSearchText(searchQuery);
       filtered = filtered.filter(
         (r) =>
-          r.nombre.toLowerCase().includes(query) ||
-          r.categoria.toLowerCase().includes(query) ||
-          (r.marca && r.marca.toLowerCase().includes(query)) ||
-          (r.descripcion && r.descripcion.toLowerCase().includes(query))
+          normalizeSearchText(r.nombre).includes(query) ||
+          normalizeSearchText(r.categoria).includes(query) ||
+          (r.marca && normalizeSearchText(r.marca).includes(query)) ||
+          (r.descripcion && normalizeSearchText(r.descripcion).includes(query))
       );
     }
 

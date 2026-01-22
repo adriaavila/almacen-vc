@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
+import { normalizeSearchText } from '@/lib/utils';
 
 interface ActivoAutocompleteProps {
   value: Id<'activos'> | null;
@@ -49,12 +50,12 @@ export function ActivoAutocomplete({
       return activos || [];
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = normalizeSearchText(searchQuery);
     return activos.filter((activo) => {
-      const nombreMatch = activo.nombre.toLowerCase().includes(query);
-      const tipoMatch = activo.tipo.toLowerCase().includes(query);
-      const ubicacionMatch = activo.ubicacion.toLowerCase().includes(query);
-      const descripcionMatch = activo.descripcion?.toLowerCase().includes(query);
+      const nombreMatch = normalizeSearchText(activo.nombre).includes(query);
+      const tipoMatch = normalizeSearchText(activo.tipo).includes(query);
+      const ubicacionMatch = normalizeSearchText(activo.ubicacion).includes(query);
+      const descripcionMatch = activo.descripcion ? normalizeSearchText(activo.descripcion).includes(query) : false;
 
       return nombreMatch || tipoMatch || ubicacionMatch || descripcionMatch;
     });

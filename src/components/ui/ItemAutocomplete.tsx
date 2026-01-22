@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
+import { normalizeSearchText } from '@/lib/utils';
 
 interface ItemAutocompleteProps {
   value: Id<'items'> | null;
@@ -55,12 +56,12 @@ export function ItemAutocomplete({
       return items || [];
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = normalizeSearchText(searchQuery);
     return items.filter((item) => {
-      const nombreMatch = item.nombre.toLowerCase().includes(query);
-      const categoriaMatch = item.categoria.toLowerCase().includes(query);
-      const subcategoriaMatch = item.subcategoria?.toLowerCase().includes(query);
-      const marcaMatch = item.marca?.toLowerCase().includes(query);
+      const nombreMatch = normalizeSearchText(item.nombre).includes(query);
+      const categoriaMatch = normalizeSearchText(item.categoria).includes(query);
+      const subcategoriaMatch = item.subcategoria ? normalizeSearchText(item.subcategoria).includes(query) : false;
+      const marcaMatch = item.marca ? normalizeSearchText(item.marca).includes(query) : false;
 
       return nombreMatch || categoriaMatch || subcategoriaMatch || marcaMatch;
     });

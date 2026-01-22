@@ -8,6 +8,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { normalizeSearchText } from '@/lib/utils';
 
 export default function ActivosPage() {
   const activos = useQuery(api.activos.list);
@@ -56,13 +57,13 @@ export default function ActivosPage() {
 
     // Filter by search query
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const query = normalizeSearchText(searchQuery);
       filtered = filtered.filter(
         (a) =>
-          a.nombre.toLowerCase().includes(query) ||
-          a.tipo.toLowerCase().includes(query) ||
-          a.ubicacion.toLowerCase().includes(query) ||
-          (a.descripcion && a.descripcion.toLowerCase().includes(query))
+          normalizeSearchText(a.nombre).includes(query) ||
+          normalizeSearchText(a.tipo).includes(query) ||
+          normalizeSearchText(a.ubicacion).includes(query) ||
+          (a.descripcion && normalizeSearchText(a.descripcion).includes(query))
       );
     }
 

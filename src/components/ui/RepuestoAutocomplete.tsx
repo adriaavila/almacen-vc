@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
+import { normalizeSearchText } from '@/lib/utils';
 
 interface RepuestoAutocompleteProps {
   value: Id<'repuestos'> | null;
@@ -53,12 +54,12 @@ export function RepuestoAutocomplete({
       return repuestos || [];
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = normalizeSearchText(searchQuery);
     return repuestos.filter((repuesto) => {
-      const nombreMatch = repuesto.nombre.toLowerCase().includes(query);
-      const categoriaMatch = repuesto.categoria.toLowerCase().includes(query);
-      const marcaMatch = repuesto.marca?.toLowerCase().includes(query);
-      const descripcionMatch = repuesto.descripcion?.toLowerCase().includes(query);
+      const nombreMatch = normalizeSearchText(repuesto.nombre).includes(query);
+      const categoriaMatch = normalizeSearchText(repuesto.categoria).includes(query);
+      const marcaMatch = repuesto.marca ? normalizeSearchText(repuesto.marca).includes(query) : false;
+      const descripcionMatch = repuesto.descripcion ? normalizeSearchText(repuesto.descripcion).includes(query) : false;
 
       return nombreMatch || categoriaMatch || marcaMatch || descripcionMatch;
     });

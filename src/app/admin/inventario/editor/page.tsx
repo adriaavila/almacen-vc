@@ -13,6 +13,7 @@ import { ColumnConfig } from '@/types';
 import { exportItemsToCSV, parseCSVFile, validateCSVRow, CSVRow } from '@/lib/csv';
 import { ImportCSVModal, ImportResult } from '@/components/admin/ItemsEditor/ImportCSVModal';
 import { EditorHeader } from '@/components/admin/ItemsEditor/EditorHeader';
+import { normalizeSearchText } from '@/lib/utils';
 
 // Helper to safely check if uiConfig functions are available
 // This checks if the module exists in the API without causing errors
@@ -235,20 +236,20 @@ export default function ItemsEditorPage() {
     
     // Apply search query
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
+      const query = normalizeSearchText(searchQuery.trim());
       filtered = filtered.filter((item) => 
-        item.nombre.toLowerCase().includes(query) ||
-        item.categoria.toLowerCase().includes(query) ||
-        (item.subcategoria && item.subcategoria.toLowerCase().includes(query)) ||
-        (item.marca && item.marca.toLowerCase().includes(query)) ||
-        item.location.toLowerCase().includes(query)
+        normalizeSearchText(item.nombre).includes(query) ||
+        normalizeSearchText(item.categoria).includes(query) ||
+        (item.subcategoria && normalizeSearchText(item.subcategoria).includes(query)) ||
+        (item.marca && normalizeSearchText(item.marca).includes(query)) ||
+        normalizeSearchText(item.location).includes(query)
       );
     }
 
     // Apply column filters
     if (columnFilters.nombre) {
-      const query = columnFilters.nombre.toLowerCase();
-      filtered = filtered.filter((item) => item.nombre.toLowerCase().includes(query));
+      const query = normalizeSearchText(columnFilters.nombre);
+      filtered = filtered.filter((item) => normalizeSearchText(item.nombre).includes(query));
     }
 
     if (columnFilters.categoria && columnFilters.categoria.length > 0) {
@@ -296,9 +297,9 @@ export default function ItemsEditorPage() {
     }
 
     if (columnFilters.package_size) {
-      const query = columnFilters.package_size.toLowerCase();
+      const query = normalizeSearchText(columnFilters.package_size);
       filtered = filtered.filter((item) => 
-        item.package_size && item.package_size.toLowerCase().includes(query)
+        item.package_size && normalizeSearchText(item.package_size).includes(query)
       );
     }
 
