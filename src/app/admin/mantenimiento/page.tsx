@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Navbar } from '@/components/layout/Navbar';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/Badge';
@@ -55,14 +55,15 @@ export default function MantenimientoDashboardPage() {
     repuestosBajoStock === undefined
   ) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <PageContainer>
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando dashboard de mantenimiento...</p>
-          </div>
-        </PageContainer>
-      </div>
+      <PageContainer>
+        <AdminHeader 
+          title="Mantenimiento"
+          subtitle="Gestión de activos, repuestos y trabajos"
+        />
+        <div className="text-center py-12 text-gray-500">
+          <p>Cargando dashboard de mantenimiento...</p>
+        </div>
+      </PageContainer>
     );
   }
 
@@ -73,9 +74,11 @@ export default function MantenimientoDashboardPage() {
   const topRepuestosBajoStock = repuestosBajoStock.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <PageContainer>
+    <PageContainer>
+      <AdminHeader 
+        title="Mantenimiento"
+        subtitle="Gestión de activos, repuestos y trabajos"
+      />
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -304,7 +307,6 @@ export default function MantenimientoDashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </PageContainer>
-    </div>
+    </PageContainer>
   );
 }

@@ -6,6 +6,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -168,6 +169,10 @@ export default function InventoryPage() {
   if (items === undefined) {
     return (
       <PageContainer>
+        <AdminHeader 
+          title="Inventario"
+          subtitle="Gestión de productos y stock"
+        />
         <div className="text-center py-12 text-gray-500">
           <p>Cargando inventario...</p>
         </div>
@@ -178,6 +183,10 @@ export default function InventoryPage() {
   return (
     <>
       <PageContainer>
+        <AdminHeader 
+          title="Inventario"
+          subtitle="Gestión de productos y stock"
+        />
         {/* Search Bar */}
         <div className="mb-4">
           <div className="relative">

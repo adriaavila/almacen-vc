@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Navbar } from '@/components/layout/Navbar';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Button } from '@/components/ui/Button';
 import { ItemAutocomplete } from '@/components/ui/ItemAutocomplete';
 import { Id } from 'convex/_generated/dataModel';
@@ -70,31 +70,31 @@ export default function MovementsPage() {
   // Loading state
   if (movements === undefined) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <PageContainer>
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando movimientos...</p>
-          </div>
-        </PageContainer>
-      </div>
+      <PageContainer>
+        <AdminHeader 
+          title="Movimientos"
+          subtitle="Historial de ingresos y egresos de stock"
+        />
+        <div className="text-center py-12 text-gray-500">
+          <p>Cargando movimientos...</p>
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <PageContainer>
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div></div>
-            <Link href="/admin/movements/new">
-              <Button variant="primary" className="h-12">
-                Registrar Ingreso
-              </Button>
-            </Link>
-          </div>
-        </div>
+    <PageContainer>
+      <AdminHeader 
+        title="Movimientos"
+        subtitle="Historial de ingresos y egresos de stock"
+        actions={
+          <Link href="/admin/movements/new">
+            <Button variant="primary" className="h-12">
+              Registrar Ingreso
+            </Button>
+          </Link>
+        }
+      />
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -341,7 +341,6 @@ export default function MovementsPage() {
             })
           )}
         </div>
-      </PageContainer>
-    </div>
+    </PageContainer>
   );
 }

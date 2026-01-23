@@ -137,3 +137,23 @@ export interface ConsumoRepuesto {
   // Populated fields
   repuesto?: Repuesto;
 }
+
+// POS Multi-Slot Types
+export interface CartItem {
+  itemId: Id<"items">;
+  nombre: string;
+  cantidad: number;
+  precio: number;
+  unidad: string;
+}
+
+export interface Slot {
+  id: number; // 1-5
+  pacienteId: string | null;
+  items: CartItem[];
+}
+
+export interface Paciente {
+  id: string;
+  nombre: string;
+}

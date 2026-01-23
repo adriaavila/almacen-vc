@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,6 +93,10 @@ export default function DashboardPage() {
 
   return (
     <PageContainer>
+      <AdminHeader 
+        title="Dashboard"
+        subtitle="Vista general del inventario y pedidos"
+      />
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

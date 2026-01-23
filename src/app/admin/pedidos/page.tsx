@@ -6,7 +6,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Navbar } from '@/components/layout/Navbar';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
@@ -132,21 +132,24 @@ export default function PendingOrdersPage() {
   // Loading state
   if (pendingOrders === undefined) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <PageContainer>
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando pedidos...</p>
-          </div>
-        </PageContainer>
-      </div>
+      <PageContainer>
+        <AdminHeader 
+          title="Pedidos"
+          subtitle="Gestión de pedidos pendientes"
+        />
+        <div className="text-center py-12 text-gray-500">
+          <p>Cargando pedidos...</p>
+        </div>
+      </PageContainer>
     );
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <PageContainer>
+    <PageContainer>
+      <AdminHeader 
+        title="Pedidos"
+        subtitle="Gestión de pedidos pendientes"
+      />
         
         {pendingOrders.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
@@ -164,7 +167,6 @@ export default function PendingOrdersPage() {
             ))}
           </div>
         )}
-      </PageContainer>
-    </div>
+    </PageContainer>
   );
 }

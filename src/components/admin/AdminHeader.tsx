@@ -2,13 +2,13 @@
 
 import React from 'react';
 
-interface RequesterHeaderProps {
+interface AdminHeaderProps {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
 }
 
-export function RequesterHeader({ title, subtitle, actions }: RequesterHeaderProps) {
+export function AdminHeader({ title, subtitle, actions }: AdminHeaderProps) {
   return (
     <div className="mb-1 sm:mb-2 md:mb-4 lg:mb-6 pb-1 sm:pb-2 md:pb-3 lg:pb-4 border-b border-gray-200">
       <div className="flex items-start justify-between gap-2 sm:gap-3 md:gap-4">
