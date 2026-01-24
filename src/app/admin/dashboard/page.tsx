@@ -17,18 +17,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { MovementType } from '@/types';
 
 export default function DashboardPage() {
-  const items = useQuery(api.items.list);
-  const lowStockItems = useQuery(api.items.getLowStock);
+  const products = useQuery(api.products.listWithInventory);
+  const lowStockItems = useQuery(api.inventory.getLowStock, {});
   const pendingOrders = useQuery(api.orders.getPending);
-  const recentMovements = useQuery(api.stockMovements.getRecentStockMovements, { limit: 10 });
+  const recentMovements = useQuery(api.movements.getRecent, { limit: 10 });
 
   // Calculate statistics
   const stats = useMemo(() => {
-    if (items === undefined) {
+    if (products === undefined) {
       return {
-        totalItems: 0,
+        totalProducts: 0,
         lowStockCount: 0,
         pendingOrdersCount: 0,
         recentMovementsCount: 0,
@@ -39,26 +40,19 @@ export default function DashboardPage() {
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
     
     const recentMovementsCount = recentMovements
-      ? recentMovements.filter((m) => m.createdAt >= oneDayAgo).length
+      ? recentMovements.filter((m) => m.timestamp >= oneDayAgo).length
       : 0;
 
+    // Count active products
+    const activeProducts = products.filter(p => p.active);
+
     return {
-      totalItems: items.length,
+      totalProducts: activeProducts.length,
       lowStockCount: lowStockItems?.length || 0,
       pendingOrdersCount: pendingOrders?.length || 0,
       recentMovementsCount,
     };
-  }, [items, lowStockItems, pendingOrders, recentMovements]);
-
-  const formatDate = (timestamp: number) => {
-    return new Intl.DateTimeFormat('es-ES', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(timestamp));
-  };
+  }, [products, lowStockItems, pendingOrders, recentMovements]);
 
   const formatDateShort = (timestamp: number) => {
     return new Intl.DateTimeFormat('es-ES', {
@@ -69,9 +63,25 @@ export default function DashboardPage() {
     }).format(new Date(timestamp));
   };
 
+  // Get movement display info
+  const getMovementBadge = (type: MovementType) => {
+    switch (type) {
+      case 'COMPRA':
+        return { label: 'Compra', variant: 'ok' as const };
+      case 'TRASLADO':
+        return { label: 'Traslado', variant: 'pendiente' as const };
+      case 'CONSUMO':
+        return { label: 'Consumo', variant: 'bajo-minimo' as const };
+      case 'AJUSTE':
+        return { label: 'Ajuste', variant: 'pendiente' as const };
+      default:
+        return { label: type, variant: 'pendiente' as const };
+    }
+  };
+
   // Loading state
   if (
-    items === undefined ||
+    products === undefined ||
     lowStockItems === undefined ||
     pendingOrders === undefined ||
     recentMovements === undefined
@@ -99,10 +109,10 @@ export default function DashboardPage() {
       />
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Productos</CardTitle>
               <svg
                 className="h-4 w-4 text-muted-foreground"
                 fill="none"
@@ -118,7 +128,7 @@ export default function DashboardPage() {
               </svg>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalItems}</div>
+              <div className="text-2xl font-bold">{stats.totalProducts}</div>
               <p className="text-xs text-muted-foreground">Productos en inventario</p>
             </CardContent>
           </Card>
@@ -143,7 +153,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{stats.lowStockCount}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.lowStockCount === 1 ? 'Item requiere atención' : 'Items requieren atención'}
+                {stats.lowStockCount === 1 ? 'Producto requiere atención' : 'Productos requieren atención'}
               </p>
             </CardContent>
           </Card>
@@ -202,7 +212,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Alertas de Bajo Stock</CardTitle>
-                  <CardDescription>Items que requieren atención inmediata</CardDescription>
+                  <CardDescription>Productos que requieren atención inmediata</CardDescription>
                 </div>
                 {lowStockItems.length > 5 && (
                   <Link href="/admin/inventario">
@@ -216,7 +226,7 @@ export default function DashboardPage() {
             <CardContent>
               {topLowStockItems.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p>No hay items con bajo stock</p>
+                  <p>No hay productos con bajo stock</p>
                 </div>
               ) : (
                 <Table>
@@ -228,21 +238,21 @@ export default function DashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {topLowStockItems.map((item) => (
-                      <TableRow key={item._id}>
+                    {topLowStockItems.map((inv) => (
+                      <TableRow key={inv._id}>
                         <TableCell>
                           <Link
-                            href={`/admin/inventario/${item._id}`}
+                            href={`/admin/inventario/${inv.productId}`}
                             className="text-emerald-600 hover:text-emerald-800 font-medium"
                           >
-                            {item.nombre}
+                            {inv.product?.name || 'Producto'}
                           </Link>
                         </TableCell>
                         <TableCell className="text-right">
-                          <span className="text-red-600 font-semibold">{item.stock_actual}</span>
+                          <span className="text-red-600 font-semibold">{inv.stockActual}</span>
                         </TableCell>
                         <TableCell className="text-right text-gray-600">
-                          {item.stock_minimo}
+                          {inv.stockMinimo}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -330,41 +340,44 @@ export default function DashboardPage() {
                     <TableHead>Tipo</TableHead>
                     <TableHead>Producto</TableHead>
                     <TableHead className="text-right">Cantidad</TableHead>
-                    <TableHead>Motivo</TableHead>
+                    <TableHead>Origen → Destino</TableHead>
                     <TableHead className="text-right">Fecha</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentMovements.map((movement) => (
-                    <TableRow key={movement._id}>
-                      <TableCell>
-                        <Badge
-                          variant={movement.type === 'ingreso' ? 'ok' : 'bajo-minimo'}
-                        >
-                          {movement.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {movement.item ? (
-                          <Link
-                            href={`/admin/inventario/${movement.itemId}`}
-                            className="text-emerald-600 hover:text-emerald-800"
-                          >
-                            {movement.item.nombre}
-                          </Link>
-                        ) : (
-                          <span className="text-gray-400">Item eliminado</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {movement.cantidad} {movement.item?.unidad || ''}
-                      </TableCell>
-                      <TableCell className="capitalize">{movement.motivo}</TableCell>
-                      <TableCell className="text-right text-sm text-gray-500">
-                        {formatDateShort(movement.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {recentMovements.map((movement) => {
+                    const badge = getMovementBadge(movement.type);
+                    return (
+                      <TableRow key={movement._id}>
+                        <TableCell>
+                          <Badge variant={badge.variant}>
+                            {badge.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {movement.product ? (
+                            <Link
+                              href={`/admin/inventario/${movement.productId}`}
+                              className="text-emerald-600 hover:text-emerald-800"
+                            >
+                              {movement.product.name}
+                            </Link>
+                          ) : (
+                            <span className="text-gray-400">Producto eliminado</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {movement.quantity} {movement.product?.baseUnit || ''}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-500">
+                          {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-gray-500">
+                          {formatDateShort(movement.timestamp)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

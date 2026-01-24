@@ -15,30 +15,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/Button';
 
-type ConvexItem = {
-  _id: Id<"items">;
-  nombre: string;
-  categoria: string;
-  subcategoria?: string;
-  marca?: string;
-  unidad: string;
-  stock_actual: number;
-  stock_minimo: number;
-  package_size?: string;
-  location: string;
-  extra_notes?: string;
+type ConvexProduct = {
+  _id: Id<"products">;
+  name: string;
+  brand: string;
+  category: string;
+  subCategory?: string;
+  baseUnit: string;
+  purchaseUnit: string;
+  conversionFactor: number;
+  packageSize: number;
+  active: boolean;
+  totalStock: number;
+  stockAlmacen: number;
+  stockCafetin: number;
   status: "ok" | "bajo_stock";
-  active?: boolean;
-  sharedAreas?: string[];
-  updatedBy?: string;
-  updatedAt?: number;
 };
 
 interface ItemDrawerProps {
-  item: ConvexItem | null;
+  item: ConvexProduct | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (itemId: Id<"items"> | null, data: Partial<ConvexItem>) => Promise<void>;
+  onSave: (productId: Id<"products"> | null, data: Partial<ConvexProduct>) => Promise<void>;
   categories: string[];
   isCreating?: boolean;
 }
@@ -51,58 +49,49 @@ export function ItemDrawer({
   categories,
   isCreating = false,
 }: ItemDrawerProps) {
-  const [formData, setFormData] = useState<Partial<ConvexItem>>({
-    nombre: '',
-    categoria: '',
-    subcategoria: '',
-    marca: '',
-    unidad: '',
-    stock_actual: 0,
-    stock_minimo: 0,
-    package_size: '',
-    location: '',
-    extra_notes: '',
+  const [formData, setFormData] = useState<Partial<ConvexProduct>>({
+    name: '',
+    brand: '',
+    category: '',
+    subCategory: '',
+    baseUnit: '',
+    purchaseUnit: '',
+    conversionFactor: 1,
+    packageSize: 0,
     active: true,
-    sharedAreas: [],
   });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (item && !isCreating) {
       setFormData({
-        nombre: item.nombre,
-        categoria: item.categoria,
-        subcategoria: item.subcategoria || '',
-        marca: item.marca || '',
-        unidad: item.unidad,
-        stock_actual: item.stock_actual,
-        stock_minimo: item.stock_minimo,
-        package_size: item.package_size || '',
-        location: item.location,
-        extra_notes: item.extra_notes || '',
+        name: item.name,
+        brand: item.brand || '',
+        category: item.category,
+        subCategory: item.subCategory || '',
+        baseUnit: item.baseUnit,
+        purchaseUnit: item.purchaseUnit || '',
+        conversionFactor: item.conversionFactor || 1,
+        packageSize: item.packageSize || 0,
         active: item.active,
-        sharedAreas: item.sharedAreas || [],
       });
     } else {
       setFormData({
-        nombre: '',
-        categoria: '',
-        subcategoria: '',
-        marca: '',
-        unidad: '',
-        stock_actual: 0,
-        stock_minimo: 0,
-        package_size: '',
-        location: '',
-        extra_notes: '',
+        name: '',
+        brand: '',
+        category: '',
+        subCategory: '',
+        baseUnit: '',
+        purchaseUnit: '',
+        conversionFactor: 1,
+        packageSize: 0,
         active: true,
-        sharedAreas: [],
       });
     }
   }, [item, isCreating]);
 
   const handleSave = async () => {
-    if (!formData.nombre || !formData.categoria || !formData.unidad) {
+    if (!formData.name || !formData.category || !formData.baseUnit) {
       return;
     }
 
@@ -122,28 +111,28 @@ export function ItemDrawer({
       <SheetContent side="right" className="w-full sm:max-w-[500px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
-            {isCreating ? 'Crear nuevo item' : `Editar: ${item?.nombre}`}
+            {isCreating ? 'Crear nuevo producto' : `Editar: ${item?.name}`}
           </SheetTitle>
         </SheetHeader>
 
         <div className="space-y-6 py-6">
           {/* Nombre */}
           <div>
-            <Label htmlFor="nombre">Nombre *</Label>
+            <Label htmlFor="name">Nombre *</Label>
             <Input
-              id="nombre"
-              value={formData.nombre || ''}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              id="name"
+              value={formData.name || ''}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="mt-1"
             />
           </div>
 
           {/* Categoría */}
           <div>
-            <Label htmlFor="categoria">Categoría *</Label>
+            <Label htmlFor="category">Categoría *</Label>
             <Select
-              value={formData.categoria || ''}
-              onValueChange={(value) => setFormData({ ...formData, categoria: value })}
+              value={formData.category || ''}
+              onValueChange={(value) => setFormData({ ...formData, category: value })}
             >
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Seleccionar categoría" />
@@ -160,98 +149,86 @@ export function ItemDrawer({
 
           {/* Subcategoría */}
           <div>
-            <Label htmlFor="subcategoria">Subcategoría</Label>
+            <Label htmlFor="subCategory">Subcategoría</Label>
             <Input
-              id="subcategoria"
-              value={formData.subcategoria || ''}
-              onChange={(e) => setFormData({ ...formData, subcategoria: e.target.value })}
+              id="subCategory"
+              value={formData.subCategory || ''}
+              onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
               className="mt-1"
             />
           </div>
 
           {/* Marca */}
           <div>
-            <Label htmlFor="marca">Marca</Label>
+            <Label htmlFor="brand">Marca</Label>
             <Input
-              id="marca"
-              value={formData.marca || ''}
-              onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+              id="brand"
+              value={formData.brand || ''}
+              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
               className="mt-1"
             />
           </div>
 
-          {/* Unidad */}
+          {/* Unidad Base */}
           <div>
-            <Label htmlFor="unidad">Unidad *</Label>
+            <Label htmlFor="baseUnit">Unidad Base *</Label>
             <Input
-              id="unidad"
-              value={formData.unidad || ''}
-              onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
+              id="baseUnit"
+              value={formData.baseUnit || ''}
+              onChange={(e) => setFormData({ ...formData, baseUnit: e.target.value })}
               className="mt-1"
+              placeholder="ej: unidad, gr, ml"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              La unidad mínima de consumo (unidad, gr, ml, etc.)
+            </p>
           </div>
 
-          {/* Stock Actual */}
+          {/* Unidad de Compra */}
           <div>
-            <Label htmlFor="stock_actual">Stock Actual *</Label>
+            <Label htmlFor="purchaseUnit">Unidad de Compra</Label>
             <Input
-              id="stock_actual"
+              id="purchaseUnit"
+              value={formData.purchaseUnit || ''}
+              onChange={(e) => setFormData({ ...formData, purchaseUnit: e.target.value })}
+              className="mt-1"
+              placeholder="ej: caja, fardo, saco"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Cómo compras este producto del proveedor
+            </p>
+          </div>
+
+          {/* Factor de Conversión */}
+          <div>
+            <Label htmlFor="conversionFactor">Factor de Conversión</Label>
+            <Input
+              id="conversionFactor"
               type="number"
-              min="0"
-              value={formData.stock_actual || 0}
+              min="1"
+              value={formData.conversionFactor || 1}
               onChange={(e) =>
-                setFormData({ ...formData, stock_actual: parseFloat(e.target.value) || 0 })
+                setFormData({ ...formData, conversionFactor: parseFloat(e.target.value) || 1 })
               }
               className="mt-1"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Cuántas unidades base hay en una unidad de compra
+            </p>
           </div>
 
-          {/* Stock Mínimo */}
+          {/* Tamaño de Paquete */}
           <div>
-            <Label htmlFor="stock_minimo">Stock Mínimo *</Label>
+            <Label htmlFor="packageSize">Tamaño de Paquete</Label>
             <Input
-              id="stock_minimo"
+              id="packageSize"
               type="number"
               min="0"
-              value={formData.stock_minimo || 0}
+              value={formData.packageSize || 0}
               onChange={(e) =>
-                setFormData({ ...formData, stock_minimo: parseFloat(e.target.value) || 0 })
+                setFormData({ ...formData, packageSize: parseFloat(e.target.value) || 0 })
               }
               className="mt-1"
-            />
-          </div>
-
-          {/* Ubicación */}
-          <div>
-            <Label htmlFor="location">Ubicación</Label>
-            <Input
-              id="location"
-              value={formData.location || ''}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="mt-1"
-            />
-          </div>
-
-          {/* Package Size */}
-          <div>
-            <Label htmlFor="package_size">Tamaño de Paquete</Label>
-            <Input
-              id="package_size"
-              value={formData.package_size || ''}
-              onChange={(e) => setFormData({ ...formData, package_size: e.target.value })}
-              className="mt-1"
-            />
-          </div>
-
-          {/* Extra Notes */}
-          <div>
-            <Label htmlFor="extra_notes">Notas Adicionales</Label>
-            <textarea
-              id="extra_notes"
-              value={formData.extra_notes || ''}
-              onChange={(e) => setFormData({ ...formData, extra_notes: e.target.value })}
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              rows={3}
             />
           </div>
 
@@ -265,44 +242,39 @@ export function ItemDrawer({
               }
             />
             <Label htmlFor="active" className="cursor-pointer">
-              Item activo
+              Producto activo
             </Label>
           </div>
 
-          {/* Shared Areas */}
-          <div>
-            <Label>Áreas que pueden ver este item</Label>
-            <div className="mt-2 space-y-2">
-              {['Cocina', 'Cafetín', 'Limpieza'].map((area) => (
-                <div key={area} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`area-${area}`}
-                    checked={formData.sharedAreas?.includes(area) || false}
-                    onCheckedChange={(checked) => {
-                      const currentAreas = formData.sharedAreas || [];
-                      if (checked) {
-                        setFormData({
-                          ...formData,
-                          sharedAreas: [...currentAreas, area],
-                        });
-                      } else {
-                        setFormData({
-                          ...formData,
-                          sharedAreas: currentAreas.filter((a) => a !== area),
-                        });
-                      }
-                    }}
-                  />
-                  <Label htmlFor={`area-${area}`} className="cursor-pointer">
-                    {area}
-                  </Label>
+          {/* Info de stock (solo lectura) */}
+          {item && !isCreating && (
+            <div className="pt-4 border-t border-gray-200">
+              <h4 className="font-medium text-gray-700 mb-2">Información de Stock</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Stock Total:</span>
+                  <span className="ml-2 font-medium">{item.totalStock}</span>
                 </div>
-              ))}
+                <div>
+                  <span className="text-gray-500">Stock Almacén:</span>
+                  <span className="ml-2 font-medium">{item.stockAlmacen}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Stock Cafetín:</span>
+                  <span className="ml-2 font-medium">{item.stockCafetin}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Estado:</span>
+                  <span className={`ml-2 font-medium ${item.status === 'bajo_stock' ? 'text-red-600' : 'text-emerald-600'}`}>
+                    {item.status === 'bajo_stock' ? 'Bajo Stock' : 'OK'}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Para modificar el stock, usa la sección de movimientos.
+              </p>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Si no se selecciona ninguna área, el item solo será visible para administradores.
-            </p>
-          </div>
+          )}
         </div>
 
         <SheetFooter className="gap-2">
@@ -312,7 +284,7 @@ export function ItemDrawer({
           <Button
             variant="primary"
             onClick={handleSave}
-            disabled={isSaving || !formData.nombre || !formData.categoria || !formData.unidad}
+            disabled={isSaving || !formData.name || !formData.category || !formData.baseUnit}
           >
             {isSaving ? 'Guardando...' : 'Guardar'}
           </Button>

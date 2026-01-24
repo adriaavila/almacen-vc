@@ -80,7 +80,7 @@ export function QuantityInput({
         type="button"
         onClick={handleDecrement}
         disabled={value <= min}
-        className="w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-colors shadow-sm"
+        className="min-w-[44px] min-h-[44px] w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-95"
         aria-label="Decrementar cantidad"
       >
         –
@@ -96,7 +96,7 @@ export function QuantityInput({
           onFocus={handleFocus}
           onBlur={handleBlur}
           step="0.1"
-          className="w-16 h-10 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base font-semibold"
+          className="w-16 min-h-[44px] h-10 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base font-semibold transition-all duration-200"
         />
         {unit && (
           <span className="text-[10px] text-gray-500 leading-tight">{pluralizeUnit(unit, value)}</span>
@@ -109,7 +109,7 @@ export function QuantityInput({
         type="button"
         onClick={handleIncrement}
         disabled={max !== undefined && value >= max}
-        className="w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-colors shadow-sm"
+        className="min-w-[44px] min-h-[44px] w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-95"
         aria-label="Incrementar cantidad"
       >
         +

@@ -154,10 +154,10 @@ export default function TrabajoBasicoDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        {/* Repuestos Consumidos */}
+        {/* Repuestos en Uso */}
         {trabajo.repuestos && trabajo.repuestos.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Repuestos Consumidos</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Repuestos en Uso</h2>
             <div className="space-y-3">
               {trabajo.repuestos.map((consumo, index) => (
                 <div

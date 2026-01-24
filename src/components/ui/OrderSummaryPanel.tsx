@@ -5,8 +5,8 @@ import { Slot } from '@/types';
 
 interface OrderSummaryPanelProps {
   slot: Slot;
-  onDecreaseQuantity: (itemId: Id<"items">) => void;
-  onRemoveItem: (itemId: Id<"items">) => void;
+  onDecreaseQuantity: (itemId: Id<"items"> | Id<"products">) => void;
+  onRemoveItem: (itemId: Id<"items"> | Id<"products">) => void;
 }
 
 export function OrderSummaryPanel({ slot, onDecreaseQuantity, onRemoveItem }: OrderSummaryPanelProps) {

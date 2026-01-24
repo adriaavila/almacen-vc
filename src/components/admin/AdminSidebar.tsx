@@ -16,15 +16,26 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
     pathname?.startsWith('/admin/mantenimiento') || false
   );
 
-  // Prevent body scroll when sidebar is open
+  // Prevent body scroll when sidebar is open (only on mobile)
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    const checkScreenSize = () => {
+      const isMobileScreen = window.innerWidth < 1024;
+      if (isOpen && isMobileScreen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+    
+    // Check on mount and when sidebar state changes
+    checkScreenSize();
+    
+    // Also check on resize
+    window.addEventListener('resize', checkScreenSize);
+    
     return () => {
       document.body.style.overflow = '';
+      window.removeEventListener('resize', checkScreenSize);
     };
   }, [isOpen]);
 

@@ -125,4 +125,66 @@ export default defineSchema({
       showOnlyActive: v.boolean(),
     }),
   }).index("by_user_page", ["userId", "page"]),
+
+  // ============================================================
+  // NEW INVENTORY SYSTEM (Multi-location with unit conversion)
+  // ============================================================
+
+  // 1. CATALOGO MAESTRO: Atributos que no cambian según la ubicación
+  products: defineTable({
+    name: v.string(),              // Ej: "Coca Cola 350ml"
+    brand: v.string(),             // Ej: "Coca Cola"
+    category: v.string(),          // Ej: "Bebidas"
+    subCategory: v.optional(v.string()),
+
+    // LOGICA DE UNIDADES
+    baseUnit: v.string(),          // Siempre la unidad de consumo (unidad, gr, ml)
+    purchaseUnit: v.string(),      // Cómo lo compras (caja, fardo, saco)
+    conversionFactor: v.number(),  // Cuántas baseUnits hay en una purchaseUnit (ej: 24)
+
+    packageSize: v.number(),       // Peso/Volumen unitario (ej: 350)
+    active: v.boolean(),
+
+    // Reference to original item for migration tracking
+    legacyItemId: v.optional(v.id("items")),
+  })
+    .index("by_name", ["name"])
+    .index("by_category", ["category"])
+    .index("by_legacy_item", ["legacyItemId"]),
+
+  // 2. STOCK ACTUAL: Cuánto hay y dónde
+  inventory: defineTable({
+    productId: v.id("products"),
+    location: v.union(v.literal("almacen"), v.literal("cafetin")),
+    stockActual: v.number(),       // SIEMPRE expresado en baseUnit
+    stockMinimo: v.number(),       // Alerta de reorden
+    updatedAt: v.number(),
+  })
+    .index("by_location", ["location"])
+    .index("by_product_location", ["productId", "location"]),
+
+  // 3. MOVIMIENTOS (AUDITORIA): El historial de qué pasó
+  movements: defineTable({
+    productId: v.id("products"),
+    type: v.union(
+      v.literal("COMPRA"),         // Entrada de proveedor
+      v.literal("TRASLADO"),       // Almacén -> Cafetín
+      v.literal("CONSUMO"),        // Uso en cafetín o venta
+      v.literal("AJUSTE")          // Corrección manual (merma/error)
+    ),
+    from: v.optional(v.string()),  // "PROVEEDOR" o "ALMACEN"
+    to: v.string(),                // "ALMACEN" o "CAFETIN"
+    quantity: v.number(),          // Siempre en baseUnit
+    prevStock: v.number(),         // Stock antes del movimiento
+    nextStock: v.number(),         // Stock después del movimiento
+    user: v.string(),              // Quién lo hizo
+    timestamp: v.number(),
+
+    // Reference to original movement for migration tracking
+    legacyMovementId: v.optional(v.id("stock_movements")),
+  })
+    .index("by_product", ["productId"])
+    .index("by_type", ["type"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_legacy_movement", ["legacyMovementId"]),
 });

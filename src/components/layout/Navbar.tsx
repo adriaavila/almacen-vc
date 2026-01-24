@@ -23,7 +23,7 @@ export function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-4 md:space-x-6">
             {!isMantenimientoBasico && (
-              <Link href="/" className="flex items-center flex-shrink-0">
+              <Link href="/" className="flex items-center shrink-0">
                 <Image
                   src="/logo-vistacampo.png"
                   alt="Vistacampo Centro Terapéutico"
@@ -39,31 +39,31 @@ export function Navbar() {
               <>
                 <Link
                   href="/mantenimiento/repuestos"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap min-h-[44px] flex items-center transition-all duration-200 ${
                     pathname?.startsWith('/mantenimiento/repuestos')
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                      ? 'bg-emerald-100 text-emerald-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2`}
                 >
                   Repuestos
                 </Link>
                 <Link
                   href="/mantenimiento/activos"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap min-h-[44px] flex items-center transition-all duration-200 ${
                     pathname?.startsWith('/mantenimiento/activos')
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                      ? 'bg-emerald-100 text-emerald-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2`}
                 >
                   Activos
                 </Link>
                 <Link
                   href="/mantenimiento/trabajos"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap min-h-[44px] flex items-center transition-all duration-200 ${
                     pathname?.startsWith('/mantenimiento/trabajos')
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                      ? 'bg-emerald-100 text-emerald-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2`}
                 >
                   Trabajos
                 </Link>
@@ -74,21 +74,21 @@ export function Navbar() {
               <>
                 <Link
                   href="/requester/pedido"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap min-h-[44px] flex items-center transition-all duration-200 ${
                     pathname === '/requester/pedido'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                      ? 'bg-emerald-100 text-emerald-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2`}
                 >
                   Crear Pedido
                 </Link>
                 <Link
                   href="/requester/mis-pedidos"
-                  className={`px-2 md:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap min-h-[44px] flex items-center transition-all duration-200 ${
                     pathname === '/requester/mis-pedidos'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                      ? 'bg-emerald-100 text-emerald-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2`}
                 >
                   Mis Pedidos
                 </Link>
@@ -101,7 +101,7 @@ export function Navbar() {
             <div className="flex items-center">
               <Link
                 href="/"
-                className="p-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-md text-gray-700 hover:bg-gray-100 transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                 aria-label="Volver a inicio"
               >
                 <svg

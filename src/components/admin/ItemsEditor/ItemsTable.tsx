@@ -15,41 +15,39 @@ import { StatusCell } from './StatusCell';
 import { ColumnHeaderFilter } from './ColumnHeaderFilter';
 import { ColumnConfig } from '@/types';
 
-type ConvexItem = {
-  _id: Id<"items">;
-  nombre: string;
-  categoria: string;
-  subcategoria?: string;
-  marca?: string;
-  unidad: string;
-  stock_actual: number;
-  stock_minimo: number;
-  package_size?: string;
-  location: string;
-  extra_notes?: string;
+type ConvexProduct = {
+  _id: Id<"products">;
+  name: string;
+  brand: string;
+  category: string;
+  subCategory?: string;
+  baseUnit: string;
+  purchaseUnit: string;
+  conversionFactor: number;
+  packageSize: number;
+  active: boolean;
+  totalStock: number;
+  stockAlmacen: number;
+  stockCafetin: number;
   status: "ok" | "bajo_stock";
-  active?: boolean;
-  updatedBy?: string;
-  updatedAt?: number;
 };
 
 interface ItemsTableProps {
-  items: ConvexItem[];
+  items: ConvexProduct[];
   columns: ColumnConfig[];
-  onItemClick: (item: ConvexItem) => void;
-  onFieldUpdate: (itemId: Id<"items">, field: string, value: string | number | boolean | undefined) => Promise<void>;
+  onItemClick: (item: ConvexProduct) => void;
+  onFieldUpdate: (productId: Id<"products">, field: string, value: string | number | boolean | undefined) => Promise<void>;
   categories: string[];
   subcategories: string[];
   columnFilters: {
-    nombre?: string;
-    categoria?: string[];
-    subcategoria?: string[];
-    marca?: string[];
-    unidad?: string[];
-    location?: string[];
-    stock_actual?: { min?: number; max?: number };
-    stock_minimo?: { min?: number; max?: number };
-    package_size?: string;
+    name?: string;
+    category?: string[];
+    subCategory?: string[];
+    brand?: string[];
+    baseUnit?: string[];
+    totalStock?: { min?: number; max?: number };
+    stockAlmacen?: { min?: number; max?: number };
+    packageSize?: string;
     status?: ('ok' | 'bajo_stock')[];
     active?: boolean[];
   };
@@ -79,8 +77,8 @@ export function ItemsTable({
     return [...columns].sort((a, b) => a.order - b.order).filter(col => col.visible);
   }, [columns]);
 
-  const handleFieldUpdate = async (itemId: Id<"items">, field: string, value: string | number | boolean | undefined) => {
-    await onFieldUpdate(itemId, field, value);
+  const handleFieldUpdate = async (productId: Id<"products">, field: string, value: string | number | boolean | undefined) => {
+    await onFieldUpdate(productId, field, value);
   };
 
   return (
@@ -90,7 +88,7 @@ export function ItemsTable({
           <TableHeader className="sticky top-0 bg-gray-50 z-10 border-b border-gray-200 shadow-sm">
             <TableRow className="hover:bg-transparent">
               {sortedColumns.map((column) => {
-                const isRequired = ['nombre', 'categoria', 'unidad', 'location'].includes(column.key);
+                const isRequired = ['name', 'category', 'baseUnit'].includes(column.key);
                 return (
                   <TableHead key={column.key} className="font-semibold text-gray-700 py-2 px-4 text-sm uppercase tracking-wider">
                     <div className="space-y-1">
@@ -100,96 +98,85 @@ export function ItemsTable({
                       </div>
                       {(() => {
                         switch (column.key) {
-                          case 'nombre':
+                          case 'name':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="nombre"
+                                columnKey="name"
                                 filterType="text"
-                                value={columnFilters.nombre}
-                                onChange={(value) => onColumnFilterChange('nombre', value as string)}
+                                value={columnFilters.name}
+                                onChange={(value) => onColumnFilterChange('name', value as string)}
                                 placeholder="Buscar nombre..."
                               />
                             );
-                          case 'categoria':
+                          case 'category':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="categoria"
+                                columnKey="category"
                                 filterType="dropdown"
                                 options={categories}
-                                value={columnFilters.categoria}
-                                onChange={(value) => onColumnFilterChange('categoria', value as string[])}
+                                value={columnFilters.category}
+                                onChange={(value) => onColumnFilterChange('category', value as string[])}
                                 placeholder="Filtrar categoría"
                               />
                             );
-                          case 'subcategoria':
+                          case 'subCategory':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="subcategoria"
+                                columnKey="subCategory"
                                 filterType="dropdown"
                                 options={subcategories}
-                                value={columnFilters.subcategoria}
-                                onChange={(value) => onColumnFilterChange('subcategoria', value as string[])}
+                                value={columnFilters.subCategory}
+                                onChange={(value) => onColumnFilterChange('subCategory', value as string[])}
                                 placeholder="Filtrar subcategoría"
                               />
                             );
-                          case 'marca':
+                          case 'brand':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="marca"
+                                columnKey="brand"
                                 filterType="dropdown"
                                 options={columnFilterOptions.marcas}
-                                value={columnFilters.marca}
-                                onChange={(value) => onColumnFilterChange('marca', value as string[])}
+                                value={columnFilters.brand}
+                                onChange={(value) => onColumnFilterChange('brand', value as string[])}
                                 placeholder="Filtrar marca"
                               />
                             );
-                          case 'unidad':
+                          case 'baseUnit':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="unidad"
+                                columnKey="baseUnit"
                                 filterType="dropdown"
                                 options={columnFilterOptions.unidades}
-                                value={columnFilters.unidad}
-                                onChange={(value) => onColumnFilterChange('unidad', value as string[])}
+                                value={columnFilters.baseUnit}
+                                onChange={(value) => onColumnFilterChange('baseUnit', value as string[])}
                                 placeholder="Filtrar unidad"
                               />
                             );
-                          case 'location':
+                          case 'totalStock':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="location"
-                                filterType="dropdown"
-                                options={columnFilterOptions.locations}
-                                value={columnFilters.location}
-                                onChange={(value) => onColumnFilterChange('location', value as string[])}
-                                placeholder="Filtrar ubicación"
-                              />
-                            );
-                          case 'stock_actual':
-                            return (
-                              <ColumnHeaderFilter
-                                columnKey="stock_actual"
+                                columnKey="totalStock"
                                 filterType="number-range"
-                                value={columnFilters.stock_actual}
-                                onChange={(value) => onColumnFilterChange('stock_actual', value as { min?: number; max?: number })}
+                                value={columnFilters.totalStock}
+                                onChange={(value) => onColumnFilterChange('totalStock', value as { min?: number; max?: number })}
                               />
                             );
-                          case 'stock_minimo':
+                          case 'stockAlmacen':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="stock_minimo"
+                                columnKey="stockAlmacen"
                                 filterType="number-range"
-                                value={columnFilters.stock_minimo}
-                                onChange={(value) => onColumnFilterChange('stock_minimo', value as { min?: number; max?: number })}
+                                value={columnFilters.stockAlmacen}
+                                onChange={(value) => onColumnFilterChange('stockAlmacen', value as { min?: number; max?: number })}
                               />
                             );
-                          case 'package_size':
+                          case 'packageSize':
                             return (
                               <ColumnHeaderFilter
-                                columnKey="package_size"
+                                columnKey="packageSize"
                                 filterType="text"
-                                value={columnFilters.package_size}
-                                onChange={(value) => onColumnFilterChange('package_size', value as string)}
+                                value={columnFilters.packageSize}
+                                onChange={(value) => onColumnFilterChange('packageSize', value as string)}
                                 placeholder="Buscar tamaño..."
                               />
                             );
@@ -258,131 +245,108 @@ export function ItemsTable({
                     <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
-                    <p className="text-sm font-medium">No hay items para mostrar</p>
+                    <p className="text-sm font-medium">No hay productos para mostrar</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((item) => {
-                const isLowStock = item.status === 'bajo_stock';
+              items.map((product) => {
+                const isLowStock = product.status === 'bajo_stock';
                 return (
                   <TableRow
-                    key={item._id}
+                    key={product._id}
                     className={`transition-all duration-150 hover:bg-emerald-50/50 ${
                       isLowStock ? 'border-l-4 border-l-red-500 bg-red-50/30' : 'border-l-4 border-l-emerald-500'
                     }`}
                   >
                     {sortedColumns.map((column) => {
-                      const cellKey = `${item._id}-${column.key}`;
+                      const cellKey = `${product._id}-${column.key}`;
                       
                       return (
                         <TableCell key={cellKey} className="py-3 px-4">
                           <div className="min-h-10 flex items-center">
                       {(() => {
                       switch (column.key) {
-                        case 'nombre':
+                        case 'name':
                           return (
                               <EditableCell
-                                value={item.nombre}
+                                value={product.name}
                                 type="text"
                                 required={true}
-                                onSave={(value) => handleFieldUpdate(item._id, 'nombre', value as string)}
+                                onSave={(value) => handleFieldUpdate(product._id, 'name', value as string)}
                               />
                           );
-                        case 'categoria':
+                        case 'category':
                           return (
                               <EditableCell
-                                value={item.categoria}
+                                value={product.category}
                                 type="select"
                                 options={categories}
                                 required={true}
-                                onSave={(value) => handleFieldUpdate(item._id, 'categoria', value as string)}
+                                onSave={(value) => handleFieldUpdate(product._id, 'category', value as string)}
                               />
                           );
-                        case 'unidad':
+                        case 'baseUnit':
                           return (
                               <EditableCell
-                                value={item.unidad}
+                                value={product.baseUnit}
                                 type="text"
                                 required={true}
-                                onSave={(value) => handleFieldUpdate(item._id, 'unidad', value as string)}
+                                onSave={(value) => handleFieldUpdate(product._id, 'baseUnit', value as string)}
                               />
                           );
-                        case 'stock_actual':
+                        case 'totalStock':
+                          return (
+                              <span className={`font-medium ${isLowStock ? 'text-red-600' : 'text-gray-900'}`}>
+                                {product.totalStock}
+                              </span>
+                          );
+                        case 'stockAlmacen':
+                          return (
+                              <span className="text-gray-900">
+                                {product.stockAlmacen}
+                              </span>
+                          );
+                        case 'subCategory':
                           return (
                               <EditableCell
-                                value={item.stock_actual}
+                                value={product.subCategory || ''}
+                                type="text"
+                                allowEmpty={true}
+                                placeholder="Opcional"
+                                onSave={(value) => handleFieldUpdate(product._id, 'subCategory', value as string || undefined)}
+                              />
+                          );
+                        case 'brand':
+                          return (
+                              <EditableCell
+                                value={product.brand || ''}
+                                type="text"
+                                allowEmpty={true}
+                                placeholder="Opcional"
+                                onSave={(value) => handleFieldUpdate(product._id, 'brand', value as string || undefined)}
+                              />
+                          );
+                        case 'packageSize':
+                          return (
+                              <EditableCell
+                                value={product.packageSize.toString()}
                                 type="number"
-                                onSave={(value) => handleFieldUpdate(item._id, 'stock_actual', value as number)}
-                              />
-                          );
-                        case 'stock_minimo':
-                          return (
-                              <EditableCell
-                                value={item.stock_minimo}
-                                type="number"
-                                onSave={(value) => handleFieldUpdate(item._id, 'stock_minimo', value as number)}
-                              />
-                          );
-                        case 'subcategoria':
-                          return (
-                              <EditableCell
-                                value={item.subcategoria || ''}
-                                type="text"
                                 allowEmpty={true}
-                                placeholder="Opcional"
-                                onSave={(value) => handleFieldUpdate(item._id, 'subcategoria', value as string || undefined)}
-                              />
-                          );
-                        case 'marca':
-                          return (
-                              <EditableCell
-                                value={item.marca || ''}
-                                type="text"
-                                allowEmpty={true}
-                                placeholder="Opcional"
-                                onSave={(value) => handleFieldUpdate(item._id, 'marca', value as string || undefined)}
-                              />
-                          );
-                        case 'package_size':
-                          return (
-                              <EditableCell
-                                value={item.package_size || ''}
-                                type="text"
-                                allowEmpty={true}
-                                placeholder="Opcional"
-                                onSave={(value) => handleFieldUpdate(item._id, 'package_size', value as string || undefined)}
-                              />
-                          );
-                        case 'location':
-                          return (
-                              <EditableCell
-                                value={item.location}
-                                type="text"
-                                required={true}
-                                onSave={(value) => handleFieldUpdate(item._id, 'location', value as string)}
-                              />
-                          );
-                        case 'extra_notes':
-                          return (
-                              <EditableCell
-                                value={item.extra_notes || ''}
-                                type="textarea"
-                                allowEmpty={true}
-                                placeholder="Notas adicionales (opcional)"
-                                onSave={(value) => handleFieldUpdate(item._id, 'extra_notes', value as string || undefined)}
+                                placeholder="0"
+                                onSave={(value) => handleFieldUpdate(product._id, 'packageSize', parseFloat(value as string) || 0)}
                               />
                           );
                         case 'status':
                           return (
-                              <StatusCell status={item.status} />
+                              <StatusCell status={product.status} />
                           );
                         case 'active':
                           return (
                               <EditableCell
-                                value={item.active}
+                                value={product.active}
                                 type="toggle"
-                                onSave={(value) => handleFieldUpdate(item._id, 'active', value as boolean)}
+                                onSave={(value) => handleFieldUpdate(product._id, 'active', value as boolean)}
                               />
                           );
                         case 'acciones':
@@ -390,7 +354,7 @@ export function ItemsTable({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onItemClick(item);
+                                  onItemClick(product);
                                 }}
                                 className="text-emerald-600 hover:text-emerald-800 p-1.5 rounded-md hover:bg-emerald-50 transition-colors cursor-pointer"
                                 title="Abrir editor completo"
@@ -413,7 +377,7 @@ export function ItemsTable({
                         default:
                           return (
                               <span className="text-sm text-gray-600">
-                                {String((item as any)[column.key] || '')}
+                                {String((product as any)[column.key] || '')}
                               </span>
                           );
                       }

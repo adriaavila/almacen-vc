@@ -9,17 +9,17 @@ import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Button } from '@/components/ui/Button';
 import { ItemAutocomplete } from '@/components/ui/ItemAutocomplete';
 import { Id } from 'convex/_generated/dataModel';
-import { StockMovement } from '@/types';
+import { MovementType } from '@/types';
 
-type MovementTypeFilter = 'all' | 'ingreso' | 'egreso';
+type MovementTypeFilter = 'all' | MovementType;
 
 export default function MovementsPage() {
-  const movements = useQuery(api.stockMovements.getRecentStockMovements, {
+  const movements = useQuery(api.movements.list, {
     limit: 100,
   });
 
   const [typeFilter, setTypeFilter] = useState<MovementTypeFilter>('all');
-  const [selectedItemId, setSelectedItemId] = useState<Id<'items'> | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<Id<'products'> | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('7'); // '7', '30', 'all'
 
   // Filter movements
@@ -33,20 +33,20 @@ export default function MovementsPage() {
       filtered = filtered.filter((m) => m.type === typeFilter);
     }
 
-    // Filter by item
-    if (selectedItemId) {
-      filtered = filtered.filter((m) => m.itemId === selectedItemId);
+    // Filter by product
+    if (selectedProductId) {
+      filtered = filtered.filter((m) => m.productId === selectedProductId);
     }
 
     // Filter by date
     if (dateFilter !== 'all') {
       const days = parseInt(dateFilter);
       const cutoffDate = Date.now() - days * 24 * 60 * 60 * 1000;
-      filtered = filtered.filter((m) => m.createdAt >= cutoffDate);
+      filtered = filtered.filter((m) => m.timestamp >= cutoffDate);
     }
 
     return filtered;
-  }, [movements, typeFilter, selectedItemId, dateFilter]);
+  }, [movements, typeFilter, selectedProductId, dateFilter]);
 
   const formatDate = (timestamp: number) => {
     return new Intl.DateTimeFormat('es-ES', {
@@ -67,13 +67,29 @@ export default function MovementsPage() {
     }).format(new Date(timestamp));
   };
 
+  // Get movement display info
+  const getMovementInfo = (type: MovementType) => {
+    switch (type) {
+      case 'COMPRA':
+        return { label: 'Compra', isPositive: true, bgColor: 'bg-emerald-100', textColor: 'text-emerald-800', borderColor: 'border-l-emerald-500' };
+      case 'TRASLADO':
+        return { label: 'Traslado', isPositive: false, bgColor: 'bg-blue-100', textColor: 'text-blue-800', borderColor: 'border-l-blue-500' };
+      case 'CONSUMO':
+        return { label: 'Consumo', isPositive: false, bgColor: 'bg-red-100', textColor: 'text-red-800', borderColor: 'border-l-red-500' };
+      case 'AJUSTE':
+        return { label: 'Ajuste', isPositive: true, bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', borderColor: 'border-l-yellow-500' };
+      default:
+        return { label: type, isPositive: false, bgColor: 'bg-gray-100', textColor: 'text-gray-800', borderColor: 'border-l-gray-500' };
+    }
+  };
+
   // Loading state
   if (movements === undefined) {
     return (
       <PageContainer>
         <AdminHeader 
           title="Movimientos"
-          subtitle="Historial de ingresos y egresos de stock"
+          subtitle="Historial de movimientos de stock"
         />
         <div className="text-center py-12 text-gray-500">
           <p>Cargando movimientos...</p>
@@ -86,7 +102,7 @@ export default function MovementsPage() {
     <PageContainer>
       <AdminHeader 
         title="Movimientos"
-        subtitle="Historial de ingresos y egresos de stock"
+        subtitle="Historial de movimientos de stock"
         actions={
           <Link href="/admin/movements/new">
             <Button variant="primary" className="h-12">
@@ -110,8 +126,10 @@ export default function MovementsPage() {
                 className="block w-full h-10 px-3 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="all">Todos</option>
-                <option value="ingreso">Ingresos</option>
-                <option value="egreso">Egresos</option>
+                <option value="COMPRA">Compras</option>
+                <option value="CONSUMO">Consumos</option>
+                <option value="TRASLADO">Traslados</option>
+                <option value="AJUSTE">Ajustes</option>
               </select>
             </div>
 
@@ -131,26 +149,26 @@ export default function MovementsPage() {
               </select>
             </div>
 
-            {/* Item Filter */}
+            {/* Product Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Producto
               </label>
               <ItemAutocomplete
-                value={selectedItemId}
-                onChange={(itemId) => setSelectedItemId(itemId)}
+                value={selectedProductId}
+                onChange={(productId) => setSelectedProductId(productId)}
                 placeholder="Filtrar por producto..."
               />
             </div>
           </div>
 
           {/* Clear Filters */}
-          {(typeFilter !== 'all' || selectedItemId || dateFilter !== 'all') && (
+          {(typeFilter !== 'all' || selectedProductId || dateFilter !== 'all') && (
             <div className="mt-4">
               <button
                 onClick={() => {
                   setTypeFilter('all');
-                  setSelectedItemId(null);
+                  setSelectedProductId(null);
                   setDateFilter('7');
                 }}
                 className="text-sm text-emerald-600 hover:text-emerald-800"
@@ -186,10 +204,10 @@ export default function MovementsPage() {
                   Cantidad
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Motivo
+                  Origen → Destino
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Referencia
+                  Usuario
                 </th>
               </tr>
             </thead>
@@ -202,22 +220,24 @@ export default function MovementsPage() {
                 </tr>
               ) : (
                 filteredMovements.map((movement) => {
-                  const isIngreso = movement.type === 'ingreso';
+                  const info = getMovementInfo(movement.type);
+                  const isPositive = movement.type === 'COMPRA' || 
+                    (movement.type === 'AJUSTE' && movement.nextStock > movement.prevStock);
                   return (
                     <tr
                       key={movement._id}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(movement.createdAt)}
+                        {formatDate(movement.timestamp)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {movement.item ? (
+                        {movement.product ? (
                           <Link
-                            href={`/admin/inventario/${movement.itemId}`}
+                            href={`/admin/inventario/${movement.productId}`}
                             className="text-emerald-600 hover:text-emerald-800 font-medium"
                           >
-                            {movement.item.nombre}
+                            {movement.product.name}
                           </Link>
                         ) : (
                           <span className="text-gray-500">Producto eliminado</span>
@@ -225,35 +245,31 @@ export default function MovementsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            isIngreso
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.bgColor} ${info.textColor}`}
                         >
-                          {isIngreso ? 'Ingreso' : 'Egreso'}
+                          {info.label}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span
                           className={`font-medium ${
-                            isIngreso ? 'text-emerald-700' : 'text-red-700'
+                            isPositive ? 'text-emerald-700' : 'text-red-700'
                           }`}
                         >
-                          {isIngreso ? '+' : '-'}
-                          {movement.cantidad}
+                          {isPositive ? '+' : '-'}
+                          {movement.quantity}
                         </span>
-                        {movement.item && (
+                        {movement.product && (
                           <span className="text-gray-500 ml-1">
-                            {movement.item.unidad}
+                            {movement.product.baseUnit}
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                        {movement.motivo}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {movement.referencia || '-'}
+                        {movement.user}
                       </td>
                     </tr>
                   );
@@ -273,66 +289,58 @@ export default function MovementsPage() {
             </div>
           ) : (
             filteredMovements.map((movement) => {
-              const isIngreso = movement.type === 'ingreso';
+              const info = getMovementInfo(movement.type);
+              const isPositive = movement.type === 'COMPRA' || 
+                (movement.type === 'AJUSTE' && movement.nextStock > movement.prevStock);
               return (
                 <div
                   key={movement._id}
-                  className={`bg-white rounded-md shadow-sm border ${
-                    isIngreso
-                      ? 'border-emerald-200 border-l-4 border-l-emerald-500'
-                      : 'border-red-200 border-l-4 border-l-red-500'
-                  } p-4`}
+                  className={`bg-white rounded-md shadow-sm border border-l-4 ${info.borderColor} p-4`}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 mb-1">
-                        {movement.item ? (
+                        {movement.product ? (
                           <Link
-                            href={`/admin/inventario/${movement.itemId}`}
+                            href={`/admin/inventario/${movement.productId}`}
                             className="text-emerald-600 hover:text-emerald-800"
                           >
-                            {movement.item.nombre}
+                            {movement.product.name}
                           </Link>
                         ) : (
                           <span className="text-gray-500">Producto eliminado</span>
                         )}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {formatShortDate(movement.createdAt)}
+                        {formatShortDate(movement.timestamp)}
                       </p>
                     </div>
                     <div className="ml-4 text-right">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          isIngreso
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.bgColor} ${info.textColor}`}
                       >
-                        {isIngreso ? 'Ingreso' : 'Egreso'}
+                        {info.label}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">
-                        Motivo: <span className="capitalize">{movement.motivo}</span>
+                        {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
                       </p>
-                      {movement.referencia && (
-                        <p className="text-xs text-gray-600">{movement.referencia}</p>
-                      )}
+                      <p className="text-xs text-gray-600">{movement.user}</p>
                     </div>
                     <div className="text-right">
                       <p
                         className={`text-lg font-bold ${
-                          isIngreso ? 'text-emerald-700' : 'text-red-700'
+                          isPositive ? 'text-emerald-700' : 'text-red-700'
                         }`}
                       >
-                        {isIngreso ? '+' : '-'}
-                        {movement.cantidad}
+                        {isPositive ? '+' : '-'}
+                        {movement.quantity}
                       </p>
-                      {movement.item && (
-                        <p className="text-xs text-gray-500">{movement.item.unidad}</p>
+                      {movement.product && (
+                        <p className="text-xs text-gray-500">{movement.product.baseUnit}</p>
                       )}
                     </div>
                   </div>

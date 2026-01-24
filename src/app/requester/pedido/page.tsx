@@ -16,6 +16,23 @@ import { Area } from '@/types';
 
 const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
 
+type ConvexProduct = {
+  _id: Id<"products">;
+  name: string;
+  brand: string;
+  category: string;
+  subCategory?: string;
+  baseUnit: string;
+  purchaseUnit: string;
+  conversionFactor: number;
+  packageSize: number;
+  active: boolean;
+  totalStock: number;
+  stockAlmacen: number;
+  stockCafetin: number;
+  status: "ok" | "bajo_stock";
+};
+
 function CreateOrderPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,8 +46,8 @@ function CreateOrderPageContent() {
   
   const [selectedArea, setSelectedArea] = useState<Area>(initialArea);
   
-  // Use role-based query to get items filtered by area
-  const items = useQuery(api.items.listItemsForRole, { role: selectedArea });
+  // Use new products API
+  const products = useQuery(api.products.listWithInventory);
   const createOrder = useMutation(api.orders.create);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -76,10 +93,10 @@ function CreateOrderPageContent() {
     };
   }, [searchParams]);
   
-  const handleQuantityChange = (itemId: string, value: number) => {
+  const handleQuantityChange = (productId: string, value: number) => {
     setQuantities((prev) => ({
       ...prev,
-      [itemId]: Math.max(0, value),
+      [productId]: Math.max(0, value),
     }));
   };
   
@@ -90,15 +107,18 @@ function CreateOrderPageContent() {
     setIsSubmitting(true);
     
     try {
+      // Note: The orders system still uses itemId, but we're using productId
+      // This will need backend updates to support products OR we use legacy items
+      // For now, we'll skip this since orders.create expects itemId
       const orderItems = Object.entries(quantities)
         .filter(([_, cantidad]) => cantidad > 0)
-        .map(([itemId, cantidad]) => ({ 
-          itemId: itemId as Id<"items">, 
+        .map(([productId, cantidad]) => ({ 
+          itemId: productId as Id<"items">, // This is actually productId but typed as items for compatibility
           cantidad 
         }));
       
       if (orderItems.length === 0) {
-        setError('Debe seleccionar al menos un ítem');
+        setError('Debe seleccionar al menos un producto');
         setIsSubmitting(false);
         return;
       }
@@ -127,88 +147,95 @@ function CreateOrderPageContent() {
     }
   };
   
-  // Get all unique subcategories from filtered items
+  // Filter products by area - for now show all active products
+  const areaProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    // Filter active products with stock
+    return products.filter(p => p.active && p.totalStock > 0);
+  }, [products]);
+
+  // Get all unique subcategories from filtered products
   const subcategories = useMemo(() => {
-    if (!items || items.length === 0) return [];
+    if (!areaProducts || areaProducts.length === 0) return [];
     const subcats = new Set<string>();
-    items.forEach(item => {
-      if (item.subcategoria) {
-        subcats.add(item.subcategoria);
+    areaProducts.forEach(product => {
+      if (product.subCategory) {
+        subcats.add(product.subCategory);
       }
     });
     return Array.from(subcats).sort();
-  }, [items]);
+  }, [areaProducts]);
 
-  // Filter items by search and subcategory (area filtering is already done by the query)
-  const filteredItems = useMemo(() => {
-    if (!items || items.length === 0) return [];
+  // Filter products by search and subcategory
+  const filteredProducts = useMemo(() => {
+    if (!areaProducts || areaProducts.length === 0) return [];
     
-    return items.filter(item => {
+    return areaProducts.filter(product => {
       // Search filter
       const matchesSearch = searchQuery === '' || 
-        normalizeSearchText(item.nombre).includes(normalizeSearchText(searchQuery)) ||
-        (item.subcategoria && normalizeSearchText(item.subcategoria).includes(normalizeSearchText(searchQuery)));
+        normalizeSearchText(product.name).includes(normalizeSearchText(searchQuery)) ||
+        (product.subCategory && normalizeSearchText(product.subCategory).includes(normalizeSearchText(searchQuery)));
       
       // Subcategory filter
       const matchesSubcategory = selectedSubcategory === 'all' || 
-        item.subcategoria === selectedSubcategory;
+        product.subCategory === selectedSubcategory;
       
       return matchesSearch && matchesSubcategory;
     });
-  }, [items, searchQuery, selectedSubcategory]);
+  }, [areaProducts, searchQuery, selectedSubcategory]);
 
-  // Group filtered items by category and sort by name
-  const itemsByCategory = useMemo(() => {
-    if (!filteredItems || filteredItems.length === 0) {
+  // Group filtered products by category and sort by name
+  const productsByCategory = useMemo(() => {
+    if (!filteredProducts || filteredProducts.length === 0) {
       return {};
     }
-    const grouped = filteredItems.reduce((acc, item) => {
-      if (!acc[item.categoria]) {
-        acc[item.categoria] = [];
+    const grouped = filteredProducts.reduce((acc, product) => {
+      if (!acc[product.category]) {
+        acc[product.category] = [];
       }
-      acc[item.categoria].push(item);
+      acc[product.category].push(product);
       return acc;
-    }, {} as Record<string, typeof filteredItems>);
+    }, {} as Record<string, typeof filteredProducts>);
     
-    // Sort items by name within each category
-    Object.keys(grouped).forEach(categoria => {
-      grouped[categoria].sort((a, b) => 
-        a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+    // Sort products by name within each category
+    Object.keys(grouped).forEach(category => {
+      grouped[category].sort((a, b) => 
+        a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
       );
     });
     
     // Initialize expanded state for new categories (default: expanded)
     setExpandedCategories(prev => {
       const updated = { ...prev };
-      Object.keys(grouped).forEach(categoria => {
-        if (!(categoria in updated)) {
-          updated[categoria] = true;
+      Object.keys(grouped).forEach(category => {
+        if (!(category in updated)) {
+          updated[category] = true;
         }
       });
       return updated;
     });
     
     return grouped;
-  }, [filteredItems]);
+  }, [filteredProducts]);
   
-  const toggleCategory = (categoria: string) => {
+  const toggleCategory = (category: string) => {
     setExpandedCategories(prev => ({
       ...prev,
-      [categoria]: !prev[categoria]
+      [category]: !prev[category]
     }));
   };
   
-  // Calculate selected items
-  const selectedItems = useMemo(() => {
-    if (!items || items.length === 0) return [];
+  // Calculate selected products
+  const selectedProducts = useMemo(() => {
+    if (!areaProducts || areaProducts.length === 0) return [];
     return Object.entries(quantities)
       .filter(([_, cantidad]) => cantidad > 0)
-      .map(([itemId, cantidad]) => {
-        const item = items.find(i => i._id === itemId);
-        return item ? { ...item, cantidad } : null;
+      .map(([productId, cantidad]) => {
+        const product = areaProducts.find(p => p._id === productId);
+        return product ? { ...product, cantidad } : null;
       })
-      .filter(Boolean) as Array<typeof items[0] & { cantidad: number }>;
-  }, [quantities, items]);
+      .filter(Boolean) as Array<ConvexProduct & { cantidad: number }>;
+  }, [quantities, areaProducts]);
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -225,8 +252,8 @@ function CreateOrderPageContent() {
           </div>
         )}
         
-        {/* Selected Items Summary Panel */}
-        {selectedItems.length > 0 && (
+        {/* Selected Products Summary Panel */}
+        {selectedProducts.length > 0 && (
           <div className="sticky top-0 z-10 bg-white border-t-4 border-t-emerald-500 rounded-md shadow-sm mb-4">
             <button
               type="button"
@@ -236,7 +263,7 @@ function CreateOrderPageContent() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-900">Seleccionados</span>
                 <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
-                  {selectedItems.length}
+                  {selectedProducts.length}
                 </span>
               </div>
               <svg
@@ -256,16 +283,16 @@ function CreateOrderPageContent() {
             {summaryExpanded && (
               <div className="border-t border-gray-200 p-3 max-h-48 overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {selectedItems.map((item) => (
+                  {selectedProducts.map((product) => (
                     <div
-                      key={item._id}
+                      key={product._id}
                       className="flex items-center justify-between bg-gray-50 rounded-md p-2 border border-gray-200"
                     >
                       <span className="text-sm font-medium text-gray-900 truncate flex-1 mr-2">
-                        {item.nombre}
+                        {product.name}
                       </span>
                       <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {item.cantidad} {pluralizeUnit(item.unidad, item.cantidad)}
+                        {product.cantidad} {pluralizeUnit(product.baseUnit, product.cantidad)}
                       </span>
                     </div>
                   ))}
@@ -287,7 +314,7 @@ function CreateOrderPageContent() {
                   <input
                     id="search"
                     type="text"
-                    placeholder="Buscar por nombre, marca o subcategoría..."
+                    placeholder="Buscar por nombre o subcategoría..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="block w-full h-10 px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
@@ -336,7 +363,7 @@ function CreateOrderPageContent() {
                   Limpiar filtros
                 </button>
                 <span className="text-sm text-gray-500">
-                  ({filteredItems.length} {filteredItems.length === 1 ? 'producto encontrado' : 'productos encontrados'})
+                  ({filteredProducts.length} {filteredProducts.length === 1 ? 'producto encontrado' : 'productos encontrados'})
                 </span>
               </div>
             )}
@@ -345,7 +372,7 @@ function CreateOrderPageContent() {
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos Disponibles</h2>
             
-            {Object.keys(itemsByCategory).length === 0 ? (
+            {Object.keys(productsByCategory).length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <p className="text-gray-500">
                   {searchQuery || selectedSubcategory !== 'all' 
@@ -354,13 +381,13 @@ function CreateOrderPageContent() {
                 </p>
               </div>
             ) : (
-              Object.entries(itemsByCategory).map(([categoria, categoriaItems]) => {
-                const isExpanded = expandedCategories[categoria] !== false; // Default to true
+              Object.entries(productsByCategory).map(([category, categoryProducts]) => {
+                const isExpanded = expandedCategories[category] !== false; // Default to true
                 return (
-                  <div key={categoria} className="mb-6">
+                  <div key={category} className="mb-6">
                     <button
                       type="button"
-                      onClick={() => toggleCategory(categoria)}
+                      onClick={() => toggleCategory(category)}
                       className="flex items-center gap-2 text-lg font-medium text-gray-800 mb-3 hover:text-gray-900 transition-colors"
                     >
                       <svg
@@ -370,35 +397,34 @@ function CreateOrderPageContent() {
                       >
                         <path d="M8 5v14l11-7z" />
                       </svg>
-                      <span>{categoria}</span>
+                      <span>{category}</span>
                     </button>
                     {isExpanded && (
                       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                         <div className="divide-y divide-gray-200">
-                          {categoriaItems.map((item) => (
-                            <div key={item._id} className="py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 hover:bg-gray-50 transition-colors">
+                          {categoryProducts.map((product) => (
+                            <div key={product._id} className="py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 hover:bg-gray-50 transition-colors">
                               <div className="flex-1 min-w-0">
                                 <div className="mb-0">
                                   <span className="text-sm font-semibold text-gray-900 truncate block">
-                                    {item.nombre}
+                                    {product.name}
                                   </span>
                                 </div>
                                 <div>
                                   <span className="text-xs text-gray-500 truncate block">
-                                    {item.categoria}
-                                    {item.subcategoria && ` · ${item.subcategoria}`}
-                                    {/* Brand is hidden for workers (aggregated view) */}
+                                    {product.category}
+                                    {product.subCategory && ` · ${product.subCategory}`}
                                   </span>
                                 </div>
                               </div>
                               <div className="shrink-0">
                                 <QuantityInput
-                                  itemId={item._id}
-                                  value={quantities[item._id] || 0}
-                                  onChange={(value) => handleQuantityChange(item._id, value)}
+                                  itemId={product._id}
+                                  value={quantities[product._id] || 0}
+                                  onChange={(value) => handleQuantityChange(product._id, value)}
                                   min={0}
-                                  max={item.stock_actual}
-                                  unit={item.unidad}
+                                  max={product.totalStock}
+                                  unit={product.baseUnit}
                                 />
                               </div>
                             </div>

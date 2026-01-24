@@ -18,7 +18,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <PageContainer>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
+        <main id="main-content" className="flex flex-col items-center justify-center min-h-[60vh] py-8">
           <div className="mb-6">
             <Image
               src="/logo-vistacampo.png"
@@ -34,8 +34,8 @@ export default function Home() {
           </p>
           
           <div className="w-full max-w-lg">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-4">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label">
                 Áreas Operativas
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -65,8 +65,8 @@ export default function Home() {
               </div>
             </div>
             
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label">
                 Administración
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -87,7 +87,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
+        </main>
       </PageContainer>
     </div>
   );

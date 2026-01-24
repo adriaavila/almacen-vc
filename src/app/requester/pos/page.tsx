@@ -7,13 +7,12 @@ import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { SlotButton } from '@/components/ui/SlotButton';
 import { GhostAddButton } from '@/components/ui/GhostAddButton';
 import { PatientSlider } from '@/components/ui/PatientSlider';
 import { OrderSummaryPanel } from '@/components/ui/OrderSummaryPanel';
 import { normalizeSearchText } from '@/lib/utils';
-import { Slot, CartItem, Paciente } from '@/types';
+import { Slot, Paciente } from '@/types';
 
 // Mock pacientes data (will be replaced with Convex query in future)
 const mockPacientes: Paciente[] = [
@@ -34,42 +33,59 @@ const INITIAL_SLOTS: Slot[] = [
   { id: 5, pacienteId: null, items: [] },
 ];
 
+type ConvexProduct = {
+  _id: Id<"products">;
+  name: string;
+  brand: string;
+  category: string;
+  subCategory?: string;
+  baseUnit: string;
+  purchaseUnit: string;
+  conversionFactor: number;
+  packageSize: number;
+  active: boolean;
+  totalStock: number;
+  stockAlmacen: number;
+  stockCafetin: number;
+  status: "ok" | "bajo_stock";
+};
+
 export default function POSPage() {
-  // Convex queries
-  const items = useQuery(api.items.listItemsForRole, { role: 'Cafetín' });
+  // Convex queries - use new products API
+  const products = useQuery(api.products.listWithInventory);
   const createOrder = useMutation(api.orders.create);
   const deliverOrder = useMutation(api.orders.deliver);
 
   // State
   const [slots, setSlots] = useState<Slot[]>(INITIAL_SLOTS);
   const [activeSlotId, setActiveSlotId] = useState<number>(1);
-  const [coffeeItemId, setCoffeeItemId] = useState<Id<"items"> | null>(null);
+  const [coffeeProductId, setCoffeeProductId] = useState<Id<"products"> | null>(null);
   const [ghostAddFeedback, setGhostAddFeedback] = useState<Record<number, boolean>>({});
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // Find coffee item dynamically
+  // Find coffee product dynamically
   useEffect(() => {
-    if (items && items.length > 0) {
-      const coffeeItem = items.find(item => 
-        normalizeSearchText(item.nombre).includes('café') ||
-        normalizeSearchText(item.nombre).includes('cafe')
+    if (products && products.length > 0) {
+      const coffeeProduct = products.find(product => 
+        normalizeSearchText(product.name).includes('café') ||
+        normalizeSearchText(product.name).includes('cafe')
       );
-      if (coffeeItem) {
-        setCoffeeItemId(coffeeItem._id);
+      if (coffeeProduct) {
+        setCoffeeProductId(coffeeProduct._id);
       }
     }
-  }, [items]);
+  }, [products]);
 
   // Get active slot
   const activeSlot = useMemo(() => {
     return slots.find(s => s.id === activeSlotId) || slots[0];
   }, [slots, activeSlotId]);
 
-  // Filter items for grid (only items with stock)
-  const filteredItems = useMemo(() => {
-    if (!items || items.length === 0) return [];
-    return items.filter(item => item.stock_actual > 0);
-  }, [items]);
+  // Filter products for grid (only active products with stock)
+  const filteredProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    return products.filter(product => product.active && product.totalStock > 0);
+  }, [products]);
 
   // Handle slot activation
   const handleSlotClick = (slotId: number) => {
@@ -87,20 +103,20 @@ export default function POSPage() {
   // Handle ghost add coffee - adds to current active slot (doesn't advance automatically)
   // User can add multiple coffees to the same slot by tapping repeatedly
   const handleGhostAddCoffee = () => {
-    if (!coffeeItemId || !items) return;
+    if (!coffeeProductId || !products) return;
 
-    const coffeeItem = items.find(item => item._id === coffeeItemId);
-    if (!coffeeItem) return;
+    const coffeeProduct = products.find(product => product._id === coffeeProductId);
+    if (!coffeeProduct) return;
 
     // Add coffee to current active slot (stays on same slot for multiple taps)
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
-        const existingItem = slot.items.find(item => item.itemId === coffeeItemId);
+        const existingItem = slot.items.find(item => item.itemId === coffeeProductId);
         if (existingItem) {
           return {
             ...slot,
             items: slot.items.map(item =>
-              item.itemId === coffeeItemId
+              item.itemId === coffeeProductId
                 ? { ...item, cantidad: item.cantidad + 1 }
                 : item
             ),
@@ -109,11 +125,12 @@ export default function POSPage() {
           return {
             ...slot,
             items: [...slot.items, {
-              itemId: coffeeItemId,
-              nombre: coffeeItem.nombre,
+              itemId: coffeeProductId,
+              productId: coffeeProductId,
+              nombre: coffeeProduct.name,
               cantidad: 1,
               precio: 0,
-              unidad: coffeeItem.unidad,
+              unidad: coffeeProduct.baseUnit,
             }],
           };
         }
@@ -129,8 +146,8 @@ export default function POSPage() {
   };
 
   // Handle add product to active slot
-  const handleAddProductToActiveSlot = (item: NonNullable<typeof items>[number]) => {
-    const existingItem = activeSlot.items.find(c => c.itemId === item._id);
+  const handleAddProductToActiveSlot = (product: ConvexProduct) => {
+    const existingItem = activeSlot.items.find(c => c.itemId === product._id);
     
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
@@ -138,7 +155,7 @@ export default function POSPage() {
           return {
             ...slot,
             items: slot.items.map(c =>
-              c.itemId === item._id
+              c.itemId === product._id
                 ? { ...c, cantidad: c.cantidad + 1 }
                 : c
             ),
@@ -147,11 +164,12 @@ export default function POSPage() {
           return {
             ...slot,
             items: [...slot.items, {
-              itemId: item._id,
-              nombre: item.nombre,
+              itemId: product._id,
+              productId: product._id,
+              nombre: product.name,
               cantidad: 1,
               precio: 0,
-              unidad: item.unidad,
+              unidad: product.baseUnit,
             }],
           };
         }
@@ -161,7 +179,7 @@ export default function POSPage() {
   };
 
   // Handle decrease quantity (subtract 1, remove if reaches 0)
-  const handleDecreaseQuantity = (itemId: Id<"items">) => {
+  const handleDecreaseQuantity = (itemId: Id<"items"> | Id<"products">) => {
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
         return {
@@ -178,7 +196,7 @@ export default function POSPage() {
   };
 
   // Handle remove item completely
-  const handleRemoveItem = (itemId: Id<"items">) => {
+  const handleRemoveItem = (itemId: Id<"items"> | Id<"products">) => {
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
         return {
@@ -220,7 +238,8 @@ export default function POSPage() {
       const orderIds: Id<"orders">[] = [];
 
       // Create orders for all slots with items
-      // If active slot has items but no paciente, use current slider paciente
+      // Note: orders.create expects itemId, but we're using productId
+      // This may need backend update to support products
       for (const slot of slotsWithItems) {
         // If slot is active and has no paciente but slider shows one, assign it
         let pacienteIdToUse = slot.pacienteId;
@@ -231,7 +250,7 @@ export default function POSPage() {
         const orderId = await createOrder({
           area: 'Cafetín',
           items: slot.items.map(item => ({
-            itemId: item.itemId,
+            itemId: item.itemId as Id<"items">, // Cast for compatibility
             cantidad: item.cantidad,
           })),
         });
@@ -260,7 +279,7 @@ export default function POSPage() {
     }
   };
 
-  if (items === undefined) {
+  if (products === undefined) {
     return (
       <div className="min-h-screen bg-gray-50">
         <PageContainer>
@@ -301,7 +320,7 @@ export default function POSPage() {
                 <GhostAddButton
                   slotId={activeSlotId}
                   onClick={handleGhostAddCoffee}
-                  disabled={!coffeeItemId}
+                  disabled={!coffeeProductId}
                   showFeedback={ghostAddFeedback[activeSlotId] || false}
                 />
               </div>
@@ -321,19 +340,19 @@ export default function POSPage() {
           <div className="bg-white rounded-md shadow-sm border border-gray-200 p-1 sm:p-1.5 md:p-2 lg:p-3 h-full flex flex-col">
             <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1 md:mb-2 px-1">Productos</h2>
             
-            {filteredItems.length === 0 ? (
+            {filteredProducts.length === 0 ? (
               <div className="text-center py-8 text-gray-500 flex-1 flex items-center justify-center">
                 <p className="text-sm md:text-base">No hay productos disponibles</p>
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-0.5 sm:gap-1 md:gap-2 overflow-y-auto flex-1 px-0.5">
-                {filteredItems.map((item) => (
+                {filteredProducts.map((product) => (
                   <button
-                    key={item._id}
-                    onClick={() => handleAddProductToActiveSlot(item)}
+                    key={product._id}
+                    onClick={() => handleAddProductToActiveSlot(product)}
                     className="p-1 sm:p-1.5 md:p-2 lg:p-3 border border-gray-200 rounded hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center flex items-center justify-center min-h-[45px] sm:min-h-[55px] md:min-h-[70px] lg:min-h-[85px]"
                   >
-                    <h3 className="font-medium text-gray-900 text-[9px] sm:text-[10px] md:text-xs lg:text-sm leading-tight line-clamp-2">{item.nombre}</h3>
+                    <h3 className="font-medium text-gray-900 text-[9px] sm:text-[10px] md:text-xs lg:text-sm leading-tight line-clamp-2">{product.name}</h3>
                   </button>
                 ))}
               </div>

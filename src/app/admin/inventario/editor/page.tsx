@@ -10,17 +10,13 @@ import { ItemDrawer } from '@/components/admin/ItemsEditor/ItemDrawer';
 import { QuickActions } from '@/components/admin/ItemsEditor/QuickActions';
 import { Toast } from '@/components/ui/Toast';
 import { ColumnConfig } from '@/types';
-import { exportItemsToCSV, parseCSVFile, validateCSVRow, CSVRow } from '@/lib/csv';
 import { ImportCSVModal, ImportResult } from '@/components/admin/ItemsEditor/ImportCSVModal';
 import { EditorHeader } from '@/components/admin/ItemsEditor/EditorHeader';
 import { normalizeSearchText } from '@/lib/utils';
 
 // Helper to safely check if uiConfig functions are available
-// This checks if the module exists in the API without causing errors
 function hasUiConfigFunctions(): boolean {
   try {
-    // Check if uiConfig module exists and has the required functions
-    // Use 'in' operator to safely check without triggering errors
     if (!('uiConfig' in api)) return false;
     const uiConfig = (api as any).uiConfig;
     if (!uiConfig) return false;
@@ -28,48 +24,44 @@ function hasUiConfigFunctions(): boolean {
     if (typeof uiConfig.saveConfig !== 'function') return false;
     return true;
   } catch (error) {
-    // If accessing api.uiConfig causes an error, it's not available
     return false;
   }
 }
 
-type ConvexItem = {
-  _id: Id<"items">;
-  nombre: string;
-  categoria: string;
-  subcategoria?: string;
-  marca?: string;
-  unidad: string;
-  stock_actual: number;
-  stock_minimo: number;
-  package_size?: string;
-  location: string;
-  extra_notes?: string;
+type ConvexProduct = {
+  _id: Id<"products">;
+  name: string;
+  brand: string;
+  category: string;
+  subCategory?: string;
+  baseUnit: string;
+  purchaseUnit: string;
+  conversionFactor: number;
+  packageSize: number;
+  active: boolean;
+  totalStock: number;
+  stockAlmacen: number;
+  stockCafetin: number;
   status: "ok" | "bajo_stock";
-  active?: boolean;
-  sharedAreas?: string[];
-  updatedBy?: string;
-  updatedAt?: number;
 };
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
-  { key: 'nombre', label: 'Nombre', visible: true, order: 0 },
-  { key: 'categoria', label: 'Categoría', visible: true, order: 1 },
-  { key: 'subcategoria', label: 'Subcategoría', visible: true, order: 2 },
-  { key: 'marca', label: 'Marca', visible: true, order: 3 },
-  { key: 'unidad', label: 'Unidad', visible: true, order: 4 },
-  { key: 'stock_actual', label: 'Stock Actual', visible: true, order: 5 },
-  { key: 'stock_minimo', label: 'Stock Mínimo', visible: true, order: 6 },
-  { key: 'package_size', label: 'Tamaño Paquete', visible: true, order: 7 },
-  { key: 'location', label: 'Ubicación', visible: true, order: 8 },
-  { key: 'status', label: 'Estado', visible: true, order: 9 },
-  { key: 'active', label: 'Activo', visible: true, order: 10 },
-  { key: 'acciones', label: 'Acciones', visible: true, order: 11 },
+  { key: 'name', label: 'Nombre', visible: true, order: 0 },
+  { key: 'category', label: 'Categoría', visible: true, order: 1 },
+  { key: 'subCategory', label: 'Subcategoría', visible: true, order: 2 },
+  { key: 'brand', label: 'Marca', visible: true, order: 3 },
+  { key: 'baseUnit', label: 'Unidad', visible: true, order: 4 },
+  { key: 'totalStock', label: 'Stock Total', visible: true, order: 5 },
+  { key: 'stockAlmacen', label: 'Stock Almacén', visible: true, order: 6 },
+  { key: 'packageSize', label: 'Tamaño Paquete', visible: true, order: 7 },
+  { key: 'status', label: 'Estado', visible: true, order: 8 },
+  { key: 'active', label: 'Activo', visible: true, order: 9 },
+  { key: 'acciones', label: 'Acciones', visible: true, order: 10 },
 ];
 
 export default function ItemsEditorPage() {
   const [isMobile, setIsMobile] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ConvexItem | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ConvexProduct | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showOnlyActive, setShowOnlyActive] = useState(false);
@@ -86,30 +78,26 @@ export default function ItemsEditorPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'low_stock'>('all');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [columnFilters, setColumnFilters] = useState<{
-    nombre?: string;
-    categoria?: string[];
-    subcategoria?: string[];
-    marca?: string[];
-    unidad?: string[];
-    location?: string[];
-    stock_actual?: { min?: number; max?: number };
-    stock_minimo?: { min?: number; max?: number };
-    package_size?: string;
+    name?: string;
+    category?: string[];
+    subCategory?: string[];
+    brand?: string[];
+    baseUnit?: string[];
+    totalStock?: { min?: number; max?: number };
+    stockAlmacen?: { min?: number; max?: number };
+    packageSize?: string;
     status?: ('ok' | 'bajo_stock')[];
     active?: boolean[];
   }>({});
 
-  const items = useQuery(api.items.list);
-  const updateItem = useMutation(api.items.update);
-  const createItem = useMutation(api.items.create);
+  const products = useQuery(api.products.listWithInventory);
+  const updateProduct = useMutation(api.products.update);
+  const createProduct = useMutation(api.products.create);
+  const initializeInventory = useMutation(api.inventory.initialize);
   
-  // Always start with 'skip' to prevent runtime errors
-  // Only enable uiConfig when we're sure functions are synced
-  // This prevents errors when Convex hasn't synced uiConfig.ts yet
+  // uiConfig availability check
   const [uiConfigAvailable, setUiConfigAvailable] = useState(false);
   
-  // Always call hooks (React rules), but use 'skip' initially
-  // This prevents runtime errors when Convex hasn't synced uiConfig.ts yet
   const config = useQuery(
     uiConfigAvailable ? api.uiConfig.getConfig : ('skip' as any),
     uiConfigAvailable ? { userId: 'admin', page: 'items_editor' } : ('skip' as any)
@@ -119,26 +107,23 @@ export default function ItemsEditorPage() {
     uiConfigAvailable ? api.uiConfig.saveConfig : ('skip' as any)
   );
   
-  // Try to enable uiConfig after mount (when Convex might have synced)
   useEffect(() => {
-    // Small delay to allow Convex to sync
     const timer = setTimeout(() => {
       try {
         if (hasUiConfigFunctions()) {
           setUiConfigAvailable(true);
         }
       } catch {
-        // Functions not available, keep using defaults
+        // Functions not available
       }
     }, 100);
     
     return () => clearTimeout(timer);
   }, []);
 
-  // Check if screen is too small (hide editor on mobile and tablet)
+  // Check if screen is too small
   useEffect(() => {
     const checkScreenSize = () => {
-      // Only show on desktop screens (>= 1280px for better UX)
       setIsMobile(window.innerWidth < 1280);
     };
     checkScreenSize();
@@ -149,11 +134,10 @@ export default function ItemsEditorPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape: Close modals/drawers
       if (e.key === 'Escape') {
         if (isDrawerOpen) {
           setIsDrawerOpen(false);
-          setSelectedItem(null);
+          setSelectedProduct(null);
         }
         if (isImportModalOpen) {
           setIsImportModalOpen(false);
@@ -166,7 +150,7 @@ export default function ItemsEditorPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isDrawerOpen, isImportModalOpen]);
 
-  // Load config from Convex (only if available and not an error)
+  // Load config from Convex
   useEffect(() => {
     if (config && config.columns && Array.isArray(config.columns)) {
       setColumns(config.columns);
@@ -176,27 +160,27 @@ export default function ItemsEditorPage() {
 
   // Get unique categories
   const categories = useMemo(() => {
-    if (!items || items.length === 0) return [];
-    const cats = Array.from(new Set(items.map((item) => item.categoria)));
+    if (!products || products.length === 0) return [];
+    const cats = Array.from(new Set(products.map((product) => product.category)));
     return cats.sort();
-  }, [items]);
+  }, [products]);
 
   // Get unique subcategories
   const subcategories = useMemo(() => {
-    if (!items || items.length === 0) return [];
+    if (!products || products.length === 0) return [];
     const subcats = Array.from(
       new Set(
-        items
-          .map((item) => item.subcategoria)
+        products
+          .map((product) => product.subCategory)
           .filter((sub): sub is string => Boolean(sub))
       )
     );
     return subcats.sort();
-  }, [items]);
+  }, [products]);
 
   // Get unique values for column filters
   const columnFilterOptions = useMemo(() => {
-    if (!items || items.length === 0) {
+    if (!products || products.length === 0) {
       return {
         marcas: [],
         unidades: [],
@@ -204,174 +188,152 @@ export default function ItemsEditorPage() {
       };
     }
     return {
-      marcas: Array.from(new Set(items.map((item) => item.marca).filter((m): m is string => Boolean(m)))).sort(),
-      unidades: Array.from(new Set(items.map((item) => item.unidad))).sort(),
-      locations: Array.from(new Set(items.map((item) => item.location))).sort(),
+      marcas: Array.from(new Set(products.map((p) => p.brand).filter((m): m is string => Boolean(m) && m !== ''))).sort(),
+      unidades: Array.from(new Set(products.map((p) => p.baseUnit))).sort(),
+      locations: ['almacen', 'cafetin'], // Fixed locations in new system
     };
-  }, [items]);
+  }, [products]);
 
-  // Filter items
-  const filteredItems = useMemo(() => {
-    if (!items) return [];
-    let filtered = items;
+  // Filter products
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    let filtered = products;
     
-    // Apply showOnlyActive filter (for backward compatibility)
+    // Apply showOnlyActive filter
     if (showOnlyActive) {
-      filtered = filtered.filter((item) => item.active ?? true);
+      filtered = filtered.filter((product) => product.active);
     }
     
     // Apply filter status
     if (filterStatus === 'active') {
-      filtered = filtered.filter((item) => item.active ?? true);
+      filtered = filtered.filter((product) => product.active);
     } else if (filterStatus === 'inactive') {
-      filtered = filtered.filter((item) => !(item.active ?? true));
+      filtered = filtered.filter((product) => !product.active);
     } else if (filterStatus === 'low_stock') {
-      filtered = filtered.filter((item) => item.status === 'bajo_stock');
+      filtered = filtered.filter((product) => product.status === 'bajo_stock');
     }
     
     // Apply category filters
     if (selectedCategories.length > 0) {
-      filtered = filtered.filter((item) => selectedCategories.includes(item.categoria));
+      filtered = filtered.filter((product) => selectedCategories.includes(product.category));
     }
     
     // Apply search query
     if (searchQuery.trim()) {
       const query = normalizeSearchText(searchQuery.trim());
-      filtered = filtered.filter((item) => 
-        normalizeSearchText(item.nombre).includes(query) ||
-        normalizeSearchText(item.categoria).includes(query) ||
-        (item.subcategoria && normalizeSearchText(item.subcategoria).includes(query)) ||
-        (item.marca && normalizeSearchText(item.marca).includes(query)) ||
-        normalizeSearchText(item.location).includes(query)
+      filtered = filtered.filter((product) => 
+        normalizeSearchText(product.name).includes(query) ||
+        normalizeSearchText(product.category).includes(query) ||
+        (product.subCategory && normalizeSearchText(product.subCategory).includes(query)) ||
+        (product.brand && normalizeSearchText(product.brand).includes(query))
       );
     }
 
     // Apply column filters
-    if (columnFilters.nombre) {
-      const query = normalizeSearchText(columnFilters.nombre);
-      filtered = filtered.filter((item) => normalizeSearchText(item.nombre).includes(query));
+    if (columnFilters.name) {
+      const query = normalizeSearchText(columnFilters.name);
+      filtered = filtered.filter((product) => normalizeSearchText(product.name).includes(query));
     }
 
-    if (columnFilters.categoria && columnFilters.categoria.length > 0) {
-      filtered = filtered.filter((item) => columnFilters.categoria!.includes(item.categoria));
+    if (columnFilters.category && columnFilters.category.length > 0) {
+      filtered = filtered.filter((product) => columnFilters.category!.includes(product.category));
     }
 
-    if (columnFilters.subcategoria && columnFilters.subcategoria.length > 0) {
-      filtered = filtered.filter((item) => 
-        item.subcategoria && columnFilters.subcategoria!.includes(item.subcategoria)
+    if (columnFilters.subCategory && columnFilters.subCategory.length > 0) {
+      filtered = filtered.filter((product) => 
+        product.subCategory && columnFilters.subCategory!.includes(product.subCategory)
       );
     }
 
-    if (columnFilters.marca && columnFilters.marca.length > 0) {
-      filtered = filtered.filter((item) => 
-        item.marca && columnFilters.marca!.includes(item.marca)
+    if (columnFilters.brand && columnFilters.brand.length > 0) {
+      filtered = filtered.filter((product) => 
+        product.brand && columnFilters.brand!.includes(product.brand)
       );
     }
 
-    if (columnFilters.unidad && columnFilters.unidad.length > 0) {
-      filtered = filtered.filter((item) => columnFilters.unidad!.includes(item.unidad));
+    if (columnFilters.baseUnit && columnFilters.baseUnit.length > 0) {
+      filtered = filtered.filter((product) => columnFilters.baseUnit!.includes(product.baseUnit));
     }
 
-    if (columnFilters.location && columnFilters.location.length > 0) {
-      filtered = filtered.filter((item) => columnFilters.location!.includes(item.location));
-    }
-
-    if (columnFilters.stock_actual) {
-      const { min, max } = columnFilters.stock_actual;
+    if (columnFilters.totalStock) {
+      const { min, max } = columnFilters.totalStock;
       if (min !== undefined) {
-        filtered = filtered.filter((item) => item.stock_actual >= min);
+        filtered = filtered.filter((product) => product.totalStock >= min);
       }
       if (max !== undefined) {
-        filtered = filtered.filter((item) => item.stock_actual <= max);
+        filtered = filtered.filter((product) => product.totalStock <= max);
       }
     }
 
-    if (columnFilters.stock_minimo) {
-      const { min, max } = columnFilters.stock_minimo;
+    if (columnFilters.stockAlmacen) {
+      const { min, max } = columnFilters.stockAlmacen;
       if (min !== undefined) {
-        filtered = filtered.filter((item) => item.stock_minimo >= min);
+        filtered = filtered.filter((product) => product.stockAlmacen >= min);
       }
       if (max !== undefined) {
-        filtered = filtered.filter((item) => item.stock_minimo <= max);
+        filtered = filtered.filter((product) => product.stockAlmacen <= max);
       }
-    }
-
-    if (columnFilters.package_size) {
-      const query = normalizeSearchText(columnFilters.package_size);
-      filtered = filtered.filter((item) => 
-        item.package_size && normalizeSearchText(item.package_size).includes(query)
-      );
     }
 
     if (columnFilters.status && columnFilters.status.length > 0) {
-      filtered = filtered.filter((item) => columnFilters.status!.includes(item.status));
+      filtered = filtered.filter((product) => (columnFilters.status as string[]).includes(product.status));
     }
 
     if (columnFilters.active && columnFilters.active.length > 0) {
-      filtered = filtered.filter((item) => {
-        const itemActive = item.active ?? true;
-        return columnFilters.active!.includes(itemActive);
+      filtered = filtered.filter((product) => {
+        return columnFilters.active!.includes(product.active);
       });
     }
     
     return filtered;
-  }, [items, showOnlyActive, filterStatus, selectedCategories, searchQuery, columnFilters]);
+  }, [products, showOnlyActive, filterStatus, selectedCategories, searchQuery, columnFilters]);
 
   // Calculate statistics
   const stats = useMemo(() => {
-    if (!items) {
+    if (!products) {
       return { totalItems: 0, activeItems: 0, lowStockItems: 0 };
     }
     return {
-      totalItems: items.length,
-      activeItems: items.filter((item) => item.active ?? true).length,
-      lowStockItems: items.filter((item) => item.status === 'bajo_stock').length,
+      totalItems: products.length,
+      activeItems: products.filter((product) => product.active).length,
+      lowStockItems: products.filter((product) => product.status === 'bajo_stock').length,
     };
-  }, [items]);
+  }, [products]);
 
-  const handleItemClick = (item: ConvexItem) => {
-    setSelectedItem(item);
+  const handleItemClick = (product: ConvexProduct) => {
+    setSelectedProduct(product);
     setIsCreating(false);
     setIsDrawerOpen(true);
   };
 
   const handleCreateNew = () => {
-    setSelectedItem(null);
+    setSelectedProduct(null);
     setIsCreating(true);
     setIsDrawerOpen(true);
   };
 
   const handleFieldUpdate = async (
-    itemId: Id<"items">,
+    productId: Id<"products">,
     field: string,
     value: string | number | boolean | undefined
   ) => {
     try {
       // Validate required fields
-      if (field === 'location' && (!value || (typeof value === 'string' && value.trim() === ''))) {
-        setToast({
-          message: 'La ubicación es requerida',
-          type: 'error',
-          isOpen: true,
-        });
-        throw new Error('Location is required');
-      }
-
-      if (field === 'nombre' && (!value || (typeof value === 'string' && value.trim() === ''))) {
+      if (field === 'name' && (!value || (typeof value === 'string' && value.trim() === ''))) {
         setToast({
           message: 'El nombre es requerido',
           type: 'error',
           isOpen: true,
         });
-        throw new Error('Nombre is required');
+        throw new Error('Name is required');
       }
 
       // For optional fields, convert empty string to undefined
-      const optionalFields = ['subcategoria', 'marca', 'package_size', 'extra_notes'];
+      const optionalFields = ['subCategory', 'brand'];
       const finalValue = optionalFields.includes(field) && value === '' ? undefined : value;
 
-      await updateItem({
-        id: itemId,
+      await updateProduct({
+        id: productId,
         [field]: finalValue,
       });
       setToast({
@@ -393,49 +355,62 @@ export default function ItemsEditorPage() {
   };
 
   const handleSaveItem = async (
-    itemId: Id<"items"> | null,
-    data: Partial<ConvexItem>
+    productId: Id<"products"> | null,
+    data: Partial<ConvexProduct>
   ) => {
     try {
-      if (itemId) {
-        // Update existing item
-        await updateItem({
-          id: itemId,
-          ...data,
-          sharedAreas: data.sharedAreas,
+      if (productId) {
+        // Update existing product
+        await updateProduct({
+          id: productId,
+          name: data.name,
+          brand: data.brand,
+          category: data.category,
+          subCategory: data.subCategory,
+          baseUnit: data.baseUnit,
+          purchaseUnit: data.purchaseUnit,
+          conversionFactor: data.conversionFactor,
+          packageSize: data.packageSize,
+          active: data.active,
         });
         setToast({
-          message: 'Item actualizado correctamente',
+          message: 'Producto actualizado correctamente',
           type: 'success',
           isOpen: true,
         });
       } else {
-        // Create new item
-        await createItem({
-          nombre: data.nombre!,
-          categoria: data.categoria!,
-          subcategoria: data.subcategoria,
-          marca: data.marca,
-          unidad: data.unidad!,
-          stock_actual: data.stock_actual!,
-          stock_minimo: data.stock_minimo!,
-          package_size: data.package_size,
-          location: data.location || 'Almacén Principal',
-          extra_notes: data.extra_notes,
+        // Create new product
+        const newProductId = await createProduct({
+          name: data.name!,
+          brand: data.brand || '',
+          category: data.category!,
+          subCategory: data.subCategory,
+          baseUnit: data.baseUnit!,
+          purchaseUnit: data.purchaseUnit || data.baseUnit!,
+          conversionFactor: data.conversionFactor || 1,
+          packageSize: data.packageSize || 0,
           active: data.active ?? true,
-          sharedAreas: data.sharedAreas,
         });
+        
+        // Initialize inventory for the new product
+        await initializeInventory({
+          productId: newProductId,
+          location: 'almacen',
+          stockActual: 0,
+          stockMinimo: 0,
+        });
+        
         setToast({
-          message: 'Item creado correctamente',
+          message: 'Producto creado correctamente',
           type: 'success',
           isOpen: true,
         });
       }
       setIsDrawerOpen(false);
     } catch (error) {
-      console.error('Error al guardar item:', error);
+      console.error('Error al guardar producto:', error);
       setToast({
-        message: 'Error al guardar item',
+        message: 'Error al guardar producto',
         type: 'error',
         isOpen: true,
       });
@@ -445,10 +420,9 @@ export default function ItemsEditorPage() {
 
   const handleSaveColumnConfig = async (newColumns: ColumnConfig[]) => {
     if (!uiConfigAvailable || !saveConfig) {
-      // Just update local state if Convex functions aren't available
       setColumns(newColumns);
       setToast({
-        message: 'Configuración guardada localmente (Convex no sincronizado)',
+        message: 'Configuración guardada localmente',
         type: 'info',
         isOpen: true,
       });
@@ -472,11 +446,8 @@ export default function ItemsEditorPage() {
       });
     } catch (error: any) {
       console.error('Error al guardar configuración:', error);
-      const errorMessage = error?.message?.includes('Could not find public function')
-        ? 'Convex no está corriendo. Ejecuta: npx convex dev'
-        : 'Error al guardar configuración';
       setToast({
-        message: errorMessage,
+        message: 'Error al guardar configuración',
         type: 'error',
         isOpen: true,
       });
@@ -485,7 +456,6 @@ export default function ItemsEditorPage() {
 
   const handleToggleShowOnlyActive = (value: boolean) => {
     setShowOnlyActive(value);
-    // Save to config (fail silently if Convex not running)
     if (uiConfigAvailable && saveConfig) {
       saveConfig({
         userId: 'admin',
@@ -495,7 +465,6 @@ export default function ItemsEditorPage() {
           showOnlyActive: value,
         },
       }).catch((error) => {
-        // Silently fail - config will be saved when Convex is running
         console.error('Error al guardar configuración:', error);
       });
     }
@@ -525,23 +494,38 @@ export default function ItemsEditorPage() {
 
   const handleExportCSV = () => {
     try {
-      if (!filteredItems || filteredItems.length === 0) {
+      if (!filteredProducts || filteredProducts.length === 0) {
         setToast({
-          message: 'No hay items para exportar',
+          message: 'No hay productos para exportar',
           type: 'error',
           isOpen: true,
         });
         return;
       }
 
-      const csvContent = exportItemsToCSV(filteredItems);
+      // Create CSV content with new fields
+      const headers = ['name', 'brand', 'category', 'subCategory', 'baseUnit', 'purchaseUnit', 'conversionFactor', 'packageSize', 'totalStock', 'stockAlmacen', 'active'];
+      const rows = filteredProducts.map(product => [
+        product.name,
+        product.brand,
+        product.category,
+        product.subCategory || '',
+        product.baseUnit,
+        product.purchaseUnit,
+        product.conversionFactor.toString(),
+        product.packageSize.toString(),
+        product.totalStock.toString(),
+        product.stockAlmacen.toString(),
+        product.active.toString(),
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       
-      // Generate filename with timestamp
       const now = new Date();
       const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
-      const filename = `inventario_${timestamp}.csv`;
+      const filename = `productos_${timestamp}.csv`;
       
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
@@ -552,7 +536,7 @@ export default function ItemsEditorPage() {
       document.body.removeChild(link);
       
       setToast({
-        message: `Exportado ${filteredItems.length} items a CSV`,
+        message: `Exportado ${filteredProducts.length} productos a CSV`,
         type: 'success',
         isOpen: true,
       });
@@ -567,135 +551,12 @@ export default function ItemsEditorPage() {
   };
 
   const handleImportCSV = async (file: File) => {
-    try {
-      // Validate file type
-      if (!file.name.endsWith('.csv')) {
-        setToast({
-          message: 'El archivo debe ser un CSV',
-          type: 'error',
-          isOpen: true,
-        });
-        return;
-      }
-
-      setIsImporting(true);
-      setIsImportModalOpen(true);
-      setImportResult(null);
-
-      // Parse CSV file
-      const rows = await parseCSVFile(file);
-      
-      if (rows.length === 0) {
-        setImportResult({
-          totalRows: 0,
-          created: 0,
-          updated: 0,
-          errors: [{ row: 0, message: 'El archivo CSV está vacío o no tiene datos válidos' }],
-        });
-        setIsImporting(false);
-        return;
-      }
-
-      const result: ImportResult = {
-        totalRows: rows.length,
-        created: 0,
-        updated: 0,
-        errors: [],
-      };
-
-      // Process each row
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        
-        // Validate row
-        const validation = validateCSVRow(row, i);
-        if (!validation.isValid) {
-          result.errors.push(...validation.errors.map(err => ({ row: i + 1, message: err })));
-          continue;
-        }
-
-        // Find existing item by nombre (case-insensitive)
-        const existingItem = items?.find(
-          (item) => item.nombre.toLowerCase().trim() === row.nombre.toLowerCase().trim()
-        );
-
-        try {
-          if (existingItem) {
-            // Update existing item
-            await updateItem({
-              id: existingItem._id,
-              nombre: row.nombre,
-              categoria: row.categoria,
-              subcategoria: row.subcategoria || undefined,
-              marca: row.marca || undefined,
-              unidad: row.unidad,
-              stock_actual: row.stock_actual,
-              stock_minimo: row.stock_minimo,
-              package_size: row.package_size || undefined,
-              location: row.location,
-              extra_notes: row.extra_notes || undefined,
-              active: row.active,
-              updatedBy: row.updatedBy || undefined,
-              // updatedAt is ignored, set automatically in mutation
-            });
-            result.updated++;
-          } else {
-            // Create new item
-            await createItem({
-              nombre: row.nombre,
-              categoria: row.categoria,
-              subcategoria: row.subcategoria,
-              marca: row.marca,
-              unidad: row.unidad,
-              stock_actual: row.stock_actual,
-              stock_minimo: row.stock_minimo,
-              package_size: row.package_size,
-              location: row.location || 'Almacén Principal',
-              extra_notes: row.extra_notes,
-              active: row.active ?? true,
-              // updatedBy and updatedAt will be set automatically in mutation
-            });
-            result.created++;
-          }
-        } catch (error: any) {
-          result.errors.push({
-            row: i + 1,
-            message: `Error al procesar fila ${i + 1}: ${error?.message || 'Error desconocido'}`,
-          });
-        }
-      }
-
-      setImportResult(result);
-      setIsImporting(false);
-
-      if (result.errors.length === 0) {
-        setToast({
-          message: `Importación exitosa: ${result.created} creados, ${result.updated} actualizados`,
-          type: 'success',
-          isOpen: true,
-        });
-      } else {
-        setToast({
-          message: `Importación completada con errores: ${result.created} creados, ${result.updated} actualizados, ${result.errors.length} errores`,
-          type: 'info',
-          isOpen: true,
-        });
-      }
-    } catch (error: any) {
-      console.error('Error al importar CSV:', error);
-      setIsImporting(false);
-      setImportResult({
-        totalRows: 0,
-        created: 0,
-        updated: 0,
-        errors: [{ row: 0, message: `Error al parsear CSV: ${error?.message || 'Error desconocido'}` }],
-      });
-      setToast({
-        message: 'Error al importar CSV',
-        type: 'error',
-        isOpen: true,
-      });
-    }
+    // Import functionality needs to be updated for new schema
+    setToast({
+      message: 'Función de importación en actualización para nuevo esquema',
+      type: 'info',
+      isOpen: true,
+    });
   };
 
   if (isMobile) {
@@ -727,7 +588,7 @@ export default function ItemsEditorPage() {
     );
   }
 
-  if (items === undefined) {
+  if (products === undefined) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
@@ -750,7 +611,7 @@ export default function ItemsEditorPage() {
           totalItems={stats.totalItems}
           activeItems={stats.activeItems}
           lowStockItems={stats.lowStockItems}
-          filteredItems={filteredItems.length}
+          filteredItems={filteredProducts.length}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           filterStatus={filterStatus}
@@ -776,7 +637,7 @@ export default function ItemsEditorPage() {
           {/* Table Section (80%) */}
           <div className="flex-1" style={{ width: '80%' }}>
             <ItemsTable
-              items={filteredItems}
+              items={filteredProducts as ConvexProduct[]}
               columns={columns}
               onItemClick={handleItemClick}
               onFieldUpdate={handleFieldUpdate}
@@ -804,11 +665,11 @@ export default function ItemsEditorPage() {
 
       {/* Drawer */}
       <ItemDrawer
-        item={selectedItem}
+        item={selectedProduct}
         isOpen={isDrawerOpen}
         onClose={() => {
           setIsDrawerOpen(false);
-          setSelectedItem(null);
+          setSelectedProduct(null);
         }}
         onSave={handleSaveItem}
         categories={categories}

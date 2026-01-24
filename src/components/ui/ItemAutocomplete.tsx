@@ -7,25 +7,27 @@ import { Id } from 'convex/_generated/dataModel';
 import { normalizeSearchText } from '@/lib/utils';
 
 interface ItemAutocompleteProps {
-  value: Id<'items'> | null;
-  onChange: (itemId: Id<'items'> | null, item: any) => void;
+  value: Id<'products'> | null;
+  onChange: (productId: Id<'products'> | null, product: ConvexProduct | null) => void;
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
 }
 
-type ConvexItem = {
-  _id: Id<'items'>;
-  nombre: string;
-  categoria: string;
-  subcategoria?: string;
-  marca?: string;
-  unidad: string;
-  stock_actual: number;
-  stock_minimo: number;
-  package_size?: string;
-  location: string;
-  extra_notes?: string;
+type ConvexProduct = {
+  _id: Id<'products'>;
+  name: string;
+  brand: string;
+  category: string;
+  subCategory?: string;
+  baseUnit: string;
+  purchaseUnit: string;
+  conversionFactor: number;
+  packageSize: number;
+  active: boolean;
+  totalStock: number;
+  stockAlmacen: number;
+  stockCafetin: number;
   status: 'ok' | 'bajo_stock';
 };
 
@@ -42,42 +44,47 @@ export function ItemAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const items = useQuery(api.items.list);
+  const products = useQuery(api.products.listWithInventory);
 
-  // Get selected item name for display
-  const selectedItem = useMemo(() => {
-    if (!value || !items) return null;
-    return items.find((item) => item._id === value);
-  }, [value, items]);
+  // Get selected product for display
+  const selectedProduct = useMemo(() => {
+    if (!value || !products) return null;
+    return products.find((product) => product._id === value);
+  }, [value, products]);
 
-  // Filter items based on search query
-  const filteredItems = useMemo(() => {
-    if (!items || !searchQuery.trim()) {
-      return items || [];
+  // Filter products based on search query
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    
+    // Only show active products
+    const activeProducts = products.filter((p) => p.active);
+    
+    if (!searchQuery.trim()) {
+      return activeProducts;
     }
 
     const query = normalizeSearchText(searchQuery);
-    return items.filter((item) => {
-      const nombreMatch = normalizeSearchText(item.nombre).includes(query);
-      const categoriaMatch = normalizeSearchText(item.categoria).includes(query);
-      const subcategoriaMatch = item.subcategoria ? normalizeSearchText(item.subcategoria).includes(query) : false;
-      const marcaMatch = item.marca ? normalizeSearchText(item.marca).includes(query) : false;
+    return activeProducts.filter((product) => {
+      const nameMatch = normalizeSearchText(product.name).includes(query);
+      const categoryMatch = normalizeSearchText(product.category).includes(query);
+      const subCategoryMatch = product.subCategory ? normalizeSearchText(product.subCategory).includes(query) : false;
+      const brandMatch = product.brand ? normalizeSearchText(product.brand).includes(query) : false;
 
-      return nombreMatch || categoriaMatch || subcategoriaMatch || marcaMatch;
+      return nameMatch || categoryMatch || subCategoryMatch || brandMatch;
     });
-  }, [items, searchQuery]);
+  }, [products, searchQuery]);
 
-  // Handle item selection
-  const handleSelect = (item: ConvexItem) => {
-    onChange(item._id, item);
-    setSearchQuery(item.nombre);
+  // Handle product selection
+  const handleSelect = (product: ConvexProduct) => {
+    onChange(product._id, product);
+    setSearchQuery(product.name);
     setIsOpen(false);
     setSelectedIndex(-1);
   };
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen || filteredItems.length === 0) {
+    if (!isOpen || filteredProducts.length === 0) {
       if (e.key === 'Enter') {
         e.preventDefault();
       }
@@ -87,7 +94,7 @@ export function ItemAutocomplete({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex((prev) => (prev < filteredItems.length - 1 ? prev + 1 : prev));
+        setSelectedIndex((prev) => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -95,8 +102,8 @@ export function ItemAutocomplete({
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
-          handleSelect(filteredItems[selectedIndex]);
+        if (selectedIndex >= 0 && selectedIndex < filteredProducts.length) {
+          handleSelect(filteredProducts[selectedIndex]);
         }
         break;
       case 'Escape':
@@ -133,12 +140,12 @@ export function ItemAutocomplete({
     }
   }, [selectedIndex]);
 
-  // Update search query when selected item changes
+  // Update search query when selected product changes
   useEffect(() => {
-    if (selectedItem && !isOpen) {
-      setSearchQuery(selectedItem.nombre);
+    if (selectedProduct && !isOpen) {
+      setSearchQuery(selectedProduct.name);
     }
-  }, [selectedItem, isOpen]);
+  }, [selectedProduct, isOpen]);
 
   return (
     <div className={`relative ${className}`}>
@@ -179,48 +186,48 @@ export function ItemAutocomplete({
       </div>
 
       {/* Dropdown */}
-      {isOpen && filteredItems.length > 0 && (
+      {isOpen && filteredProducts.length > 0 && (
         <div
           ref={dropdownRef}
           className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
         >
-          {filteredItems.map((item, index) => (
+          {filteredProducts.map((product, index) => (
             <button
-              key={item._id}
+              key={product._id}
               type="button"
-              onClick={() => handleSelect(item)}
+              onClick={() => handleSelect(product)}
               className={`w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors ${
                 index === selectedIndex ? 'bg-gray-50' : ''
               } ${
-                item.status === 'bajo_stock' ? 'border-l-4 border-l-red-500' : ''
+                product.status === 'bajo_stock' ? 'border-l-4 border-l-red-500' : ''
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {item.nombre}
+                    {product.name}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-gray-500">{item.categoria}</span>
-                    {item.subcategoria && (
+                    <span className="text-xs text-gray-500">{product.category}</span>
+                    {product.subCategory && (
                       <>
                         <span className="text-xs text-gray-400">•</span>
-                        <span className="text-xs text-gray-500">{item.subcategoria}</span>
+                        <span className="text-xs text-gray-500">{product.subCategory}</span>
                       </>
                     )}
-                    {item.marca && (
+                    {product.brand && (
                       <>
                         <span className="text-xs text-gray-400">•</span>
-                        <span className="text-xs text-gray-500">{item.marca}</span>
+                        <span className="text-xs text-gray-500">{product.brand}</span>
                       </>
                     )}
                   </div>
                 </div>
                 <div className="ml-4 text-right">
                   <p className="text-sm font-medium text-gray-900">
-                    {item.stock_actual} {item.unidad}
+                    {product.totalStock} {product.baseUnit}
                   </p>
-                  {item.status === 'bajo_stock' && (
+                  {product.status === 'bajo_stock' && (
                     <p className="text-xs text-red-600">Bajo stock</p>
                   )}
                 </div>
@@ -231,7 +238,7 @@ export function ItemAutocomplete({
       )}
 
       {/* No results */}
-      {isOpen && searchQuery.trim() && filteredItems.length === 0 && (
+      {isOpen && searchQuery.trim() && filteredProducts.length === 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4">
           <p className="text-sm text-gray-500 text-center">
             No se encontraron productos
