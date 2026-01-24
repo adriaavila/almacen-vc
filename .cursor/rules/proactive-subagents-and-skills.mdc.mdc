@@ -1,0 +1,18 @@
+---
+description: Actively seek out and use the relevant Skill/Subagent in regular tasks
+alwaysApply: true
+---
+
+# Actively Utilize Skills and Subagents
+
+## Usage Guidelines
+
+- **Skill**: For tasks requiring specialized knowledge -> Read `/.cursor/skills` before starting work, and apply the procedures/constraints as they are. Don't just declare it—actually implement it.
+- **Subagent**: Delegate for tasks where an independent context is effective (e.g., refactoring, review, broad exploration), or when parallel execution is desired.
+
+* Both can be used together. It's also common to pass Skill knowledge to a Subagent for execution.
+* For small tasks where no relevant Skill/Subagent exists, proceed with the regular flow.
+
+## Explicitly State When Using
+
+When using a Skill/Subagent, clearly state the one being used and the reason in one line before proceeding.

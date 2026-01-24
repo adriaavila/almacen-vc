@@ -237,6 +237,20 @@ function CreateOrderPageContent() {
       .filter(Boolean) as Array<ConvexProduct & { cantidad: number }>;
   }, [quantities, areaProducts]);
   
+  // Loading state - prevent flickering by showing loading UI when products is undefined
+  // This check must be after all hooks to comply with Rules of Hooks
+  if (products === undefined) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <PageContainer>
+          <div className="text-center py-12 text-gray-500">
+            <p>Cargando productos...</p>
+          </div>
+        </PageContainer>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-gray-50">
       <PageContainer>

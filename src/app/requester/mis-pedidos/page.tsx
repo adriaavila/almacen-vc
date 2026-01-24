@@ -41,11 +41,11 @@ export default function MyOrdersPage() {
   
   // Get filtered orders based on user's area
   const filteredOrders = userArea === 'Cocina'
-    ? ordersCocina
+    ? (ordersCocina ?? [])
     : userArea === 'Cafetín'
-    ? ordersCafetin
+    ? (ordersCafetin ?? [])
     : userArea === 'Limpieza'
-    ? ordersLimpieza
+    ? (ordersLimpieza ?? [])
     : []; // Empty array if no area is set
 
   // Get order with items for expanded order
@@ -84,7 +84,8 @@ export default function MyOrdersPage() {
     }
   };
 
-  const isLoading = filteredOrders === undefined;
+  // Check all three queries individually to properly detect loading state
+  const isLoading = ordersCocina === undefined || ordersCafetin === undefined || ordersLimpieza === undefined;
 
   return (
     <div className="min-h-screen bg-gray-50">
