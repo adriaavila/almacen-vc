@@ -13,15 +13,26 @@ interface RequesterSidebarProps {
 export function RequesterSidebar({ isOpen, onClose }: RequesterSidebarProps) {
   const pathname = usePathname();
 
-  // Prevent body scroll when sidebar is open
+  // Prevent body scroll when sidebar is open (only on mobile)
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    const checkScreenSize = () => {
+      const isMobileScreen = window.innerWidth < 1024;
+      if (isOpen && isMobileScreen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+    
+    // Check on mount and when sidebar state changes
+    checkScreenSize();
+    
+    // Also check on resize
+    window.addEventListener('resize', checkScreenSize);
+    
     return () => {
       document.body.style.overflow = '';
+      window.removeEventListener('resize', checkScreenSize);
     };
   }, [isOpen]);
 
@@ -51,6 +62,15 @@ export function RequesterSidebar({ isOpen, onClose }: RequesterSidebarProps) {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/requester/stock',
+      label: 'Stock',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
         </svg>
       ),
     },

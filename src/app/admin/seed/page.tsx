@@ -117,10 +117,12 @@ export default function SeedPage() {
   const clearAllMutation = useMutation(api.seed.clearAll);
   const bulkImportCafetin = useMutation(api.products.bulkImportCafetin);
   const updateConsumidoToUso = useMutation(api.movements.updateConsumidoToUso);
+  const setAllCafetinStockToOne = useMutation(api.inventory.setAllCafetinStockToOne);
   
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [settingStock, setSettingStock] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -193,6 +195,29 @@ export default function SeedPage() {
     }
   };
 
+  const handleSetAllCafetinStockToOne = async () => {
+    if (!confirm('¿Establecer stock a 1 para todos los productos en ubicación CAFETIN?')) {
+      return;
+    }
+
+    setSettingStock(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const result = await setAllCafetinStockToOne({ user: 'admin' });
+      setMessage(
+        `✅ Actualización completada:\n` +
+        `- Productos actualizados: ${result.updated}\n` +
+        `- Total productos en cafetín: ${result.total}`
+      );
+    } catch (err: any) {
+      setError(`❌ Error: ${err.message || 'Error desconocido'}`);
+    } finally {
+      setSettingStock(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -247,6 +272,22 @@ export default function SeedPage() {
                 variant="primary"
               >
                 {updating ? 'Actualizando...' : 'Actualizar Movimientos'}
+              </Button>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold text-purple-600 mb-2">
+                📊 Establecer Stock Cafetín a 1
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Establece el stock a 1 para todos los productos en la ubicación CAFETIN. Se crearán registros de movimiento para cada ajuste.
+              </p>
+              <Button
+                onClick={handleSetAllCafetinStockToOne}
+                disabled={settingStock}
+                variant="primary"
+              >
+                {settingStock ? 'Actualizando...' : 'Establecer Stock a 1'}
               </Button>
             </div>
 

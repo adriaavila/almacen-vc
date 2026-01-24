@@ -84,7 +84,7 @@ export default function RequesterLayout({
     return (
       <div className="flex min-h-screen bg-gray-50">
         <RequesterSidebar isOpen={isSidebarOpen} onClose={handleClose} />
-        <main className="flex-1 lg:ml-64">
+        <main className="flex-1 lg:ml-64 w-full">
           {/* Mobile menu button - only shown when sidebar is closed */}
           {isMobile && !sidebarOpen && (
             <button

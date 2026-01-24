@@ -81,10 +81,10 @@ export default function POSPage() {
     return slots.find(s => s.id === activeSlotId) || slots[0];
   }, [slots, activeSlotId]);
 
-  // Filter products for grid (only active products with stock)
+  // Filter products for grid (only active products with cafetin stock)
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    return products.filter(product => product.active && product.totalStock > 0);
+    return products.filter(product => product.active && product.stockCafetin > 0);
   }, [products]);
 
   // Handle slot activation

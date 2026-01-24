@@ -404,3 +404,60 @@ export const initialize = mutation({
     return inventoryId;
   },
 });
+
+// Bulk update all cafetin location products to stock 1
+export const setAllCafetinStockToOne = mutation({
+  args: {
+    user: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get all inventory records for cafetin location
+    const cafetinInventory = await ctx.db
+      .query("inventory")
+      .withIndex("by_location", (q) => q.eq("location", "cafetin"))
+      .collect();
+
+    const now = Date.now();
+    const results = [];
+
+    for (const inv of cafetinInventory) {
+      const prevStock = inv.stockActual;
+      
+      // Only update if stock is not already 1
+      if (prevStock !== 1) {
+        // Update inventory
+        await ctx.db.patch(inv._id, {
+          stockActual: 1,
+          updatedAt: now,
+        });
+
+        // Create adjustment movement
+        const difference = 1 - prevStock;
+        await ctx.db.insert("movements", {
+          productId: inv.productId,
+          type: "AJUSTE",
+          from: undefined,
+          to: "CAFETIN",
+          quantity: Math.abs(difference),
+          prevStock,
+          nextStock: 1,
+          user: args.user,
+          timestamp: now,
+        });
+
+        results.push({
+          inventoryId: inv._id,
+          productId: inv.productId,
+          prevStock,
+          newStock: 1,
+        });
+      }
+    }
+
+    return {
+      updated: results.length,
+      total: cafetinInventory.length,
+      results,
+    };
+  },
+});

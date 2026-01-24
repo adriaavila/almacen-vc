@@ -34,20 +34,29 @@ export default function InventoryPage() {
   const updateStock = useMutation(api.inventory.updateStock);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [adjustingId, setAdjustingId] = useState<Id<"products"> | null>(null);
   const [adjustValue, setAdjustValue] = useState<string>('0');
   const [editingProduct, setEditingProduct] = useState<ConvexProduct | null>(null);
   const [editValue, setEditValue] = useState<string>('');
-  
-  // Get unique categories
-  const categories = useMemo(() => {
+
+  // Get unique subcategories from all active products
+  const subCategories = useMemo(() => {
     if (!products || products.length === 0) return [];
-    const cats = Array.from(new Set(products.map(product => product.category)))
-      .filter(cat => cat !== 'Personal' && cat !== 'Refrigerados');
-    return ['All', ...cats];
+    const filtered = products.filter(p => p.active);
+    
+    // Get unique subcategories from filtered products
+    const subCats = Array.from(
+      new Set(
+        filtered
+          .map(product => product.subCategory)
+          .filter((subCat): subCat is string => !!subCat && subCat.trim() !== '')
+      )
+    ).sort();
+    
+    return ['All', ...subCats];
   }, [products]);
   
   // Filter and search products
@@ -57,9 +66,9 @@ export default function InventoryPage() {
     // Only show active products
     let filtered = products.filter(p => p.active);
     
-    // Filter by category
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(product => product.category === selectedCategory);
+    // Filter by subcategory
+    if (selectedSubCategory !== 'All') {
+      filtered = filtered.filter(product => product.subCategory === selectedSubCategory);
     }
     
     // Filter by location
@@ -110,7 +119,7 @@ export default function InventoryPage() {
     }
     
     return sorted;
-  }, [products, selectedCategory, selectedLocation, searchQuery, sortOrder]);
+  }, [products, selectedSubCategory, selectedLocation, searchQuery, sortOrder]);
   
   const handleAdjustClick = (product: ConvexProduct, delta?: number) => {
     if (adjustingId === product._id) {
@@ -276,20 +285,21 @@ export default function InventoryPage() {
         {/* Selectors */}
         <div className="mb-6 w-full">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Category Selector */}
+            {/* Subcategory Selector */}
             <div>
-              <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Filtrar por categoría
+              <label htmlFor="subcategory-select" className="block text-sm font-medium text-gray-700 mb-1">
+                Filtrar por subcategoría
               </label>
               <select
-                id="category-select"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                id="subcategory-select"
+                value={selectedSubCategory}
+                onChange={(e) => setSelectedSubCategory(e.target.value)}
+                disabled={subCategories.length <= 1}
+                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               >
-                <option value="All">Todas las categorías</option>
-                {categories.filter(cat => cat !== 'All').map(category => (
-                  <option key={category} value={category}>{category}</option>
+                <option value="All">Todas las subcategorías</option>
+                {subCategories.filter(subCat => subCat !== 'All').map(subCategory => (
+                  <option key={subCategory} value={subCategory}>{subCategory}</option>
                 ))}
               </select>
             </div>
@@ -331,13 +341,13 @@ export default function InventoryPage() {
           </div>
           
           {/* Clear Filters Button */}
-          {(searchQuery || selectedCategory !== 'All' || selectedLocation !== 'all' || sortOrder !== 'name-asc') && (
+          {(searchQuery || selectedSubCategory !== 'All' || selectedLocation !== 'all' || sortOrder !== 'name-asc') && (
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery('');
-                  setSelectedCategory('All');
+                  setSelectedSubCategory('All');
                   setSelectedLocation('all');
                   setSortOrder('name-asc');
                 }}

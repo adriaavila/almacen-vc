@@ -59,7 +59,7 @@ export default function OwnerLayout({
         </div>
       </header>
       
-      <main>{children}</main>
+      <main className="w-full">{children}</main>
     </div>
   );
 }
