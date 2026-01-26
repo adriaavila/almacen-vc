@@ -18,7 +18,7 @@ export function StatsCards({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {/* Total Items */}
-      <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow col-span-2 sm:col-span-1 lg:col-span-1">
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">

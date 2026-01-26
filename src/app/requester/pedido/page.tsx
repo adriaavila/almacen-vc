@@ -8,10 +8,14 @@ import { Id } from 'convex/_generated/dataModel';
 import { useRef } from 'react';
 import { Camera } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Toast } from '@/components/ui/Toast';
+import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
+import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { QuantityInput } from '@/components/ui/QuantityInput';
 import { setUserArea, getUserArea } from '@/lib/auth';
 import { pluralizeUnit, normalizeSearchText } from '@/lib/utils';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import { Area } from '@/types';
 
 const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
@@ -25,7 +29,6 @@ type ConvexProduct = {
   baseUnit: string;
   purchaseUnit: string;
   conversionFactor: number;
-  packageSize: number;
   active: boolean;
   totalStock: number;
   stockAlmacen: number;
@@ -51,10 +54,18 @@ function CreateOrderPageContent() {
   const createOrder = useMutation(api.orders.create);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    isOpen: boolean;
+  }>({
+    message: '',
+    type: 'info',
+    isOpen: false,
+  });
   const [summaryExpanded, setSummaryExpanded] = useState(true);
   const [orderListPhoto, setOrderListPhoto] = useState<File | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -102,8 +113,6 @@ function CreateOrderPageContent() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccessMessage(null);
     setIsSubmitting(true);
     
     try {
@@ -118,7 +127,11 @@ function CreateOrderPageContent() {
         }));
       
       if (orderItems.length === 0) {
-        setError('Debe seleccionar al menos un producto');
+        setToast({
+          message: 'Debe seleccionar al menos un producto',
+          type: 'error',
+          isOpen: true,
+        });
         setIsSubmitting(false);
         return;
       }
@@ -129,7 +142,11 @@ function CreateOrderPageContent() {
       });
       
       // Immediate feedback
-      setSuccessMessage('Pedido enviado');
+      setToast({
+        message: 'Pedido enviado correctamente',
+        type: 'success',
+        isOpen: true,
+      });
       setIsSubmitting(false);
       
       // Clear form
@@ -142,7 +159,11 @@ function CreateOrderPageContent() {
       }, 1500);
     } catch (err) {
       console.error('Error al crear pedido:', err);
-      setError('No se pudo enviar el pedido. Intente de nuevo.');
+      setToast({
+        message: 'No se pudo enviar el pedido. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
       setIsSubmitting(false);
     }
   };
@@ -171,10 +192,10 @@ function CreateOrderPageContent() {
     if (!areaProducts || areaProducts.length === 0) return [];
     
     return areaProducts.filter(product => {
-      // Search filter
-      const matchesSearch = searchQuery === '' || 
-        normalizeSearchText(product.name).includes(normalizeSearchText(searchQuery)) ||
-        (product.subCategory && normalizeSearchText(product.subCategory).includes(normalizeSearchText(searchQuery)));
+      // Search filter (using debounced query)
+      const matchesSearch = debouncedSearchQuery === '' || 
+        normalizeSearchText(product.name).includes(normalizeSearchText(debouncedSearchQuery)) ||
+        (product.subCategory && normalizeSearchText(product.subCategory).includes(normalizeSearchText(debouncedSearchQuery)));
       
       // Subcategory filter
       const matchesSubcategory = selectedSubcategory === 'all' || 
@@ -182,7 +203,7 @@ function CreateOrderPageContent() {
       
       return matchesSearch && matchesSubcategory;
     });
-  }, [areaProducts, searchQuery, selectedSubcategory]);
+  }, [areaProducts, debouncedSearchQuery, selectedSubcategory]);
 
   // Group filtered products by category and sort by name
   const productsByCategory = useMemo(() => {
@@ -243,9 +264,7 @@ function CreateOrderPageContent() {
     return (
       <div className="min-h-screen bg-gray-50">
         <PageContainer>
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando productos...</p>
-          </div>
+          <ProductListSkeleton count={8} />
         </PageContainer>
       </div>
     );
@@ -254,18 +273,6 @@ function CreateOrderPageContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <PageContainer>
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
-            {error}
-          </div>
-        )}
-        
-        {successMessage && (
-          <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800">
-            {successMessage}
-          </div>
-        )}
-        
         {/* Selected Products Summary Panel */}
         {selectedProducts.length > 0 && (
           <div className="sticky top-0 z-10 bg-white border-t-4 border-t-emerald-500 rounded-md shadow-sm mb-4">
@@ -384,16 +391,22 @@ function CreateOrderPageContent() {
           </div>
           
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos Disponibles</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 text-center">Productos Disponibles</h2>
             
             {Object.keys(productsByCategory).length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-                <p className="text-gray-500">
-                  {searchQuery || selectedSubcategory !== 'all' 
-                    ? 'No se encontraron productos con los filtros seleccionados' 
-                    : 'No hay productos disponibles'}
-                </p>
-              </div>
+              searchQuery || selectedSubcategory !== 'all' ? (
+                <EmptySearchResultsState
+                  onClearFilters={() => {
+                    setSearchQuery('');
+                    setSelectedSubcategory('all');
+                  }}
+                />
+              ) : (
+                <EmptyState
+                  title="No hay productos disponibles"
+                  message="No hay productos disponibles en este momento."
+                />
+              )
             ) : (
               Object.entries(productsByCategory).map(([category, categoryProducts]) => {
                 const isExpanded = expandedCategories[category] !== false; // Default to true
@@ -492,6 +505,14 @@ function CreateOrderPageContent() {
           </Button>
         </div>
       </PageContainer>
+
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
     </div>
   );
 }
@@ -501,9 +522,7 @@ export default function CreateOrderPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50">
         <PageContainer>
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando...</p>
-          </div>
+          <ProductListSkeleton count={8} />
         </PageContainer>
       </div>
     }>

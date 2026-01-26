@@ -6,6 +6,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { Button } from '@/components/ui/Button';
+import { Toast } from '@/components/ui/Toast';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
@@ -19,7 +20,15 @@ export default function OrderDetailPage() {
   const deliverOrder = useMutation(api.orders.deliver);
   
   const [isDelivering, setIsDelivering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    isOpen: boolean;
+  }>({
+    message: '',
+    type: 'info',
+    isOpen: false,
+  });
   const [deliveryResult, setDeliveryResult] = useState<{
     deliveredItems: Array<{ itemId: string; cantidad: number; newStock: number }>;
     lowStockItems: Array<{ itemId: string; nombre: string; stock_actual: number; stock_minimo: number }>;
@@ -30,15 +39,23 @@ export default function OrderDetailPage() {
     if (!orderId || !order) return;
     
     setIsDelivering(true);
-    setError(null);
     
     try {
       const result = await deliverOrder({ id: orderId });
       setDeliveryResult(result);
       setIsDelivered(true);
+      setToast({
+        message: 'Pedido entregado correctamente',
+        type: 'success',
+        isOpen: true,
+      });
       setIsDelivering(false);
     } catch (err) {
-      setError('No se pudo entregar el pedido. Intente de nuevo.');
+      setToast({
+        message: 'No se pudo entregar el pedido. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
       setIsDelivering(false);
     }
   };
@@ -107,12 +124,6 @@ export default function OrderDetailPage() {
           </Button>
         </div>
         
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
-            {error}
-          </div>
-        )}
-        
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
@@ -132,7 +143,7 @@ export default function OrderDetailPage() {
           </div>
           
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Ítems del Pedido</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 text-center">Ítems del Pedido</h2>
             {order.items && order.items.length > 0 ? (
               <div className="space-y-2">
                 {order.items.map((item: any) => (
@@ -164,11 +175,11 @@ export default function OrderDetailPage() {
         {isDelivered && deliveryResult && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
             <div className="mb-4">
-              <h2 className="text-xl font-semibold text-emerald-800 mb-2">
+              <h2 className="text-xl font-semibold text-emerald-800 mb-2 text-center">
                 ✓ Pedido entregado. Stock actualizado.
               </h2>
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Ítems entregados:</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">Ítems entregados:</h3>
                 <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
                   {deliveryResult.deliveredItems.map((item) => {
                     // Find item in order.items
@@ -185,7 +196,7 @@ export default function OrderDetailPage() {
               
               {deliveryResult.lowStockItems.length > 0 && (
                 <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <h3 className="text-sm font-medium text-yellow-800 mb-2">
+                  <h3 className="text-sm font-medium text-yellow-800 mb-2 text-center">
                     ⚠️ Alertas de stock bajo:
                   </h3>
                   <ul className="space-y-2">
@@ -228,6 +239,14 @@ export default function OrderDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
     </div>
   );
 }

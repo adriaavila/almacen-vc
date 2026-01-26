@@ -42,7 +42,6 @@ type ConvexProduct = {
   baseUnit: string;
   purchaseUnit: string;
   conversionFactor: number;
-  packageSize: number;
   active: boolean;
   totalStock: number;
   stockAlmacen: number;
@@ -338,7 +337,7 @@ export default function POSPage() {
         {/* Zona B: Cuerpo Dinámico - Hot Zone */}
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="bg-white rounded-md shadow-sm border border-gray-200 p-1 sm:p-1.5 md:p-2 lg:p-3 h-full flex flex-col">
-            <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1 md:mb-2 px-1">Productos</h2>
+            <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1 md:mb-2 px-1 text-center">Productos</h2>
             
             {filteredProducts.length === 0 ? (
               <div className="text-center py-8 text-gray-500 flex-1 flex items-center justify-center">

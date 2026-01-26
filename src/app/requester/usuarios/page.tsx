@@ -5,6 +5,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { Badge } from '@/components/ui/Badge';
 
 type User = {
@@ -48,6 +49,7 @@ export default function UsuariosPage() {
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -114,8 +116,13 @@ export default function UsuariosPage() {
   };
 
   const handleDelete = (userId: string) => {
-    if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
-      setUsers(users.filter(u => u.id !== userId));
+    setUserToDelete(userId);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (userToDelete) {
+      setUsers(users.filter(u => u.id !== userToDelete));
+      setUserToDelete(null);
     }
   };
 
@@ -328,6 +335,18 @@ export default function UsuariosPage() {
             </div>
           </form>
         </Modal>
+
+        {/* Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={userToDelete !== null}
+          onClose={() => setUserToDelete(null)}
+          onConfirm={handleDeleteConfirm}
+          title="Eliminar usuario"
+          message="¿Estás seguro de que deseas eliminar este usuario?"
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+          variant="destructive"
+        />
       </PageContainer>
     </div>
   );

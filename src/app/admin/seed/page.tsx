@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Button } from '@/components/ui/Button';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 
@@ -125,96 +126,114 @@ export default function SeedPage() {
   const [settingStock, setSettingStock] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'clear' | 'import' | 'update' | 'setStock' | null>(null);
 
-  const handleClearAll = async () => {
-    if (!confirm('¿Estás seguro de que quieres eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
-      return;
-    }
+  const handleClearAll = () => {
+    setConfirmAction('clear');
+  };
 
-    setLoading(true);
+  const handleImportCafetin = () => {
+    setConfirmAction('import');
+  };
+
+  const handleUpdateConsumidoToUso = () => {
+    setConfirmAction('update');
+  };
+
+  const handleSetAllCafetinStockToOne = () => {
+    setConfirmAction('setStock');
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+
     setMessage(null);
     setError(null);
 
     try {
-      const result = await clearAllMutation();
-      setMessage(`✅ ${result.message}. Eliminados: ${result.deleted.items} items, ${result.deleted.orders} pedidos, ${result.deleted.orderItems} orderItems.`);
+      if (confirmAction === 'clear') {
+        setLoading(true);
+        const result = await clearAllMutation();
+        setMessage(`✅ ${result.message}. Eliminados: ${result.deleted.items} items, ${result.deleted.orders} pedidos, ${result.deleted.orderItems} orderItems.`);
+        setLoading(false);
+      } else if (confirmAction === 'import') {
+        setImporting(true);
+        const result = await bulkImportCafetin({ products: CAFETIN_PRODUCTS });
+        setMessage(
+          `✅ Importación completada:\n` +
+          `- Creados: ${result.created}\n` +
+          `- Omitidos (duplicados): ${result.skipped}\n` +
+          `- Errores: ${result.errors.length}\n` +
+          (result.errors.length > 0 
+            ? `\nErrores:\n${result.errors.map(e => `  • ${e.name}: ${e.error}`).join('\n')}`
+            : '')
+        );
+        setImporting(false);
+      } else if (confirmAction === 'update') {
+        setUpdating(true);
+        const result = await updateConsumidoToUso();
+        setMessage(
+          `✅ Actualización completada:\n` +
+          `- Movimientos actualizados: ${result.updated}\n` +
+          `- Total encontrados: ${result.total}`
+        );
+        setUpdating(false);
+      } else if (confirmAction === 'setStock') {
+        setSettingStock(true);
+        const result = await setAllCafetinStockToOne({ user: 'admin' });
+        setMessage(
+          `✅ Actualización completada:\n` +
+          `- Productos actualizados: ${result.updated}\n` +
+          `- Total productos en cafetín: ${result.total}`
+        );
+        setSettingStock(false);
+      }
+      setConfirmAction(null);
     } catch (err: any) {
       setError(`❌ Error: ${err.message || 'Error desconocido'}`);
-    } finally {
-      setLoading(false);
+      if (confirmAction === 'clear') setLoading(false);
+      if (confirmAction === 'import') setImporting(false);
+      if (confirmAction === 'update') setUpdating(false);
+      if (confirmAction === 'setStock') setSettingStock(false);
     }
   };
 
-  const handleImportCafetin = async () => {
-    if (!confirm(`¿Importar ${CAFETIN_PRODUCTS.length} productos de CAFETIN?`)) {
-      return;
-    }
-
-    setImporting(true);
-    setMessage(null);
-    setError(null);
-
-    try {
-      const result = await bulkImportCafetin({ products: CAFETIN_PRODUCTS });
-      setMessage(
-        `✅ Importación completada:\n` +
-        `- Creados: ${result.created}\n` +
-        `- Omitidos (duplicados): ${result.skipped}\n` +
-        `- Errores: ${result.errors.length}\n` +
-        (result.errors.length > 0 
-          ? `\nErrores:\n${result.errors.map(e => `  • ${e.name}: ${e.error}`).join('\n')}`
-          : '')
-      );
-    } catch (err: any) {
-      setError(`❌ Error: ${err.message || 'Error desconocido'}`);
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleUpdateConsumidoToUso = async () => {
-    if (!confirm('¿Actualizar todos los movimientos de "CONSUMIDO" a "USO"?')) {
-      return;
-    }
-
-    setUpdating(true);
-    setMessage(null);
-    setError(null);
-
-    try {
-      const result = await updateConsumidoToUso();
-      setMessage(
-        `✅ Actualización completada:\n` +
-        `- Movimientos actualizados: ${result.updated}\n` +
-        `- Total encontrados: ${result.total}`
-      );
-    } catch (err: any) {
-      setError(`❌ Error: ${err.message || 'Error desconocido'}`);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleSetAllCafetinStockToOne = async () => {
-    if (!confirm('¿Establecer stock a 1 para todos los productos en ubicación CAFETIN?')) {
-      return;
-    }
-
-    setSettingStock(true);
-    setMessage(null);
-    setError(null);
-
-    try {
-      const result = await setAllCafetinStockToOne({ user: 'admin' });
-      setMessage(
-        `✅ Actualización completada:\n` +
-        `- Productos actualizados: ${result.updated}\n` +
-        `- Total productos en cafetín: ${result.total}`
-      );
-    } catch (err: any) {
-      setError(`❌ Error: ${err.message || 'Error desconocido'}`);
-    } finally {
-      setSettingStock(false);
+  const getConfirmModalProps = () => {
+    switch (confirmAction) {
+      case 'clear':
+        return {
+          title: 'Limpiar Base de Datos',
+          message: '¿Estás seguro de que quieres eliminar TODOS los datos? Esta acción no se puede deshacer.',
+          confirmText: 'Eliminar Todo',
+          variant: 'destructive' as const,
+          isLoading: loading,
+        };
+      case 'import':
+        return {
+          title: 'Importar Productos CAFETIN',
+          message: `¿Importar ${CAFETIN_PRODUCTS.length} productos de CAFETIN?`,
+          confirmText: 'Importar',
+          variant: 'default' as const,
+          isLoading: importing,
+        };
+      case 'update':
+        return {
+          title: 'Actualizar Movimientos',
+          message: '¿Actualizar todos los movimientos de "CONSUMIDO" a "USO"?',
+          confirmText: 'Actualizar',
+          variant: 'default' as const,
+          isLoading: updating,
+        };
+      case 'setStock':
+        return {
+          title: 'Establecer Stock',
+          message: '¿Establecer stock a 1 para todos los productos en ubicación CAFETIN?',
+          confirmText: 'Establecer',
+          variant: 'default' as const,
+          isLoading: settingStock,
+        };
+      default:
+        return null;
     }
   };
 
@@ -223,7 +242,7 @@ export default function SeedPage() {
       <Navbar />
       <PageContainer>
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Administración de Base de Datos</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">Administración de Base de Datos</h1>
           <p className="text-sm text-gray-500">
             Utiliza esta página para gestionar la base de datos.
           </p>
@@ -244,7 +263,7 @@ export default function SeedPage() {
 
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-emerald-600 mb-2">
+              <h2 className="text-lg font-semibold text-emerald-600 mb-2 text-center">
                 📦 Importar Productos CAFETIN
               </h2>
               <p className="text-sm text-gray-600 mb-4">
@@ -260,7 +279,7 @@ export default function SeedPage() {
             </div>
 
             <div>
-              <h2 className="text-lg font-semibold text-blue-600 mb-2">
+              <h2 className="text-lg font-semibold text-blue-600 mb-2 text-center">
                 🔄 Actualizar Movimientos: CONSUMIDO → USO
               </h2>
               <p className="text-sm text-gray-600 mb-4">
@@ -276,7 +295,7 @@ export default function SeedPage() {
             </div>
 
             <div>
-              <h2 className="text-lg font-semibold text-purple-600 mb-2">
+              <h2 className="text-lg font-semibold text-purple-600 mb-2 text-center">
                 📊 Establecer Stock Cafetín a 1
               </h2>
               <p className="text-sm text-gray-600 mb-4">
@@ -292,7 +311,7 @@ export default function SeedPage() {
             </div>
 
             <div>
-              <h2 className="text-lg font-semibold text-red-600 mb-2">
+              <h2 className="text-lg font-semibold text-red-600 mb-2 text-center">
                 ⚠️ Limpiar Base de Datos
               </h2>
               <p className="text-sm text-gray-600 mb-4">
@@ -310,6 +329,16 @@ export default function SeedPage() {
           </div>
         </div>
       </PageContainer>
+
+      {/* Confirmation Modal */}
+      {confirmAction && getConfirmModalProps() && (
+        <ConfirmationModal
+          isOpen={confirmAction !== null}
+          onClose={() => setConfirmAction(null)}
+          onConfirm={handleConfirmAction}
+          {...getConfirmModalProps()!}
+        />
+      )}
     </div>
   );
 }

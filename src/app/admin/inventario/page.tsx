@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -10,7 +11,11 @@ import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Toast } from '@/components/ui/Toast';
+import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
+import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
 import { normalizeSearchText } from '@/lib/utils';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 type ConvexProduct = {
   _id: Id<"products">;
@@ -21,7 +26,6 @@ type ConvexProduct = {
   baseUnit: string;
   purchaseUnit: string;
   conversionFactor: number;
-  packageSize: number;
   active: boolean;
   totalStock: number;
   stockAlmacen: number;
@@ -32,31 +36,51 @@ type ConvexProduct = {
 export default function InventoryPage() {
   const products = useQuery(api.products.listWithInventory);
   const updateStock = useMutation(api.inventory.updateStock);
+  const searchParams = useSearchParams();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [adjustingId, setAdjustingId] = useState<Id<"products"> | null>(null);
   const [adjustValue, setAdjustValue] = useState<string>('0');
   const [editingProduct, setEditingProduct] = useState<ConvexProduct | null>(null);
   const [editValue, setEditValue] = useState<string>('');
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    isOpen: boolean;
+  }>({
+    message: '',
+    type: 'info',
+    isOpen: false,
+  });
 
-  // Get unique subcategories from all active products
-  const subCategories = useMemo(() => {
+  // Read status query parameter on mount
+  useEffect(() => {
+    const statusParam = searchParams?.get('status');
+    if (statusParam === 'bajo_stock') {
+      setSelectedStatus('bajo_stock');
+    }
+  }, [searchParams]);
+
+  // Get unique categories from all active products
+  const categories = useMemo(() => {
     if (!products || products.length === 0) return [];
     const filtered = products.filter(p => p.active);
     
-    // Get unique subcategories from filtered products
-    const subCats = Array.from(
+    // Get unique categories from filtered products
+    const cats = Array.from(
       new Set(
         filtered
-          .map(product => product.subCategory)
-          .filter((subCat): subCat is string => !!subCat && subCat.trim() !== '')
+          .map(product => product.category)
+          .filter((cat): cat is string => !!cat && cat.trim() !== '')
       )
     ).sort();
     
-    return ['All', ...subCats];
+    return ['All', ...cats];
   }, [products]);
   
   // Filter and search products
@@ -66,9 +90,9 @@ export default function InventoryPage() {
     // Only show active products
     let filtered = products.filter(p => p.active);
     
-    // Filter by subcategory
-    if (selectedSubCategory !== 'All') {
-      filtered = filtered.filter(product => product.subCategory === selectedSubCategory);
+    // Filter by category
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter(product => product.category === selectedCategory);
     }
     
     // Filter by location
@@ -80,15 +104,20 @@ export default function InventoryPage() {
       }
     }
     
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = normalizeSearchText(searchQuery);
+    // Filter by search query (using debounced query)
+    if (debouncedSearchQuery.trim()) {
+      const query = normalizeSearchText(debouncedSearchQuery);
       filtered = filtered.filter(product => 
         normalizeSearchText(product.name).includes(query) ||
         normalizeSearchText(product.category).includes(query) ||
         (product.subCategory && normalizeSearchText(product.subCategory).includes(query)) ||
         (product.brand && normalizeSearchText(product.brand).includes(query))
       );
+    }
+    
+    // Filter by status
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(product => product.status === selectedStatus);
     }
     
     // Sort products
@@ -119,7 +148,7 @@ export default function InventoryPage() {
     }
     
     return sorted;
-  }, [products, selectedSubCategory, selectedLocation, searchQuery, sortOrder]);
+  }, [products, selectedCategory, selectedLocation, selectedStatus, debouncedSearchQuery, sortOrder]);
   
   const handleAdjustClick = (product: ConvexProduct, delta?: number) => {
     if (adjustingId === product._id) {
@@ -146,19 +175,31 @@ export default function InventoryPage() {
     const product = products.find(p => p._id === productId);
     if (!product) return;
     
-    // Use stockAlmacen for the current stock (showing only almacen for now)
-    const newStock = product.stockAlmacen + delta;
+    // Use selected location, default to almacen if "all" is selected
+    const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
+    const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
+    const newStock = currentStock + delta;
     if (newStock < 0) return;
     
     try {
       await updateStock({ 
         productId, 
-        location: "almacen",
+        location,
         newStock,
         user: "admin"
       });
+      setToast({
+        message: 'Stock actualizado correctamente',
+        type: 'success',
+        isOpen: true,
+      });
     } catch (error) {
       console.error('Error al actualizar stock:', error);
+      setToast({
+        message: 'Error al actualizar stock. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
     }
   };
   
@@ -169,20 +210,33 @@ export default function InventoryPage() {
     
     if (!product || isNaN(numValue)) return;
     
-    const newStock = product.stockAlmacen + numValue;
+    // Use selected location, default to almacen if "all" is selected
+    const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
+    const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
+    const newStock = currentStock + numValue;
     if (newStock < 0) return;
     
     try {
       await updateStock({ 
         productId, 
-        location: "almacen",
+        location,
         newStock,
         user: "admin"
       });
       setAdjustingId(null);
       setAdjustValue('0');
+      setToast({
+        message: 'Stock actualizado correctamente',
+        type: 'success',
+        isOpen: true,
+      });
     } catch (error) {
       console.error('Error al actualizar stock:', error);
+      setToast({
+        message: 'Error al actualizar stock. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
     }
   };
   
@@ -193,7 +247,10 @@ export default function InventoryPage() {
   
   const handleDirectEdit = (product: ConvexProduct) => {
     setEditingProduct(product);
-    setEditValue(product.stockAlmacen.toString());
+    // Use selected location, default to almacen if "all" is selected
+    const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
+    const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
+    setEditValue(currentStock.toString());
   };
 
   const handleSaveDirectEdit = async () => {
@@ -201,17 +258,29 @@ export default function InventoryPage() {
     
     const numValue = parseInt(editValue, 10);
     if (!isNaN(numValue) && numValue >= 0) {
+      // Use selected location, default to almacen if "all" is selected
+      const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
       try {
         await updateStock({ 
           productId: editingProduct._id, 
-          location: "almacen",
+          location,
           newStock: numValue,
           user: "admin"
         });
         setEditingProduct(null);
         setEditValue('');
+        setToast({
+          message: 'Stock actualizado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
       } catch (error) {
         console.error('Error al actualizar stock:', error);
+        setToast({
+          message: 'Error al actualizar stock. Intente de nuevo.',
+          type: 'error',
+          isOpen: true,
+        });
       }
     }
   };
@@ -226,9 +295,6 @@ export default function InventoryPage() {
   };
   
   const formatUnitDisplay = (product: ConvexProduct) => {
-    if (product.packageSize > 0) {
-      return `${product.baseUnit} (${product.packageSize})`;
-    }
     return product.baseUnit;
   };
 
@@ -240,9 +306,7 @@ export default function InventoryPage() {
           title="Inventario"
           subtitle="Gestión de productos y stock"
         />
-        <div className="text-center py-12 text-gray-500">
-          <p>Cargando inventario...</p>
-        </div>
+        <ProductListSkeleton count={8} />
       </PageContainer>
     );
   }
@@ -285,21 +349,21 @@ export default function InventoryPage() {
         {/* Selectors */}
         <div className="mb-6 w-full">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Subcategory Selector */}
+            {/* Category Selector */}
             <div>
-              <label htmlFor="subcategory-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Filtrar por subcategoría
+              <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-1">
+                Filtrar por categoría
               </label>
               <select
-                id="subcategory-select"
-                value={selectedSubCategory}
-                onChange={(e) => setSelectedSubCategory(e.target.value)}
-                disabled={subCategories.length <= 1}
+                id="category-select"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                disabled={categories.length <= 1}
                 className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               >
-                <option value="All">Todas las subcategorías</option>
-                {subCategories.filter(subCat => subCat !== 'All').map(subCategory => (
-                  <option key={subCategory} value={subCategory}>{subCategory}</option>
+                <option value="All">Todas las categorías</option>
+                {categories.filter(cat => cat !== 'All').map(category => (
+                  <option key={category} value={category}>{category}</option>
                 ))}
               </select>
             </div>
@@ -341,14 +405,15 @@ export default function InventoryPage() {
           </div>
           
           {/* Clear Filters Button */}
-          {(searchQuery || selectedSubCategory !== 'All' || selectedLocation !== 'all' || sortOrder !== 'name-asc') && (
+          {(debouncedSearchQuery || selectedCategory !== 'All' || selectedLocation !== 'all' || selectedStatus !== 'all' || sortOrder !== 'name-asc') && (
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery('');
-                  setSelectedSubCategory('All');
+                  setSelectedCategory('All');
                   setSelectedLocation('all');
+                  setSelectedStatus('all');
                   setSortOrder('name-asc');
                 }}
                 className="text-sm text-emerald-600 hover:text-emerald-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
@@ -365,9 +430,22 @@ export default function InventoryPage() {
         {/* Inventory List */}
         <div className="space-y-3 w-full">
           {filteredProducts.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <p>No se encontraron productos</p>
-            </div>
+            debouncedSearchQuery || selectedCategory !== 'All' || selectedLocation !== 'all' || selectedStatus !== 'all' ? (
+              <EmptySearchResultsState
+                onClearFilters={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                  setSelectedLocation('all');
+                  setSelectedStatus('all');
+                  setSortOrder('name-asc');
+                }}
+              />
+            ) : (
+              <EmptyState
+                title="No hay productos"
+                message="No se encontraron productos en el inventario."
+              />
+            )
           ) : (
             filteredProducts.map((product) => {
               const lowStock = isLowStock(product);
@@ -422,15 +500,20 @@ export default function InventoryPage() {
                               <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
                                 (Alm)
                               </span>
-                              <span className="text-gray-400 mx-1">/</span>
-                              <span className={`text-xl sm:text-2xl font-bold whitespace-nowrap ${
-                                product.stockCafetin === 0 ? 'text-gray-400' : 'text-gray-900'
-                              }`}>
-                                {product.stockCafetin}
-                              </span>
-                              <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                                (Caf) {product.baseUnit}
-                              </span>
+                              {/* Solo mostrar stock cafetín si el producto pertenece al cafetín */}
+                              {product.category === 'Cafetin' && (
+                                <>
+                                  <span className="text-gray-400 mx-1">/</span>
+                                  <span className={`text-xl sm:text-2xl font-bold whitespace-nowrap ${
+                                    product.stockCafetin === 0 ? 'text-gray-400' : 'text-gray-900'
+                                  }`}>
+                                    {product.stockCafetin}
+                                  </span>
+                                  <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                                    (Caf) {product.baseUnit}
+                                  </span>
+                                </>
+                              )}
                             </>
                           ) : (
                             <>
@@ -548,7 +631,7 @@ export default function InventoryPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
-                Stock actual (Almacén)
+                Stock actual ({selectedLocation === 'all' ? 'Almacén' : selectedLocation === 'almacen' ? 'Almacén' : 'Cafetín'})
               </label>
               <input
                 id="stock-input"
@@ -596,6 +679,14 @@ export default function InventoryPage() {
           display: none;
         }
       `}</style>
+
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
     </>
   );
 }

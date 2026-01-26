@@ -19,12 +19,12 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:flex lg:flex-row gap-2">
       {ranges.map((range) => (
         <button
           key={range.value}
           onClick={() => onChange(range.value)}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+          className={`w-full lg:w-auto px-3 py-2.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 ${
             value === range.value
               ? 'bg-emerald-600 text-white shadow-md scale-105'
               : 'bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-gray-100 border border-gray-200'

@@ -35,7 +35,7 @@ export default function Home() {
           
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-4">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label text-center">
                 Áreas Operativas
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -66,7 +66,7 @@ export default function Home() {
             </div>
             
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label text-center">
                 Administración
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

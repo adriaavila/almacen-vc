@@ -63,7 +63,7 @@ export function ImportCSVModal({
 
           {result.errors.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Detalles de errores:</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 text-center">Detalles de errores:</h3>
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {result.errors.map((error, index) => (
                   <div key={index} className="text-xs text-red-600 bg-red-50 p-2 rounded">
@@ -87,9 +87,12 @@ export function ImportCSVModal({
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Selecciona un archivo CSV para importar items. El archivo debe tener las columnas:
-            nombre, categoria, unidad, location, y opcionalmente otros campos.
+            Selecciona un archivo CSV para importar productos. El archivo puede usar el formato nuevo o el formato legacy.
           </p>
+          <div className="text-xs text-gray-500 space-y-1 mt-2">
+            <p><strong>Formato nuevo:</strong> name, brand, category, subCategory, baseUnit, purchaseUnit, conversionFactor, active, stockAlmacen, stockCafetin, stockMinimoAlmacen, stockMinimoCafetin</p>
+            <p><strong>Formato legacy:</strong> nombre, categoria, subcategoria, marca, unidad, stock_actual, stock_minimo, location</p>
+          </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <Button
               variant="secondary"

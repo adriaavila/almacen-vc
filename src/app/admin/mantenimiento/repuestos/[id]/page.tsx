@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -10,9 +10,9 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
-export default function RepuestoDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const repuestoId = id as Id<'repuestos'>;
+export default function RepuestoDetailPage() {
+  const params = useParams();
+  const repuestoId = (params?.id as string) as Id<'repuestos'>;
   
   const repuesto = useQuery(api.repuestos.getById, { id: repuestoId });
 
@@ -79,7 +79,7 @@ export default function RepuestoDetailPage({ params }: { params: Promise<{ id: s
 
         {/* Repuesto Info */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Información del Repuesto</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Información del Repuesto</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500">Stock Actual</p>

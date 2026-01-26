@@ -106,7 +106,7 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{product.name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">{product.name}</h1>
               <div className="flex items-center gap-3 mb-4">
                 <div
                   className={`h-3 w-3 rounded-full ${
@@ -182,12 +182,6 @@ export default function ProductDetailPage() {
                 {product.purchaseUnit} ({product.conversionFactor} {product.baseUnit})
               </p>
             </div>
-            {product.packageSize > 0 && (
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Tamaño de Paquete</p>
-                <p className="text-base text-gray-900">{product.packageSize}</p>
-              </div>
-            )}
             <div>
               <p className="text-sm font-medium text-gray-500 mb-1">Estado</p>
               <p className="text-base text-gray-900">

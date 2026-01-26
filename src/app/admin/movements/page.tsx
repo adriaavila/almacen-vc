@@ -103,14 +103,16 @@ export default function MovementsPage() {
       <AdminHeader 
         title="Movimientos"
         subtitle="Historial de movimientos de stock"
-        actions={
-          <Link href="/admin/movements/new">
-            <Button variant="primary" className="h-12">
-              Registrar Ingreso
-            </Button>
-          </Link>
-        }
       />
+
+      {/* Registrar Ingreso Button */}
+      <div className="mb-6 flex justify-center">
+        <Link href="/admin/movements/new">
+          <Button variant="primary" className="h-12">
+            Registrar Ingreso
+          </Button>
+        </Link>
+      </div>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">

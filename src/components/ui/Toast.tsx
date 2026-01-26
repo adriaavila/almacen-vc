@@ -54,8 +54,8 @@ export function Toast({ message, type, isOpen, onClose, duration = 4000 }: Toast
   };
 
   return (
-    <div className="fixed top-4 right-4 md:right-4 md:left-auto left-1/2 md:left-auto transform md:transform-none -translate-x-1/2 md:translate-x-0 z-50 animate-fade-in-up">
-      <div className={`flex items-center gap-3 px-4 py-3 rounded-md border shadow-lg max-w-md ${typeClasses[type]}`}>
+    <div className="fixed top-4 right-4 md:right-4 md:left-auto left-1/2 md:left-auto transform md:transform-none -translate-x-1/2 md:translate-x-0 z-50 animate-fade-in-up slide-in-from-right-2">
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-md border shadow-lg max-w-md transition-all duration-300 ${typeClasses[type]}`}>
         <div className={iconClasses[type]}>
           {icons[type]}
         </div>

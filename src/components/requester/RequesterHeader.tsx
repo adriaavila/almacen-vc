@@ -18,9 +18,9 @@ export function RequesterHeader({ title, subtitle, actions }: RequesterHeaderPro
           </div>
         )}
         <div className="flex-1 text-center">
-          <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900 tracking-tight">{title}</h1>
+          <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900 tracking-tight text-center">{title}</h1>
           {subtitle && (
-            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 mt-0.5 sm:mt-1 md:mt-1.5 hidden sm:block">{subtitle}</p>
+            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 mt-0.5 sm:mt-1 md:mt-1.5 hidden sm:block text-center">{subtitle}</p>
           )}
         </div>
         {actions && (

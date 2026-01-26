@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { ProToggle } from '@/components/ui/ProToggle';
 
 export default function OwnerLayout({
   children,
@@ -29,6 +30,7 @@ export default function OwnerLayout({
             </Link>
             
             <div className="flex items-center space-x-4">
+              <ProToggle isProMode={true} />
               <Link
                 href="/admin/dashboard"
                 className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors"

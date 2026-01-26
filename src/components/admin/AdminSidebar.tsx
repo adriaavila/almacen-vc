@@ -8,9 +8,11 @@ import { usePathname } from 'next/navigation';
 interface AdminSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
+export function AdminSidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mantenimientoOpen, setMantenimientoOpen] = useState(
     pathname?.startsWith('/admin/mantenimiento') || false
@@ -58,6 +60,9 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
     if (path === '/admin/dashboard') {
       return pathname === '/admin/dashboard' || pathname === '/admin';
     }
+    if (path === '/admin/inventario') {
+      return pathname?.startsWith('/admin/inventario');
+    }
     return pathname?.startsWith(path);
   };
 
@@ -102,6 +107,16 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
         </svg>
       ),
     },
+    {
+      href: '/admin/settings',
+      label: 'Configuración',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
   ];
 
   const mantenimientoSubItems = [
@@ -132,37 +147,71 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed left-0 top-0 h-screen bg-white border-r border-gray-200 flex flex-col z-50 transition-all duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${
+          isCollapsed ? 'w-16 lg:w-16' : 'w-64 lg:w-64'
         }`}
       >
-        {/* Logo Header with Close Button */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <Link href="/admin/dashboard" className="flex items-center" onClick={onClose}>
-            <Image
-              src="/logo-vistacampo.png"
-              alt="Vistacampo Centro Terapéutico"
-              width={180}
-              height={60}
-              className="h-10 w-auto"
-              priority
-            />
-          </Link>
-          {/* Close button - only visible on mobile */}
-          <button
-            onClick={onClose}
-            className="lg:hidden p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            aria-label="Cerrar menú"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
+        {/* Logo Header with Close Button and Toggle */}
+        <div className={`p-4 border-b border-gray-200 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+          {!isCollapsed && (
+            <Link href="/admin/dashboard" className="flex items-center" onClick={onClose}>
+              <Image
+                src="/logo-vistacampo.png"
+                alt="Vistacampo Centro Terapéutico"
+                width={180}
+                height={60}
+                className="h-10 w-auto"
+                priority
               />
-            </svg>
-          </button>
+            </Link>
+          )}
+          {isCollapsed && (
+            <Link href="/admin/dashboard" className="flex items-center justify-center" onClick={onClose}>
+              <Image
+                src="/logo-vistacampo.png"
+                alt="Vistacampo"
+                width={40}
+                height={40}
+                className="h-8 w-8 rounded"
+                priority
+              />
+            </Link>
+          )}
+          <div className="flex items-center gap-2">
+            {/* Collapse toggle button - only visible on desktop */}
+            {onToggleCollapse && (
+              <button
+                onClick={onToggleCollapse}
+                className="hidden lg:flex p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                aria-label={isCollapsed ? "Expandir menú" : "Colapsar menú"}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {isCollapsed ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  )}
+                </svg>
+              </button>
+            )}
+            {/* Close button - only visible on mobile */}
+            <button
+              onClick={onClose}
+              className="lg:hidden p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              aria-label="Cerrar menú"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
       {/* Navigation Menu */}
@@ -174,35 +223,58 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               key={item.href}
               href={item.href}
               onClick={onClose}
-              className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 active
                   ? 'bg-emerald-100 text-emerald-700 border-l-4 border-emerald-600'
                   : 'text-gray-700 hover:bg-gray-50'
               }`}
+              title={isCollapsed ? item.label : undefined}
             >
               <span className={active ? 'text-emerald-600' : 'text-gray-500'}>
                 {item.icon}
               </span>
-              <span>{item.label}</span>
+              {!isCollapsed && <span>{item.label}</span>}
             </Link>
           );
         })}
 
         {/* Mantenimiento Section - Collapsible */}
-        <div className="pt-2">
-          <button
-            onClick={() => setMantenimientoOpen(!mantenimientoOpen)}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-              pathname?.startsWith('/admin/mantenimiento')
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            aria-expanded={mantenimientoOpen}
-            aria-label="Toggle Mantenimiento menu"
-          >
-            <div className="flex items-center space-x-3">
+        {!isCollapsed && (
+          <div className="pt-2">
+            <button
+              onClick={() => setMantenimientoOpen(!mantenimientoOpen)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                pathname?.startsWith('/admin/mantenimiento')
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+              aria-expanded={mantenimientoOpen}
+              aria-label="Toggle Mantenimiento menu"
+            >
+              <div className="flex items-center space-x-3">
+                <svg
+                  className={`w-5 h-5 ${pathname?.startsWith('/admin/mantenimiento') ? 'text-emerald-600' : 'text-gray-500'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <span>Mantenimiento</span>
+              </div>
               <svg
-                className={`w-5 h-5 ${pathname?.startsWith('/admin/mantenimiento') ? 'text-emerald-600' : 'text-gray-500'}`}
+                className={`w-4 h-4 transition-transform ${mantenimientoOpen ? 'transform rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -211,55 +283,35 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  d="M19 9l-7 7-7-7"
                 />
               </svg>
-              <span>Mantenimiento</span>
-            </div>
-            <svg
-              className={`w-4 h-4 transition-transform ${mantenimientoOpen ? 'transform rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
+            </button>
 
-          {/* Sub-items */}
-          {mantenimientoOpen && (
-            <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-4">
-              {mantenimientoSubItems.map((subItem) => {
-                const subActive = isMantenimientoSubItemActive(subItem.href);
-                return (
-                  <Link
-                    key={subItem.href}
-                    href={subItem.href}
-                    onClick={onClose}
-                    className={`block px-3 py-2 rounded-md text-sm transition-colors ${
-                      subActive
-                        ? 'bg-emerald-100 text-emerald-700 font-medium'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {subItem.label}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
+            {/* Sub-items */}
+            {mantenimientoOpen && (
+              <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-4">
+                {mantenimientoSubItems.map((subItem) => {
+                  const subActive = isMantenimientoSubItemActive(subItem.href);
+                  return (
+                    <Link
+                      key={subItem.href}
+                      href={subItem.href}
+                      onClick={onClose}
+                      className={`block px-3 py-2 rounded-md text-sm transition-colors ${
+                        subActive
+                          ? 'bg-emerald-100 text-emerald-700 font-medium'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {subItem.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
         {/* Footer - Back to Home */}
@@ -267,8 +319,9 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           <Link
             href="/"
             onClick={onClose}
-            className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-2'} px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors`}
             aria-label="Volver a inicio"
+            title={isCollapsed ? "Volver a inicio" : undefined}
           >
             <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -278,7 +331,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                 d="M10 19l-7-7m0 0l7-7m-7 7h18"
               />
             </svg>
-            <span>Volver a inicio</span>
+            {!isCollapsed && <span>Volver a inicio</span>}
           </Link>
         </div>
       </aside>

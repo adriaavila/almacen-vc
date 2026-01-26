@@ -142,11 +142,13 @@ export default defineSchema({
     purchaseUnit: v.string(),      // Cómo lo compras (caja, fardo, saco)
     conversionFactor: v.number(),  // Cuántas baseUnits hay en una purchaseUnit (ej: 24)
 
-    packageSize: v.number(),       // Peso/Volumen unitario (ej: 350)
     active: v.boolean(),
 
     // Reference to original item for migration tracking
     legacyItemId: v.optional(v.id("items")),
+    
+    // Legacy field from migration (optional to support existing data)
+    packageSize: v.optional(v.number()),
   })
     .index("by_name", ["name"])
     .index("by_category", ["category"])

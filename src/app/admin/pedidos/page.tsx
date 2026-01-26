@@ -9,6 +9,8 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { OrderListSkeleton } from '@/components/ui/SkeletonLoader';
+import { EmptyOrdersState } from '@/components/ui/EmptyState';
 
 // Component for individual order card with expandable details
 function OrderCard({ 
@@ -77,7 +79,7 @@ function OrderCard({
             <div className="text-sm text-red-600 py-2">Error al cargar detalles del pedido</div>
           ) : (
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Ítems del Pedido</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 text-center">Ítems del Pedido</h3>
               {orderDetails.items && orderDetails.items.length > 0 ? (
                 <div className="space-y-2">
                   {orderDetails.items.map((item: any) => (
@@ -137,9 +139,7 @@ export default function PendingOrdersPage() {
           title="Pedidos"
           subtitle="Gestión de pedidos pendientes"
         />
-        <div className="text-center py-12 text-gray-500">
-          <p>Cargando pedidos...</p>
-        </div>
+        <OrderListSkeleton count={5} />
       </PageContainer>
     );
   }
@@ -152,9 +152,7 @@ export default function PendingOrdersPage() {
       />
         
         {pendingOrders.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <p className="text-gray-500">No hay pedidos pendientes</p>
-          </div>
+          <EmptyOrdersState message="No hay pedidos pendientes." />
         ) : (
           <div className="space-y-3">
             {pendingOrders.map((order) => (

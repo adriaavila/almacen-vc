@@ -145,18 +145,20 @@ export const create = mutation({
     baseUnit: v.string(),
     purchaseUnit: v.string(),
     conversionFactor: v.number(),
-    packageSize: v.number(),
     active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Check for duplicate name
+    // Check for duplicate name - if exists, return existing product ID
+    // This allows adding inventory for the same product in different locations
     const existing = await ctx.db
       .query("products")
       .withIndex("by_name", (q) => q.eq("name", args.name))
       .first();
 
     if (existing) {
-      throw new Error(`Ya existe un producto con el nombre "${args.name}"`);
+      // Product already exists, return its ID instead of creating a duplicate
+      // The caller can then add inventory for this product in a new location
+      return existing._id;
     }
 
     const productId = await ctx.db.insert("products", {
@@ -167,7 +169,6 @@ export const create = mutation({
       baseUnit: args.baseUnit,
       purchaseUnit: args.purchaseUnit,
       conversionFactor: args.conversionFactor,
-      packageSize: args.packageSize,
       active: args.active ?? true,
     });
 
@@ -217,7 +218,6 @@ export const bulkImportCafetin = mutation({
           baseUnit: productData.baseUnit,
           purchaseUnit: productData.baseUnit, // Default to same as baseUnit
           conversionFactor: 1, // Default to 1
-          packageSize: 0, // Default to 0
           active: true,
         });
 
@@ -252,6 +252,190 @@ export const bulkImportCafetin = mutation({
   },
 });
 
+// Bulk import products with inventory (general purpose)
+export const bulkImport = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        name: v.string(),
+        brand: v.optional(v.string()),
+        category: v.string(),
+        subCategory: v.optional(v.string()),
+        baseUnit: v.string(),
+        purchaseUnit: v.optional(v.string()),
+        conversionFactor: v.optional(v.number()),
+        active: v.optional(v.boolean()),
+        stockAlmacen: v.optional(v.number()),
+        stockCafetin: v.optional(v.number()),
+        stockMinimoAlmacen: v.optional(v.number()),
+        stockMinimoCafetin: v.optional(v.number()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const results = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [] as Array<{ row: number; name: string; error: string }>,
+    };
+
+    for (let i = 0; i < args.products.length; i++) {
+      const productData = args.products[i];
+      try {
+        // Validate required fields
+        if (!productData.name || productData.name.trim() === '') {
+          results.errors.push({
+            row: i + 1,
+            name: productData.name || '(sin nombre)',
+            error: 'El nombre es requerido',
+          });
+          continue;
+        }
+
+        if (!productData.category || productData.category.trim() === '') {
+          results.errors.push({
+            row: i + 1,
+            name: productData.name,
+            error: 'La categoría es requerida',
+          });
+          continue;
+        }
+
+        if (!productData.baseUnit || productData.baseUnit.trim() === '') {
+          results.errors.push({
+            row: i + 1,
+            name: productData.name,
+            error: 'La unidad base es requerida',
+          });
+          continue;
+        }
+
+        // Validate numeric fields
+        if (productData.conversionFactor !== undefined && productData.conversionFactor <= 0) {
+          results.errors.push({
+            row: i + 1,
+            name: productData.name,
+            error: 'El factor de conversión debe ser mayor a 0',
+          });
+          continue;
+        }
+
+        // Check for existing product by name
+        const existing = await ctx.db
+          .query("products")
+          .withIndex("by_name", (q) => q.eq("name", productData.name))
+          .first();
+
+        const purchaseUnit = productData.purchaseUnit || productData.baseUnit;
+        const conversionFactor = productData.conversionFactor ?? 1;
+        const active = productData.active ?? true;
+
+        let productId;
+
+        if (existing) {
+          // Update existing product
+          const updates: Partial<typeof existing> = {};
+          
+          if (productData.brand !== undefined) updates.brand = productData.brand || "";
+          if (productData.category !== undefined) updates.category = productData.category;
+          if (productData.subCategory !== undefined) updates.subCategory = productData.subCategory || undefined;
+          if (productData.baseUnit !== undefined) updates.baseUnit = productData.baseUnit;
+          if (productData.purchaseUnit !== undefined) updates.purchaseUnit = purchaseUnit;
+          if (productData.conversionFactor !== undefined) updates.conversionFactor = conversionFactor;
+          if (productData.active !== undefined) updates.active = active;
+
+          await ctx.db.patch(existing._id, updates);
+          productId = existing._id;
+          results.updated++;
+        } else {
+          // Create new product
+          productId = await ctx.db.insert("products", {
+            name: productData.name,
+            brand: productData.brand || "",
+            category: productData.category,
+            subCategory: productData.subCategory || undefined,
+            baseUnit: productData.baseUnit,
+            purchaseUnit: purchaseUnit,
+            conversionFactor: conversionFactor,
+            active: active,
+          });
+          results.created++;
+        }
+
+        // Handle inventory initialization/updates
+        const now = Date.now();
+
+        // Almacen inventory
+        if (productData.stockAlmacen !== undefined || productData.stockMinimoAlmacen !== undefined) {
+          const existingInventoryAlmacen = await ctx.db
+            .query("inventory")
+            .withIndex("by_product_location", (q) =>
+              q.eq("productId", productId).eq("location", "almacen")
+            )
+            .first();
+
+          const stockAlmacen = productData.stockAlmacen ?? existingInventoryAlmacen?.stockActual ?? 0;
+          const stockMinimoAlmacen = productData.stockMinimoAlmacen ?? existingInventoryAlmacen?.stockMinimo ?? 0;
+
+          if (existingInventoryAlmacen) {
+            await ctx.db.patch(existingInventoryAlmacen._id, {
+              stockActual: stockAlmacen,
+              stockMinimo: stockMinimoAlmacen,
+              updatedAt: now,
+            });
+          } else {
+            await ctx.db.insert("inventory", {
+              productId,
+              location: "almacen",
+              stockActual: stockAlmacen,
+              stockMinimo: stockMinimoAlmacen,
+              updatedAt: now,
+            });
+          }
+        }
+
+        // Cafetin inventory
+        if (productData.stockCafetin !== undefined || productData.stockMinimoCafetin !== undefined) {
+          const existingInventoryCafetin = await ctx.db
+            .query("inventory")
+            .withIndex("by_product_location", (q) =>
+              q.eq("productId", productId).eq("location", "cafetin")
+            )
+            .first();
+
+          const stockCafetin = productData.stockCafetin ?? existingInventoryCafetin?.stockActual ?? 0;
+          const stockMinimoCafetin = productData.stockMinimoCafetin ?? existingInventoryCafetin?.stockMinimo ?? 0;
+
+          if (existingInventoryCafetin) {
+            await ctx.db.patch(existingInventoryCafetin._id, {
+              stockActual: stockCafetin,
+              stockMinimo: stockMinimoCafetin,
+              updatedAt: now,
+            });
+          } else {
+            await ctx.db.insert("inventory", {
+              productId,
+              location: "cafetin",
+              stockActual: stockCafetin,
+              stockMinimo: stockMinimoCafetin,
+              updatedAt: now,
+            });
+          }
+        }
+      } catch (error: any) {
+        results.errors.push({
+          row: i + 1,
+          name: productData.name || '(sin nombre)',
+          error: error.message || "Error desconocido",
+        });
+      }
+    }
+
+    return results;
+  },
+});
+
 // Update a product
 export const update = mutation({
   args: {
@@ -263,7 +447,6 @@ export const update = mutation({
     baseUnit: v.optional(v.string()),
     purchaseUnit: v.optional(v.string()),
     conversionFactor: v.optional(v.number()),
-    packageSize: v.optional(v.number()),
     active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -275,13 +458,14 @@ export const update = mutation({
     }
 
     // Check for duplicate name if name is being updated
+    // Only throw error if the duplicate is a different product (not the one being updated)
     if (updates.name && updates.name !== product.name) {
       const existing = await ctx.db
         .query("products")
         .withIndex("by_name", (q) => q.eq("name", updates.name!))
         .first();
 
-      if (existing) {
+      if (existing && existing._id !== id) {
         throw new Error(`Ya existe un producto con el nombre "${updates.name}"`);
       }
     }
@@ -328,6 +512,37 @@ export const softDelete = mutation({
     await ctx.db.patch(args.id, { active: false });
 
     return { id: args.id };
+  },
+});
+
+// Delete a product permanently (hard delete)
+// This will also delete all related inventory records
+// Movements are kept for audit trail
+export const deleteProduct = mutation({
+  args: { id: v.id("products") },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error(`Producto con ID ${args.id} no encontrado`);
+    }
+
+    // Delete all inventory records for this product
+    const inventoryRecords = await ctx.db
+      .query("inventory")
+      .withIndex("by_product_location", (q) => q.eq("productId", args.id))
+      .collect();
+
+    for (const inv of inventoryRecords) {
+      await ctx.db.delete(inv._id);
+    }
+
+    // Delete the product
+    await ctx.db.delete(args.id);
+
+    // Note: We keep movements for audit trail, even if the product is deleted
+    // This allows historical tracking of what happened
+
+    return { id: args.id, deletedInventoryCount: inventoryRecords.length };
   },
 });
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import { useState } from 'react';
 
-export default function TrabajoDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const trabajoId = id as Id<'trabajos_mantenimiento'>;
+export default function TrabajoDetailPage() {
+  const params = useParams();
+  const trabajoId = (params?.id as string) as Id<'trabajos_mantenimiento'>;
   
   const trabajo = useQuery(api.trabajosMantenimiento.getById, { id: trabajoId });
   const completarTrabajo = useMutation(api.trabajosMantenimiento.completar);
@@ -158,7 +158,7 @@ export default function TrabajoDetailPage({ params }: { params: Promise<{ id: st
 
         {/* Trabajo Info */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Información del Trabajo</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Información del Trabajo</h2>
           <div className="space-y-4">
             <div>
               <p className="text-sm text-gray-500">Descripción</p>
@@ -205,7 +205,7 @@ export default function TrabajoDetailPage({ params }: { params: Promise<{ id: st
         {/* Repuestos en Uso */}
         {trabajo.repuestos && trabajo.repuestos.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Repuestos en Uso</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Repuestos en Uso</h2>
             <div className="space-y-3">
               {trabajo.repuestos.map((consumo, index) => (
                 <div

@@ -7,6 +7,10 @@ import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { Toast } from '@/components/ui/Toast';
+import { OrderListSkeleton } from '@/components/ui/SkeletonLoader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { getUserArea } from '@/lib/auth';
 import { pluralizeUnit } from '@/lib/utils';
 import { Area } from '@/types';
@@ -19,6 +23,16 @@ export default function MyOrdersPage() {
   
   const [expandedOrderId, setExpandedOrderId] = useState<Id<"orders"> | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<Id<"orders"> | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<Id<"orders"> | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    isOpen: boolean;
+  }>({
+    message: '',
+    type: 'info',
+    isOpen: false,
+  });
   
   const deleteOrder = useMutation(api.orders.remove);
   
@@ -64,21 +78,33 @@ export default function MyOrdersPage() {
     }).format(new Date(timestamp));
   };
 
-  const handleDeleteOrder = async (orderId: Id<"orders">) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este pedido?')) {
-      return;
-    }
+  const handleDeleteClick = (orderId: Id<"orders">) => {
+    setOrderToDelete(orderId);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!orderToDelete) return;
 
     try {
-      setDeletingOrderId(orderId);
-      await deleteOrder({ id: orderId });
+      setDeletingOrderId(orderToDelete);
+      await deleteOrder({ id: orderToDelete });
       // Close expanded order if it was the one being deleted
-      if (expandedOrderId === orderId) {
+      if (expandedOrderId === orderToDelete) {
         setExpandedOrderId(null);
       }
+      setToast({
+        message: 'Pedido eliminado correctamente',
+        type: 'success',
+        isOpen: true,
+      });
+      setOrderToDelete(null);
     } catch (error) {
       console.error('Error al eliminar pedido:', error);
-      alert('No se pudo eliminar el pedido. Intente de nuevo.');
+      setToast({
+        message: 'No se pudo eliminar el pedido. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
     } finally {
       setDeletingOrderId(null);
     }
@@ -96,9 +122,7 @@ export default function MyOrdersPage() {
         />
 
         {isLoading ? (
-          <div className="text-center py-12 text-gray-500">
-            <p>Cargando pedidos...</p>
-          </div>
+          <OrderListSkeleton count={5} />
         ) : (
           <>
         
@@ -111,11 +135,10 @@ export default function MyOrdersPage() {
         )}
         
         {filteredOrders.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <p className="text-gray-500">
-              {userArea ? 'No hay pedidos registrados para tu área' : 'Selecciona un área para ver tus pedidos'}
-            </p>
-          </div>
+          <EmptyState
+            title={userArea ? 'No hay pedidos registrados' : 'Selecciona un área'}
+            message={userArea ? 'No hay pedidos registrados para tu área.' : 'Por favor, selecciona tu área desde la página principal para ver tus pedidos.'}
+          />
         ) : (
           <div className="space-y-3">
             {filteredOrders
@@ -156,11 +179,12 @@ export default function MyOrdersPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteOrder(order._id);
+                                handleDeleteClick(order._id);
                               }}
                               disabled={deletingOrderId === order._id}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Eliminar pedido"
+                              aria-label="Eliminar pedido"
                             >
                               {deletingOrderId === order._id ? (
                                 <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,7 +221,7 @@ export default function MyOrdersPage() {
                     
                     {isExpanded && expandedOrder && items.length > 0 && (
                       <div className="border-t border-gray-200 bg-gray-50 p-4">
-                        <h3 className="text-sm font-medium text-gray-700 mb-3">Ítems del pedido:</h3>
+                        <h3 className="text-sm font-medium text-gray-700 mb-3 text-center">Ítems del pedido:</h3>
                         <div className="space-y-2">
                           {items.map((item: any) => (
                             <div
@@ -226,6 +250,27 @@ export default function MyOrdersPage() {
           </>
         )}
       </PageContainer>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={orderToDelete !== null}
+        onClose={() => setOrderToDelete(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Eliminar pedido"
+        message="¿Estás seguro de que deseas eliminar este pedido?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="destructive"
+        isLoading={deletingOrderId !== null}
+      />
+
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
     </div>
   );
 }

@@ -102,7 +102,6 @@ export const migrateItemsToProducts = mutation({
         baseUnit: item.unidad,
         purchaseUnit: item.unidad, // Initially same as baseUnit
         conversionFactor: 1, // Default: 1 purchaseUnit = 1 baseUnit
-        packageSize: item.package_size ? parseFloat(item.package_size) || 0 : 0,
         active: item.active !== false, // Default to true if undefined
         legacyItemId: item._id,
       });
@@ -312,7 +311,6 @@ export const runFullMigration = mutation({
         baseUnit: item.unidad,
         purchaseUnit: item.unidad,
         conversionFactor: 1,
-        packageSize: item.package_size ? parseFloat(item.package_size) || 0 : 0,
         active: item.active !== false,
         legacyItemId: item._id,
       });

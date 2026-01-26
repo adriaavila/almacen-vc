@@ -92,7 +92,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         tabIndex={-1}
       >
         <div className="p-6">
-          <h2 id="modal-title" className="text-xl font-semibold text-gray-900 mb-4">{title}</h2>
+          <h2 id="modal-title" className="text-xl font-semibold text-gray-900 mb-4 text-center">{title}</h2>
           {children}
         </div>
       </div>

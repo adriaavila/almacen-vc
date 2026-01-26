@@ -52,12 +52,21 @@ export function QuantityInput({
     }
     
     const numValue = parseFloat(inputValue);
-    if (isNaN(numValue)) {
+    if (isNaN(numValue) || numValue < min) {
+      // Show visual feedback for invalid input
+      e.target.classList.add('border-red-500');
       return;
     }
     
+    // Remove error styling if valid
+    e.target.classList.remove('border-red-500');
+    
     let newValue = Math.max(min, numValue);
     if (max !== undefined) {
+      if (numValue > max) {
+        e.target.classList.add('border-red-500');
+        return;
+      }
       newValue = Math.min(max, newValue);
     }
     onChange(newValue);
@@ -96,7 +105,7 @@ export function QuantityInput({
           onFocus={handleFocus}
           onBlur={handleBlur}
           step="0.1"
-          className="w-16 min-h-[44px] h-10 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base font-semibold transition-all duration-200"
+          className="w-16 min-h-[44px] h-10 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base font-semibold transition-all duration-200 invalid:border-red-500"
         />
         {unit && (
           <span className="text-[10px] text-gray-500 leading-tight">{pluralizeUnit(unit, value)}</span>

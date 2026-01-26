@@ -76,7 +76,7 @@ export default function OwnerDashboardPage() {
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 text-left sm:text-center">
               Monitoreo Ejecutivo
             </h1>
             <p className="text-gray-600">
@@ -87,7 +87,7 @@ export default function OwnerDashboardPage() {
             <Button
               variant="secondary"
               onClick={handleExport}
-              className="flex items-center space-x-2"
+              className="w-full sm:w-auto flex items-center justify-center space-x-2"
             >
               <svg
                 className="w-5 h-5"
@@ -108,9 +108,9 @@ export default function OwnerDashboardPage() {
         </div>
 
         {/* Date Range Filter */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-md border border-gray-200/50">
-          <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium text-gray-700">
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 shadow-md border border-gray-200/50">
+          <div className="mb-2 sm:mb-3">
+            <label className="text-xs sm:text-sm font-medium text-gray-700">
               Período de análisis:
             </label>
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -10,9 +10,9 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
-export default function ActivoDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const activoId = id as Id<'activos'>;
+export default function ActivoDetailPage() {
+  const params = useParams();
+  const activoId = (params?.id as string) as Id<'activos'>;
   
   const activo = useQuery(api.activos.getById, { id: activoId });
   const trabajos = useQuery(api.trabajosMantenimiento.getByActivo, { activoId });
@@ -142,7 +142,7 @@ export default function ActivoDetailPage({ params }: { params: Promise<{ id: str
 
         {/* Activo Info */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Información del Activo</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Información del Activo</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500">Ubicación</p>
@@ -165,7 +165,7 @@ export default function ActivoDetailPage({ params }: { params: Promise<{ id: str
 
         {/* Historial de Trabajos */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Historial de Trabajos</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Historial de Trabajos</h2>
           {trabajosOrdenados.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <p>No hay trabajos registrados para este activo</p>

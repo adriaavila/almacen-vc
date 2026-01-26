@@ -10,6 +10,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(true);
 
   // Detect screen size and set initial state
@@ -33,6 +34,11 @@ export default function AdminLayout({
       if (!mobile) {
         setSidebarOpen(true);
       }
+      // Load collapsed state from localStorage
+      const savedCollapsed = localStorage.getItem('admin-sidebar-collapsed');
+      if (savedCollapsed !== null) {
+        setIsCollapsed(savedCollapsed === 'true');
+      }
     }
 
     window.addEventListener('resize', checkScreenSize);
@@ -51,14 +57,29 @@ export default function AdminLayout({
     }
   };
 
+  const handleToggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const newState = !prev;
+      localStorage.setItem('admin-sidebar-collapsed', String(newState));
+      return newState;
+    });
+  };
+
   // Sidebar is open if: explicitly open OR on desktop
   const isSidebarOpen = sidebarOpen || !isMobile;
 
   return (
     <AdminGuard>
       <div className="flex min-h-screen bg-gray-50">
-        <AdminSidebar isOpen={isSidebarOpen} onClose={handleClose} />
-        <main className="flex-1 lg:ml-64 w-full">
+        <AdminSidebar 
+          isOpen={isSidebarOpen} 
+          onClose={handleClose}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+        />
+        <main className={`flex-1 w-full transition-all duration-300 ${
+          isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        }`}>
           {/* Mobile menu button - only shown when sidebar is closed */}
           {isMobile && !sidebarOpen && (
             <button

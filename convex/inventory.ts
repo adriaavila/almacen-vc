@@ -8,7 +8,20 @@ import { v } from "convex/values";
 // Get all inventory records
 export const list = query({
   handler: async (ctx) => {
-    return await ctx.db.query("inventory").collect();
+    const inventory = await ctx.db.query("inventory").collect();
+    
+    // Populate product info
+    const inventoryWithProducts = await Promise.all(
+      inventory.map(async (inv) => {
+        const product = await ctx.db.get(inv.productId);
+        return {
+          ...inv,
+          product: product || undefined,
+        };
+      })
+    );
+
+    return inventoryWithProducts;
   },
 });
 
@@ -368,6 +381,7 @@ export const setMinStock = mutation({
 });
 
 // Initialize inventory for a product at a location
+// If inventory already exists, updates it instead of throwing an error
 export const initialize = mutation({
   args: {
     productId: v.id("products"),
@@ -390,7 +404,14 @@ export const initialize = mutation({
       .first();
 
     if (existing) {
-      throw new Error(`Ya existe inventario para este producto en ${args.location}`);
+      // Update existing inventory instead of throwing error
+      // This allows adding the same product to different locations
+      await ctx.db.patch(existing._id, {
+        stockActual: args.stockActual,
+        stockMinimo: args.stockMinimo,
+        updatedAt: Date.now(),
+      });
+      return existing._id;
     }
 
     const inventoryId = await ctx.db.insert("inventory", {

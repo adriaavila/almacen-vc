@@ -18,7 +18,6 @@ type ConvexProduct = {
   baseUnit: string;
   purchaseUnit: string;
   conversionFactor: number;
-  packageSize: number;
   active: boolean;
   totalStock: number;
   stockAlmacen: number;
@@ -101,9 +100,6 @@ export default function StockPage() {
   };
   
   const formatUnitDisplay = (product: ConvexProduct) => {
-    if (product.packageSize > 0) {
-      return `${product.baseUnit} (${product.packageSize})`;
-    }
     return product.baseUnit;
   };
 

@@ -83,7 +83,6 @@ export interface Product {
   baseUnit: string;        // Consumption unit (unidad, gr, ml)
   purchaseUnit: string;    // Purchase unit (caja, fardo, saco)
   conversionFactor: number; // How many baseUnits in purchaseUnit
-  packageSize: number;
   active: boolean;
   legacyItemId?: Id<'items'>; // Migration tracking
 }

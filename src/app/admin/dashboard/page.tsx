@@ -8,6 +8,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ProToggle } from '@/components/ui/ProToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -106,6 +107,7 @@ export default function DashboardPage() {
       <AdminHeader 
         title="Dashboard"
         subtitle="Vista general del inventario y pedidos"
+        actions={<ProToggle isProMode={false} />}
       />
 
         {/* Statistics Cards */}
@@ -215,7 +217,7 @@ export default function DashboardPage() {
                   <CardDescription>Productos que requieren atención inmediata</CardDescription>
                 </div>
                 {lowStockItems.length > 5 && (
-                  <Link href="/admin/inventario">
+                  <Link href="/admin/inventario?status=bajo_stock">
                     <Button variant="secondary" className="text-xs px-3 py-1 h-auto">
                       Ver todos
                     </Button>

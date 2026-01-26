@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -10,9 +10,9 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
-export default function TrabajoBasicoDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const trabajoId = id as Id<'trabajos_mantenimiento'>;
+export default function TrabajoBasicoDetailPage() {
+  const params = useParams();
+  const trabajoId = (params?.id as string) as Id<'trabajos_mantenimiento'>;
   
   const trabajo = useQuery(api.trabajosMantenimiento.getById, { id: trabajoId });
 
@@ -96,7 +96,7 @@ export default function TrabajoBasicoDetailPage({ params }: { params: Promise<{ 
           </Link>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
                 {trabajo.activo?.nombre || 'Activo eliminado'}
               </h1>
               <div className="flex items-center gap-2 flex-wrap">
@@ -114,7 +114,7 @@ export default function TrabajoBasicoDetailPage({ params }: { params: Promise<{ 
 
         {/* Trabajo Info */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Información del Trabajo</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Información del Trabajo</h2>
           <div className="space-y-4">
             <div>
               <p className="text-sm text-gray-500">Descripción</p>
@@ -157,7 +157,7 @@ export default function TrabajoBasicoDetailPage({ params }: { params: Promise<{ 
         {/* Repuestos en Uso */}
         {trabajo.repuestos && trabajo.repuestos.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Repuestos en Uso</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Repuestos en Uso</h2>
             <div className="space-y-3">
               {trabajo.repuestos.map((consumo, index) => (
                 <div
