@@ -75,7 +75,7 @@ export type PendingAction =
       mutation: 'api.orders.create';
       args: {
         area: "Cocina" | "Cafetín" | "Limpieza";
-        items: Array<{ itemId?: Id<"items">; productId?: Id<"products">; cantidad: number }>;
+        items: Array<{ productId: Id<"products">; cantidad: number }>;
       };
       timestamp: number;
     }

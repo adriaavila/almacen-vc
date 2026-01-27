@@ -83,7 +83,7 @@ export function OfflineSyncManager() {
             }
             result = await createOrder(action.args as {
               area: "Cocina" | "Cafetín" | "Limpieza";
-              items: Array<{ itemId?: Id<"items">; productId?: Id<"products">; cantidad: number }>;
+              items: Array<{ productId: Id<"products">; cantidad: number }>;
             });
             break;
           case 'deliverOrder':

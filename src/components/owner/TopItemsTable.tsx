@@ -74,7 +74,7 @@ export function TopItemsTable({ startDate, endDate, limit = 10 }: TopItemsTableP
             <TableBody>
               {topItems.map((item, index) => (
                 <TableRow
-                  key={item.itemId}
+                  key={item.productId}
                   className="hover:bg-gray-50/50 transition-colors border-b border-gray-100"
                 >
                   <TableCell className="font-medium">

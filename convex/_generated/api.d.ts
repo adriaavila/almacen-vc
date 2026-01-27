@@ -11,7 +11,6 @@
 import type * as activos from "../activos.js";
 import type * as analytics from "../analytics.js";
 import type * as inventory from "../inventory.js";
-import type * as items from "../items.js";
 import type * as migration from "../migration.js";
 import type * as movements from "../movements.js";
 import type * as orderItems from "../orderItems.js";
@@ -19,7 +18,7 @@ import type * as orders from "../orders.js";
 import type * as products from "../products.js";
 import type * as repuestos from "../repuestos.js";
 import type * as seed from "../seed.js";
-import type * as stockMovements from "../stockMovements.js";
+import type * as telegram from "../telegram.js";
 import type * as trabajosMantenimiento from "../trabajosMantenimiento.js";
 import type * as uiConfig from "../uiConfig.js";
 
@@ -33,7 +32,6 @@ declare const fullApi: ApiFromModules<{
   activos: typeof activos;
   analytics: typeof analytics;
   inventory: typeof inventory;
-  items: typeof items;
   migration: typeof migration;
   movements: typeof movements;
   orderItems: typeof orderItems;
@@ -41,7 +39,7 @@ declare const fullApi: ApiFromModules<{
   products: typeof products;
   repuestos: typeof repuestos;
   seed: typeof seed;
-  stockMovements: typeof stockMovements;
+  telegram: typeof telegram;
   trabajosMantenimiento: typeof trabajosMantenimiento;
   uiConfig: typeof uiConfig;
 }>;

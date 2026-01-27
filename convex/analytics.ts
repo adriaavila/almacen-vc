@@ -1,17 +1,31 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 
+// Helper to format date key for grouping
+function formatDateKey(date: Date, groupBy: "day" | "week" | "month"): string {
+  if (groupBy === "day") {
+    return date.toISOString().split("T")[0];
+  } else if (groupBy === "week") {
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
+    return weekStart.toISOString().split("T")[0];
+  } else {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+}
+
 // Helper to filter by date range
-function filterByDateRange<T extends { createdAt: number }>(
+function filterByDateRange<T extends { createdAt?: number; timestamp?: number }>(
   items: T[],
   startDate?: number,
   endDate?: number
 ): T[] {
   return items.filter((item) => {
-    if (startDate !== undefined && item.createdAt < startDate) {
+    const date = (item.createdAt ?? item.timestamp) as number;
+    if (startDate !== undefined && date < startDate) {
       return false;
     }
-    if (endDate !== undefined && item.createdAt > endDate) {
+    if (endDate !== undefined && date > endDate) {
       return false;
     }
     return true;
@@ -173,17 +187,24 @@ export const getAverageDeliveryTime = query({
     const times: number[] = [];
     
     for (const order of deliveredOrders) {
-      // For now, use a simple approximation (would need actual delivery timestamp)
-      // This calculates from order creation to "now" as a proxy
+      // Use movements table - look for CONSUMO or TRASLADO movements related to this order
+      // Note: movements table doesn't have referencia field, so we approximate using timestamp
       // In production, you'd want to track actual delivery time
-      const deliveryMovement = await ctx.db
-        .query("stock_movements")
-        .filter((q) => q.eq(q.field("referencia"), order._id))
-        .filter((q) => q.eq(q.field("type"), "egreso"))
-        .first();
+      const movements = await ctx.db
+        .query("movements")
+        .withIndex("by_timestamp", (q) => q.gte("timestamp", order.createdAt))
+        .collect();
       
-      if (deliveryMovement) {
-        const deliveryTime = deliveryMovement.createdAt - order.createdAt;
+      // Find movements that occurred after order creation (approximation)
+      const relevantMovements = movements.filter(m => 
+        (m.type === "CONSUMO" || m.type === "TRASLADO") &&
+        m.timestamp >= order.createdAt &&
+        m.timestamp <= order.createdAt + 7 * 24 * 60 * 60 * 1000 // Within 7 days
+      );
+      
+      if (relevantMovements.length > 0) {
+        // Use first movement timestamp as delivery time approximation
+        const deliveryTime = relevantMovements[0].timestamp - order.createdAt;
         if (deliveryTime > 0) {
           times.push(deliveryTime);
         }
@@ -251,16 +272,28 @@ export const getPendingOrdersAging = query({
 
 export const getInventoryHealth = query({
   handler: async (ctx) => {
-    const allItems = await ctx.db.query("items").collect();
-    const activeItems = allItems.filter((item) => item.active !== false);
-    const lowStockItems = activeItems.filter((item) => item.status === "bajo_stock");
+    // Use products with inventory instead of items
+    const products = await ctx.db.query("products").collect();
+    const activeProducts = products.filter((p) => p.active);
+    
+    // Get inventory for all products to check low stock
+    const inventory = await ctx.db.query("inventory").collect();
+    const inventoryByProduct = new Map(inventory.map(inv => [inv.productId, inv]));
+    
+    let lowStockCount = 0;
+    for (const product of activeProducts) {
+      const inv = inventoryByProduct.get(product._id);
+      if (inv && inv.stockActual <= inv.stockMinimo) {
+        lowStockCount++;
+      }
+    }
     
     return {
-      total: activeItems.length,
-      lowStock: lowStockItems.length,
-      healthy: activeItems.length - lowStockItems.length,
-      healthPercentage: activeItems.length > 0 
-        ? Math.round(((activeItems.length - lowStockItems.length) / activeItems.length) * 100)
+      total: activeProducts.length,
+      lowStock: lowStockCount,
+      healthy: activeProducts.length - lowStockCount,
+      healthPercentage: activeProducts.length > 0 
+        ? Math.round(((activeProducts.length - lowStockCount) / activeProducts.length) * 100)
         : 0,
     };
   },
@@ -272,15 +305,24 @@ export const getLowStockTrend = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // This would require tracking low stock events over time
-    // For now, return current low stock count
-    const lowStockItems = await ctx.db
-      .query("items")
-      .withIndex("by_status", (q) => q.eq("status", "bajo_stock"))
-      .collect();
+    // Use products with inventory instead of items
+    const products = await ctx.db.query("products").collect();
+    const activeProducts = products.filter((p) => p.active);
+    
+    // Get inventory for all products to check low stock
+    const inventory = await ctx.db.query("inventory").collect();
+    const inventoryByProduct = new Map(inventory.map(inv => [inv.productId, inv]));
+    
+    let lowStockCount = 0;
+    for (const product of activeProducts) {
+      const inv = inventoryByProduct.get(product._id);
+      if (inv && inv.stockActual <= inv.stockMinimo) {
+        lowStockCount++;
+      }
+    }
     
     return {
-      current: lowStockItems.filter((item) => item.active !== false).length,
+      current: lowStockCount,
       // Future: track historical data
     };
   },
@@ -300,9 +342,9 @@ export const getMostRequestedItems = query({
       args.endDate
     );
     
-    const itemStats = new Map<
+    const productStats = new Map<
       string,
-      { itemId: string; nombre: string; orderCount: number; totalQuantity: number; lastOrdered: number }
+      { productId: string; nombre: string; orderCount: number; totalQuantity: number; lastOrdered: number }
     >();
     
     for (const order of orders) {
@@ -312,12 +354,18 @@ export const getMostRequestedItems = query({
         .collect();
       
       for (const oi of orderItems) {
-        const item = await ctx.db.get(oi.itemId);
-        if (!item) continue;
+        // Use only productId - skip if not available
+        if (!oi.productId) continue;
         
-        const existing = itemStats.get(oi.itemId) || {
-          itemId: oi.itemId,
-          nombre: item.nombre,
+        const product = await ctx.db.get(oi.productId);
+        if (!product) continue;
+        
+        const productId = oi.productId;
+        const nombre = product.name;
+        
+        const existing = productStats.get(productId) || {
+          productId: productId,
+          nombre: nombre,
           orderCount: 0,
           totalQuantity: 0,
           lastOrdered: order.createdAt,
@@ -329,11 +377,11 @@ export const getMostRequestedItems = query({
           existing.lastOrdered = order.createdAt;
         }
         
-        itemStats.set(oi.itemId, existing);
+        productStats.set(productId, existing);
       }
     }
     
-    const sorted = Array.from(itemStats.values())
+    const sorted = Array.from(productStats.values())
       .sort((a, b) => b.orderCount - a.orderCount)
       .slice(0, args.limit || 10);
     
@@ -349,14 +397,15 @@ export const getMovementStats = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const allMovements = await ctx.db.query("stock_movements").collect();
+    const allMovements = await ctx.db.query("movements").collect();
     const movements = filterByDateRange(allMovements, args.startDate, args.endDate);
     
-    const ingresos = movements.filter((m) => m.type === "ingreso");
-    const egresos = movements.filter((m) => m.type === "egreso");
+    // Map new movement types to legacy concepts
+    const ingresos = movements.filter((m) => m.type === "COMPRA" || m.type === "AJUSTE");
+    const egresos = movements.filter((m) => m.type === "CONSUMO" || m.type === "TRASLADO");
     
-    const totalIngresos = ingresos.reduce((sum, m) => sum + m.cantidad, 0);
-    const totalEgresos = egresos.reduce((sum, m) => sum + m.cantidad, 0);
+    const totalIngresos = ingresos.reduce((sum, m) => sum + m.quantity, 0);
+    const totalEgresos = egresos.reduce((sum, m) => sum + m.quantity, 0);
     
     return {
       ingresos: {
@@ -379,44 +428,27 @@ export const getMovementTrends = query({
     groupBy: v.optional(v.union(v.literal("day"), v.literal("week"), v.literal("month"))),
   },
   handler: async (ctx, args) => {
-    const allMovements = await ctx.db.query("stock_movements").collect();
+    const allMovements = await ctx.db.query("movements").collect();
     const movements = filterByDateRange(allMovements, args.startDate, args.endDate);
     const groupBy = args.groupBy || "day";
     
-    const ingresos = movements.filter((m) => m.type === "ingreso");
-    const egresos = movements.filter((m) => m.type === "egreso");
+    // Map new movement types to legacy concepts
+    const ingresos = movements.filter((m) => m.type === "COMPRA" || m.type === "AJUSTE");
+    const egresos = movements.filter((m) => m.type === "CONSUMO" || m.type === "TRASLADO");
     
     const ingresosGrouped = new Map<string, number>();
     const egresosGrouped = new Map<string, number>();
     
     ingresos.forEach((m) => {
-      const date = new Date(m.createdAt);
-      let key: string;
-      if (groupBy === "day") {
-        key = date.toISOString().split("T")[0];
-      } else if (groupBy === "week") {
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split("T")[0];
-      } else {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      }
-      ingresosGrouped.set(key, (ingresosGrouped.get(key) || 0) + m.cantidad);
+      const date = new Date(m.timestamp);
+      const key = formatDateKey(date, groupBy);
+      ingresosGrouped.set(key, (ingresosGrouped.get(key) || 0) + m.quantity);
     });
     
     egresos.forEach((m) => {
-      const date = new Date(m.createdAt);
-      let key: string;
-      if (groupBy === "day") {
-        key = date.toISOString().split("T")[0];
-      } else if (groupBy === "week") {
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split("T")[0];
-      } else {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      }
-      egresosGrouped.set(key, (egresosGrouped.get(key) || 0) + m.cantidad);
+      const date = new Date(m.timestamp);
+      const key = formatDateKey(date, groupBy);
+      egresosGrouped.set(key, (egresosGrouped.get(key) || 0) + m.quantity);
     });
     
     const allKeys = Array.from(

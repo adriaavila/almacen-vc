@@ -12,13 +12,13 @@ export const getByOrderId = query({
   },
 });
 
-// Query: Get all orderItems for a specific item (history)
-export const getByItemId = query({
-  args: { itemId: v.id("items") },
+// Query: Get all orderItems for a specific product (history)
+export const getByProductId = query({
+  args: { productId: v.id("products") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("orderItems")
-      .withIndex("by_itemId", (q) => q.eq("itemId", args.itemId))
+      .withIndex("by_productId", (q) => q.eq("productId", args.productId))
       .collect();
   },
 });
@@ -27,7 +27,7 @@ export const getByItemId = query({
 export const create = mutation({
   args: {
     orderId: v.id("orders"),
-    itemId: v.id("items"),
+    productId: v.id("products"),
     cantidad: v.number(),
   },
   handler: async (ctx, args) => {
@@ -41,15 +41,15 @@ export const create = mutation({
       throw new Error(`Pedido con ID ${args.orderId} no encontrado`);
     }
 
-    // Verify item exists
-    const item = await ctx.db.get(args.itemId);
-    if (!item) {
-      throw new Error(`Item con ID ${args.itemId} no encontrado`);
+    // Verify product exists
+    const product = await ctx.db.get(args.productId);
+    if (!product) {
+      throw new Error(`Producto con ID ${args.productId} no encontrado`);
     }
 
     const orderItemId = await ctx.db.insert("orderItems", {
       orderId: args.orderId,
-      itemId: args.itemId,
+      productId: args.productId,
       cantidad: args.cantidad,
     });
 
@@ -63,7 +63,7 @@ export const bulkCreate = mutation({
     orderId: v.id("orders"),
     items: v.array(
       v.object({
-        itemId: v.id("items"),
+        productId: v.id("products"),
         cantidad: v.number(),
       })
     ),
@@ -79,21 +79,21 @@ export const bulkCreate = mutation({
       throw new Error(`Pedido con ID ${args.orderId} no encontrado`);
     }
 
-    // Validate all items exist and quantities
+    // Validate all products exist and quantities
     const orderItemIds = [];
     for (const item of args.items) {
       if (item.cantidad <= 0) {
         throw new Error("La cantidad debe ser mayor a 0");
       }
 
-      const dbItem = await ctx.db.get(item.itemId);
-      if (!dbItem) {
-        throw new Error(`Item con ID ${item.itemId} no encontrado`);
+      const product = await ctx.db.get(item.productId);
+      if (!product) {
+        throw new Error(`Producto con ID ${item.productId} no encontrado`);
       }
 
       const orderItemId = await ctx.db.insert("orderItems", {
         orderId: args.orderId,
-        itemId: item.itemId,
+        productId: item.productId,
         cantidad: item.cantidad,
       });
 

@@ -170,8 +170,15 @@ function CreateOrderPageContent() {
   const areaProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
     // Filter active products with stock
-    return products.filter(p => p.active && p.totalStock > 0);
-  }, [products]);
+    let filtered = products.filter(p => p.active && p.totalStock > 0);
+    
+    // For Limpieza area, only show products from Limpieza category
+    if (selectedArea === 'Limpieza') {
+      filtered = filtered.filter(p => p.category === 'Limpieza');
+    }
+    
+    return filtered;
+  }, [products, selectedArea]);
 
   // Get all unique subcategories from filtered products
   const subcategories = useMemo(() => {

@@ -154,7 +154,7 @@ export default function SeedPage() {
       if (confirmAction === 'clear') {
         setLoading(true);
         const result = await clearAllMutation();
-        setMessage(`✅ ${result.message}. Eliminados: ${result.deleted.items} items, ${result.deleted.orders} pedidos, ${result.deleted.orderItems} orderItems.`);
+        setMessage(`✅ ${result.message}. Eliminados: ${result.deleted.products} productos, ${result.deleted.inventory} inventarios, ${result.deleted.movements} movimientos, ${result.deleted.orders} pedidos, ${result.deleted.orderItems} orderItems.`);
         setLoading(false);
       } else if (confirmAction === 'import') {
         setImporting(true);

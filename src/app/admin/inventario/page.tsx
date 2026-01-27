@@ -179,10 +179,14 @@ export default function InventoryPage() {
     } else {
       // Start adjusting this product
       setAdjustingId(product._id);
+      // Use selected location, default to almacen if "all" is selected
+      const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
+      const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
       if (delta !== undefined) {
         setAdjustValue(delta > 0 ? '1' : '0');
       } else {
-        setAdjustValue('0');
+        // Initialize with current stock so user can modify it directly
+        setAdjustValue(currentStock.toString());
       }
     }
   };
@@ -239,8 +243,7 @@ export default function InventoryPage() {
     
     // Use selected location, default to almacen if "all" is selected
     const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
-    const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
-    const newStock = currentStock + numValue;
+    const newStock = numValue;
     if (newStock < 0) return;
     
     try {

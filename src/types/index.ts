@@ -8,7 +8,7 @@ export type ItemStatus = 'ok' | 'bajo_stock';
 
 export type StockStatus = 'sufficient' | 'just_enough' | 'low';
 
-// Legacy movement types (for old stock_movements table)
+// DEPRECATED: Legacy movement types (stock_movements table no longer exists)
 export type LegacyMovementType = 'ingreso' | 'egreso';
 export type MovementMotivo = 'compra' | 'consumo' | 'ajuste' | 'mantenimiento';
 
@@ -19,10 +19,11 @@ export type MovementType = 'COMPRA' | 'TRASLADO' | 'CONSUMO' | 'AJUSTE';
 export type InventoryLocation = 'almacen' | 'cafetin';
 
 export interface DeliveryResult {
-  deliveredItems: Array<{ itemId: string; cantidad: number; newStock: number }>;
-  lowStockItems: Array<{ itemId: string; nombre: string; stock_actual: number; stock_minimo: number }>;
+  deliveredItems: Array<{ itemId: string; cantidad: number; newStock: number }>; // itemId is actually productId
+  lowStockItems: Array<{ itemId: string; nombre: string; stock_actual: number; stock_minimo: number }>; // itemId is actually productId
 }
 
+// DEPRECATED: Item interface - use Product instead
 export interface Item {
   id: string;
   nombre: string;
@@ -55,10 +56,10 @@ export interface Pedido {
   items?: Item[]; // Populated when needed
 }
 
-// Legacy StockMovement (for old stock_movements table)
+// DEPRECATED: StockMovement interface - stock_movements table no longer exists, use Movement instead
 export interface StockMovement {
-  _id: Id<'stock_movements'>;
-  itemId: Id<'items'>;
+  _id: string; // Changed from Id<'stock_movements'> since table no longer exists
+  itemId: string; // Changed from Id<'items'> since items table no longer exists
   type: LegacyMovementType;
   cantidad: number;
   motivo: MovementMotivo;
@@ -84,7 +85,6 @@ export interface Product {
   purchaseUnit: string;    // Purchase unit (caja, fardo, saco)
   conversionFactor: number; // How many baseUnits in purchaseUnit
   active: boolean;
-  legacyItemId?: Id<'items'>; // Migration tracking
 }
 
 // Product with aggregated inventory (from products.listWithInventory)
@@ -130,7 +130,6 @@ export interface Movement {
   nextStock: number;
   user: string;
   timestamp: number;
-  legacyMovementId?: Id<'stock_movements'>; // Migration tracking
   // Populated field
   product?: Product;
 }
@@ -213,8 +212,7 @@ export interface ConsumoRepuesto {
 
 // POS Multi-Slot Types
 export interface CartItem {
-  itemId: Id<"items"> | Id<"products">; // Support both legacy and new IDs
-  productId?: Id<"products">; // New system product ID
+  productId: Id<"products">; // Use only productId
   nombre: string;
   cantidad: number;
   precio: number;

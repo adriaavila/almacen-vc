@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
@@ -25,51 +26,26 @@ export const getById = query({
       .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
       .collect();
 
-    // Populate items (prefer productId, fallback to legacy item)
+    // Populate items using productId only
     const items = await Promise.all(
       orderItems.map(async (oi) => {
-        // Prefer productId if available
-        if (oi.productId) {
-          const product = await ctx.db.get(oi.productId);
-          if (product) {
-            return {
-              _id: product._id,
-              nombre: product.name,
-              categoria: product.category,
-              subcategoria: product.subCategory,
-              marca: product.brand,
-              unidad: product.baseUnit,
-              cantidad: oi.cantidad,
-            };
-          }
-        }
-
-        // Fallback: find product by legacyItemId
-        const productId = await findProductByLegacyItemId(ctx, oi.itemId);
-        if (productId) {
-          const product = await ctx.db.get(productId);
-          if (product) {
-            // Note: Cannot update orderItem here (query is read-only)
-            // Migration should be done separately using migrateOrderItems mutation
-            return {
-              _id: product._id,
-              nombre: product.name,
-              categoria: product.category,
-              subcategoria: product.subCategory,
-              marca: product.brand,
-              unidad: product.baseUnit,
-              cantidad: oi.cantidad,
-            };
-          }
-        }
-
-        // Last resort: legacy item (should not happen after migration)
-        const item = await ctx.db.get(oi.itemId);
-        if (!item) {
+        // Use only productId - skip if not available
+        if (!oi.productId) {
           return null;
         }
+
+        const product = await ctx.db.get(oi.productId);
+        if (!product) {
+          return null;
+        }
+
         return {
-          ...item,
+          _id: product._id,
+          nombre: product.name,
+          categoria: product.category,
+          subcategoria: product.subCategory,
+          marca: product.brand,
+          unidad: product.baseUnit,
           cantidad: oi.cantidad,
         };
       })
@@ -140,8 +116,7 @@ export const create = mutation({
     area: v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza")),
     items: v.array(
       v.object({
-        itemId: v.optional(v.id("items")), // Legacy - mantener por compatibilidad
-        productId: v.optional(v.id("products")), // Nuevo - preferir este
+        productId: v.id("products"), // Requerido - solo usar productId
         cantidad: v.number(),
       })
     ),
@@ -155,11 +130,15 @@ export const create = mutation({
     }
 
     // Create the order
+    const createdAt = Date.now();
     const orderId = await ctx.db.insert("orders", {
       area: args.area,
       status: "pendiente",
-      createdAt: Date.now(),
+      createdAt,
     });
+
+    // Array para construir los items de la notificación
+    const notificationItems: Array<{ name: string; quantity: number }> = [];
 
     // Create orderItems
     for (const item of validItems) {
@@ -167,39 +146,44 @@ export const create = mutation({
         continue;
       }
 
-      let productId: Id<"products"> | undefined;
-      let itemId: Id<"items"> | undefined;
+      let productId: Id<"products">;
+      let productName: string;
 
-      // Prefer productId if provided
-      if (item.productId) {
-        const product = await ctx.db.get(item.productId);
-        if (!product) {
-          throw new Error(`Producto con ID ${item.productId} no encontrado`);
-        }
-        productId = item.productId;
-      } else if (item.itemId) {
-        // Legacy: find product by legacyItemId
-        const foundProductId = await findProductByLegacyItemId(ctx, item.itemId);
-        if (!foundProductId) {
-          throw new Error(
-            `No se encontró producto para itemId ${item.itemId}. Asegúrate de usar productId o que el item haya sido migrado.`
-          );
-        }
-        productId = foundProductId;
-        itemId = item.itemId; // Keep for reference
-      } else {
-        throw new Error("Debe proporcionar productId o itemId");
+      // Use only productId - itemId is no longer supported
+      if (!item.productId) {
+        throw new Error("Debe proporcionar productId");
       }
 
-      // Insert orderItem - itemId is required by schema but can be a dummy value if using productId
-      // In practice, we'll use productId as itemId for compatibility during transition
+      const product = await ctx.db.get(item.productId);
+      if (!product) {
+        throw new Error(`Producto con ID ${item.productId} no encontrado`);
+      }
+      productId = item.productId;
+      productName = product.name;
+
+      // Insert orderItem
       await ctx.db.insert("orderItems", {
         orderId,
-        itemId: itemId || (productId as unknown as Id<"items">), // Required by schema, use productId as fallback
         productId,
         cantidad: item.cantidad,
       });
+
+      // Agregar al array de notificación si tenemos el nombre del producto
+      if (productName) {
+        notificationItems.push({
+          name: productName,
+          quantity: item.cantidad,
+        });
+      }
     }
+
+    // Programar notificación de Telegram después de crear el pedido
+    await ctx.scheduler.runAfter(0, internal.telegram.sendNotification, {
+      orderId,
+      area: args.area,
+      createdAt,
+      items: notificationItems,
+    });
 
     return orderId;
   },
@@ -248,24 +232,12 @@ export const deliver = mutation({
 
     // Process each order item
     for (const oi of orderItems) {
-      // Get productId - prefer productId field, fallback to finding by legacyItemId
-      let productId: Id<"products">;
-      
-      if (oi.productId) {
-        productId = oi.productId;
-      } else {
-        // Legacy: find product by legacyItemId
-        const foundProductId = await findProductByLegacyItemId(ctx, oi.itemId);
-        if (!foundProductId) {
-          // Skip if product not found - item may not be migrated yet
-          continue;
-        }
-        productId = foundProductId;
-        // Update orderItem with productId for future reference
-        await ctx.db.patch(oi._id, {
-          productId,
-        });
+      // Use only productId - skip if not available
+      if (!oi.productId) {
+        continue;
       }
+      
+      const productId = oi.productId;
 
       // Use new inventory system
       await processProductDelivery(
@@ -473,22 +445,6 @@ export const remove = mutation({
 // MIGRATION FUNCTIONS - Migrate orderItems to use products
 // ============================================================
 
-// Helper: Find product by legacyItemId
-async function findProductByLegacyItemId(
-  ctx: QueryCtx | MutationCtx,
-  itemId: Id<"items">
-): Promise<Id<"products"> | null> {
-  const products = await ctx.db
-    .query("products")
-    .withIndex("by_legacy_item", (q) => q.eq("legacyItemId", itemId))
-    .collect();
-  
-  if (products.length > 0) {
-    return products[0]._id;
-  }
-  
-  return null;
-}
 
 // Query: Get orders by date range
 export const getOrderByDateRange = query({
@@ -527,6 +483,7 @@ export const getOrderByDateRange = query({
 });
 
 // Mutation: Migrate a single orderItem to use productId
+// DEPRECATED: Esta función ya no es necesaria ya que solo se usa productId
 export const migrateOrderItemToProduct = mutation({
   args: { orderItemId: v.id("orderItems") },
   handler: async (ctx, args) => {
@@ -535,7 +492,7 @@ export const migrateOrderItemToProduct = mutation({
       throw new Error(`OrderItem con ID ${args.orderItemId} no encontrado`);
     }
 
-    // Skip if already migrated
+    // If already has productId, return success
     if (orderItem.productId) {
       return {
         orderItemId: args.orderItemId,
@@ -545,24 +502,10 @@ export const migrateOrderItemToProduct = mutation({
       };
     }
 
-    // Find product by legacyItemId
-    const productId = await findProductByLegacyItemId(ctx, orderItem.itemId);
-    if (!productId) {
-      throw new Error(
-        `No se encontró producto para itemId ${orderItem.itemId}. Asegúrate de que el item haya sido migrado a producto primero.`
-      );
-    }
-
-    // Update orderItem with productId
-    await ctx.db.patch(args.orderItemId, {
-      productId,
-    });
-
-    return {
-      orderItemId: args.orderItemId,
-      productId,
-      migrated: true,
-    };
+    // Cannot migrate without productId - items table no longer exists
+    throw new Error(
+      `OrderItem no tiene productId y la tabla items ya no existe. Este orderItem necesita ser recreado con productId.`
+    );
   },
 });
 
@@ -598,22 +541,10 @@ export const migrateOrderItems = mutation({
 
     for (const orderItem of toProcess) {
       try {
-        const productId = await findProductByLegacyItemId(ctx, orderItem.itemId);
-        if (!productId) {
-          errors.push({
-            orderItemId: orderItem._id,
-            error: `No se encontró producto para itemId ${orderItem.itemId}`,
-          });
-          continue;
-        }
-
-        await ctx.db.patch(orderItem._id, {
-          productId,
-        });
-
-        migrated.push({
+        // Cannot migrate without productId - items table no longer exists
+        errors.push({
           orderItemId: orderItem._id,
-          productId: productId,
+          error: `OrderItem no tiene productId y la tabla items ya no existe. Este orderItem necesita ser recreado con productId.`,
         });
       } catch (error: any) {
         errors.push({
@@ -678,26 +609,16 @@ export const reprocessDeliveredOrder = mutation({
     // Process each orderItem
     for (const oi of orderItems) {
       try {
-        // Ensure orderItem has productId
-        let productId: Id<"products">;
-        if (oi.productId) {
-          productId = oi.productId;
-        } else {
-          // Migrate orderItem first
-          const foundProductId = await findProductByLegacyItemId(ctx, oi.itemId);
-          if (!foundProductId) {
-            errors.push({
-              orderItemId: oi._id,
-              error: `No se encontró producto para itemId ${oi.itemId}`,
-            });
-            continue;
-          }
-          productId = foundProductId;
-          // Update orderItem with productId
-          await ctx.db.patch(oi._id, {
-            productId,
+        // Use only productId - skip if not available
+        if (!oi.productId) {
+          errors.push({
+            orderItemId: oi._id,
+            error: `OrderItem no tiene productId`,
           });
+          continue;
         }
+        
+        const productId = oi.productId;
 
         const product = await ctx.db.get(productId);
         if (!product) {
@@ -857,19 +778,13 @@ export const reprocessAllDeliveredOrders = mutation({
 
         for (const oi of orderItems) {
           try {
-            // Ensure orderItem has productId
-            let productId: Id<"products">;
-            if (oi.productId) {
-              productId = oi.productId;
-            } else {
-              const foundProductId = await findProductByLegacyItemId(ctx, oi.itemId);
-              if (!foundProductId) {
-                errors++;
-                continue;
-              }
-              productId = foundProductId;
-              await ctx.db.patch(oi._id, { productId });
+            // Use only productId - skip if not available
+            if (!oi.productId) {
+              errors++;
+              continue;
             }
+            
+            const productId = oi.productId;
 
             const product = await ctx.db.get(productId);
             if (!product) {

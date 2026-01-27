@@ -115,12 +115,12 @@ export default function POSPage() {
     // Add coffee to current active slot (stays on same slot for multiple taps)
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
-        const existingItem = slot.items.find(item => item.itemId === coffeeProductId);
+        const existingItem = slot.items.find(item => item.productId === coffeeProductId);
         if (existingItem) {
           return {
             ...slot,
             items: slot.items.map(item =>
-              item.itemId === coffeeProductId
+              item.productId === coffeeProductId
                 ? { ...item, cantidad: item.cantidad + 1 }
                 : item
             ),
@@ -129,7 +129,6 @@ export default function POSPage() {
           return {
             ...slot,
             items: [...slot.items, {
-              itemId: coffeeProductId,
               productId: coffeeProductId,
               nombre: coffeeProduct.name,
               cantidad: 1,
@@ -151,7 +150,7 @@ export default function POSPage() {
 
   // Handle add product to active slot
   const handleAddProductToActiveSlot = (product: ConvexProduct) => {
-    const existingItem = activeSlot.items.find(c => c.itemId === product._id);
+    const existingItem = activeSlot.items.find(c => c.productId === product._id);
     
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
@@ -159,7 +158,7 @@ export default function POSPage() {
           return {
             ...slot,
             items: slot.items.map(c =>
-              c.itemId === product._id
+              c.productId === product._id
                 ? { ...c, cantidad: c.cantidad + 1 }
                 : c
             ),
@@ -168,7 +167,6 @@ export default function POSPage() {
           return {
             ...slot,
             items: [...slot.items, {
-              itemId: product._id,
               productId: product._id,
               nombre: product.name,
               cantidad: 1,
@@ -183,13 +181,13 @@ export default function POSPage() {
   };
 
   // Handle decrease quantity (subtract 1, remove if reaches 0)
-  const handleDecreaseQuantity = (itemId: Id<"items"> | Id<"products">) => {
+  const handleDecreaseQuantity = (productId: Id<"products">) => {
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
         return {
           ...slot,
           items: slot.items.map(item =>
-            item.itemId === itemId
+            item.productId === productId
               ? { ...item, cantidad: Math.max(0, item.cantidad - 1) }
               : item
           ).filter(item => item.cantidad > 0) // Remove if cantidad reaches 0
@@ -200,12 +198,12 @@ export default function POSPage() {
   };
 
   // Handle remove item completely
-  const handleRemoveItem = (itemId: Id<"items"> | Id<"products">) => {
+  const handleRemoveItem = (productId: Id<"products">) => {
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
         return {
           ...slot,
-          items: slot.items.filter(item => item.itemId !== itemId)
+          items: slot.items.filter(item => item.productId !== productId)
         };
       }
       return slot;
@@ -254,7 +252,7 @@ export default function POSPage() {
         const orderId = await createOrder({
           area: 'Cafetín',
           items: slot.items.map(item => ({
-            itemId: item.itemId as Id<"items">, // Cast for compatibility
+            productId: item.productId,
             cantidad: item.cantidad,
           })),
         });

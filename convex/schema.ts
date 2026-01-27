@@ -2,26 +2,6 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  items: defineTable({
-    nombre: v.string(),
-    categoria: v.string(),
-    subcategoria: v.optional(v.string()),
-    marca: v.optional(v.string()),
-    unidad: v.string(),
-    stock_actual: v.number(),
-    stock_minimo: v.number(),
-    package_size: v.optional(v.string()),
-    location: v.string(),
-    extra_notes: v.optional(v.string()),
-    status: v.union(v.literal("ok"), v.literal("bajo_stock")),
-    active: v.optional(v.boolean()), // Optional to support existing items without this field
-    sharedAreas: v.optional(v.array(v.string())), // Areas that can see this item: ["Cocina", "Cafetín", "Limpieza"]
-    updatedBy: v.optional(v.string()),
-    updatedAt: v.optional(v.number()),
-  })
-    .index("by_status", ["status"])
-    .index("by_categoria", ["categoria"]),
-
   orders: defineTable({
     area: v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza")),
     status: v.union(v.literal("pendiente"), v.literal("entregado")),
@@ -34,27 +14,12 @@ export default defineSchema({
 
   orderItems: defineTable({
     orderId: v.id("orders"),
-    itemId: v.id("items"), // Legacy field - mantener por compatibilidad durante migración
-    productId: v.optional(v.id("products")), // Nuevo campo - usar este después de migración
+    productId: v.optional(v.id("products")), // Optional - legacy documents may only have itemId
+    itemId: v.optional(v.string()), // Legacy field from old items table (migration tracking, stored as string)
     cantidad: v.number(),
   })
     .index("by_orderId", ["orderId"])
-    .index("by_itemId", ["itemId"])
     .index("by_productId", ["productId"]),
-
-  stock_movements: defineTable({
-    itemId: v.id("items"),
-    type: v.union(v.literal("ingreso"), v.literal("egreso")),
-    cantidad: v.number(),
-    motivo: v.union(v.literal("compra"), v.literal("consumo"), v.literal("ajuste"), v.literal("mantenimiento")),
-    referencia: v.optional(v.string()),
-    createdAt: v.number(),
-    createdBy: v.optional(v.string()),
-  })
-    .index("by_itemId", ["itemId"])
-    .index("by_type", ["type"])
-    .index("by_itemId_createdAt", ["itemId", "createdAt"])
-    .index("by_createdAt", ["createdAt"]),
 
   activos: defineTable({
     nombre: v.string(),
@@ -145,16 +110,13 @@ export default defineSchema({
     conversionFactor: v.number(),  // Cuántas baseUnits hay en una purchaseUnit (ej: 24)
 
     active: v.boolean(),
-
-    // Reference to original item for migration tracking
-    legacyItemId: v.optional(v.id("items")),
     
     // Legacy field from migration (optional to support existing data)
     packageSize: v.optional(v.number()),
+    legacyItemId: v.optional(v.string()), // ID from old items table (migration tracking)
   })
     .index("by_name", ["name"])
-    .index("by_category", ["category"])
-    .index("by_legacy_item", ["legacyItemId"]),
+    .index("by_category", ["category"]),
 
   // 2. STOCK ACTUAL: Cuánto hay y dónde
   inventory: defineTable({
@@ -183,12 +145,9 @@ export default defineSchema({
     nextStock: v.number(),         // Stock después del movimiento
     user: v.string(),              // Quién lo hizo
     timestamp: v.number(),
-
-    // Reference to original movement for migration tracking
-    legacyMovementId: v.optional(v.id("stock_movements")),
+    legacyMovementId: v.optional(v.string()), // ID from old stock_movements table (migration tracking)
   })
     .index("by_product", ["productId"])
     .index("by_type", ["type"])
-    .index("by_timestamp", ["timestamp"])
-    .index("by_legacy_movement", ["legacyMovementId"]),
+    .index("by_timestamp", ["timestamp"]),
 });
