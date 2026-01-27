@@ -5,6 +5,8 @@ import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { normalizeSearchText } from '@/lib/utils';
+import { useInventorySync } from '@/lib/hooks/useInventorySync';
+import { useInventoryData } from '@/lib/hooks/useInventoryData';
 
 interface ItemAutocompleteProps {
   value: Id<'products'> | null;
@@ -43,7 +45,11 @@ export function ItemAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const products = useQuery(api.products.listWithInventory);
+  // Sincronizar datos de Convex al store de Zustand
+  useInventorySync();
+  
+  // Obtener datos híbridos (Convex o cache)
+  const products = useInventoryData();
 
   // Get selected product for display
   const selectedProduct = useMemo(() => {

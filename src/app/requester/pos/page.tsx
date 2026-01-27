@@ -12,6 +12,8 @@ import { GhostAddButton } from '@/components/ui/GhostAddButton';
 import { PatientSlider } from '@/components/ui/PatientSlider';
 import { OrderSummaryPanel } from '@/components/ui/OrderSummaryPanel';
 import { normalizeSearchText } from '@/lib/utils';
+import { useInventorySync } from '@/lib/hooks/useInventorySync';
+import { useInventoryData } from '@/lib/hooks/useInventoryData';
 import { Slot, Paciente } from '@/types';
 
 // Mock pacientes data (will be replaced with Convex query in future)
@@ -50,8 +52,11 @@ type ConvexProduct = {
 };
 
 export default function POSPage() {
-  // Convex queries - use new products API
-  const products = useQuery(api.products.listWithInventory);
+  // Sincronizar datos de Convex al store de Zustand
+  useInventorySync();
+  
+  // Obtener datos híbridos (Convex o cache)
+  const products = useInventoryData();
   const createOrder = useMutation(api.orders.create);
   const deliverOrder = useMutation(api.orders.deliver);
 

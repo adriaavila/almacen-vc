@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 
 // ============================================================
 // QUERIES
@@ -257,6 +258,7 @@ export const bulkImport = mutation({
   args: {
     products: v.array(
       v.object({
+        id: v.optional(v.string()), // Optional product ID for updating existing products
         name: v.string(),
         brand: v.optional(v.string()),
         category: v.string(),
@@ -321,21 +323,80 @@ export const bulkImport = mutation({
           continue;
         }
 
-        // Check for existing product by name
-        const existing = await ctx.db
-          .query("products")
-          .withIndex("by_name", (q) => q.eq("name", productData.name))
-          .first();
+        // Validate ID format if provided (Convex IDs start with 'j' or 'k' followed by alphanumeric)
+        if (productData.id && !/^[jk][a-z0-9]+$/.test(productData.id)) {
+          results.errors.push({
+            row: i + 1,
+            name: productData.name,
+            error: `ID inválido: "${productData.id}". Debe ser un ID válido de Convex.`,
+          });
+          continue;
+        }
 
         const purchaseUnit = productData.purchaseUnit || productData.baseUnit;
         const conversionFactor = productData.conversionFactor ?? 1;
         const active = productData.active ?? true;
 
         let productId;
+        let existing = null;
+
+        // First, try to find product by ID if provided
+        if (productData.id) {
+          try {
+            // Convert string ID to Convex ID type (Convex validates at runtime)
+            // Type assertion is safe here because we've already validated the format
+            const productId = productData.id as Id<"products">;
+            existing = await ctx.db.get(productId);
+            
+            if (!existing) {
+              results.errors.push({
+                row: i + 1,
+                name: productData.name,
+                error: `Producto con ID "${productData.id}" no encontrado. Se intentará buscar por nombre.`,
+              });
+              existing = null; // Ensure existing is null so we fall through to name-based matching
+            }
+          } catch (error: any) {
+            // Invalid ID format or product not found - fall through to name-based matching
+            results.errors.push({
+              row: i + 1,
+              name: productData.name,
+              error: `ID inválido o producto no encontrado: "${productData.id}". Se intentará buscar por nombre.`,
+            });
+            existing = null;
+          }
+        }
+
+        // If no product found by ID, try name-based matching
+        if (!existing) {
+          existing = await ctx.db
+            .query("products")
+            .withIndex("by_name", (q) => q.eq("name", productData.name))
+            .first();
+        }
 
         if (existing) {
           // Update existing product
           const updates: Partial<typeof existing> = {};
+          
+          // Allow name updates if ID was provided (ID-based update)
+          if (productData.id && productData.name !== existing.name) {
+            // Check if new name conflicts with another product
+            const nameConflict = await ctx.db
+              .query("products")
+              .withIndex("by_name", (q) => q.eq("name", productData.name))
+              .first();
+            
+            if (nameConflict && nameConflict._id !== existing._id) {
+              results.errors.push({
+                row: i + 1,
+                name: productData.name,
+                error: `No se puede cambiar el nombre a "${productData.name}" porque ya existe otro producto con ese nombre.`,
+              });
+              continue;
+            }
+            updates.name = productData.name;
+          }
           
           if (productData.brand !== undefined) updates.brand = productData.brand || "";
           if (productData.category !== undefined) updates.category = productData.category;

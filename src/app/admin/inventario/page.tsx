@@ -16,6 +16,9 @@ import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
 import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
 import { normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import { useInventorySync } from '@/lib/hooks/useInventorySync';
+import { useInventoryData } from '@/lib/hooks/useInventoryData';
+import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
 
 type ConvexProduct = {
   _id: Id<"products">;
@@ -34,8 +37,13 @@ type ConvexProduct = {
 };
 
 export default function InventoryPage() {
-  const products = useQuery(api.products.listWithInventory);
-  const updateStock = useMutation(api.inventory.updateStock);
+  // Sincronizar datos de Convex al store de Zustand
+  useInventorySync();
+  
+  // Obtener datos híbridos (Convex o cache)
+  const products = useInventoryData();
+  // Usar wrapper offline para updateStock
+  const updateStock = useOfflineMutation('updateStock');
   const searchParams = useSearchParams();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -138,7 +146,16 @@ export default function InventoryPage() {
         sorted.sort((a, b) => b.name.localeCompare(a.name, 'es'));
         break;
       case 'stock-asc':
-        sorted.sort((a, b) => getStockValue(a) - getStockValue(b));
+        // Primero mostrar items con bajo stock, luego los demás
+        // Dentro de cada grupo, ordenar por stock (menor a mayor)
+        sorted.sort((a, b) => {
+          const aLowStock = a.status === 'bajo_stock' ? 0 : 1;
+          const bLowStock = b.status === 'bajo_stock' ? 0 : 1;
+          if (aLowStock !== bLowStock) {
+            return aLowStock - bLowStock; // Bajo stock primero
+          }
+          return getStockValue(a) - getStockValue(b); // Luego por stock menor a mayor
+        });
         break;
       case 'stock-desc':
         sorted.sort((a, b) => getStockValue(b) - getStockValue(a));
@@ -182,17 +199,27 @@ export default function InventoryPage() {
     if (newStock < 0) return;
     
     try {
-      await updateStock({ 
+      const result = await updateStock({ 
         productId, 
         location,
         newStock,
         user: "admin"
       });
-      setToast({
-        message: 'Stock actualizado correctamente',
-        type: 'success',
-        isOpen: true,
-      });
+      
+      // Si la acción fue encolada (offline), mostrar mensaje diferente
+      if (result && 'queued' in result && result.queued) {
+        setToast({
+          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
+          type: 'info',
+          isOpen: true,
+        });
+      } else {
+        setToast({
+          message: 'Stock actualizado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      }
     } catch (error) {
       console.error('Error al actualizar stock:', error);
       setToast({
@@ -217,19 +244,30 @@ export default function InventoryPage() {
     if (newStock < 0) return;
     
     try {
-      await updateStock({ 
+      const result = await updateStock({ 
         productId, 
         location,
         newStock,
         user: "admin"
       });
+      
       setAdjustingId(null);
       setAdjustValue('0');
-      setToast({
-        message: 'Stock actualizado correctamente',
-        type: 'success',
-        isOpen: true,
-      });
+      
+      // Si la acción fue encolada (offline), mostrar mensaje diferente
+      if (result && 'queued' in result && result.queued) {
+        setToast({
+          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
+          type: 'info',
+          isOpen: true,
+        });
+      } else {
+        setToast({
+          message: 'Stock actualizado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      }
     } catch (error) {
       console.error('Error al actualizar stock:', error);
       setToast({
@@ -261,7 +299,7 @@ export default function InventoryPage() {
       // Use selected location, default to almacen if "all" is selected
       const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
       try {
-        await updateStock({ 
+        const result = await updateStock({ 
           productId: editingProduct._id, 
           location,
           newStock: numValue,
@@ -269,11 +307,21 @@ export default function InventoryPage() {
         });
         setEditingProduct(null);
         setEditValue('');
-        setToast({
-          message: 'Stock actualizado correctamente',
-          type: 'success',
-          isOpen: true,
-        });
+        
+        // Si la acción fue encolada (offline), mostrar mensaje diferente
+        if (result && 'queued' in result && result.queued) {
+          setToast({
+            message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
+            type: 'info',
+            isOpen: true,
+          });
+        } else {
+          setToast({
+            message: 'Stock actualizado correctamente',
+            type: 'success',
+            isOpen: true,
+          });
+        }
       } catch (error) {
         console.error('Error al actualizar stock:', error);
         setToast({
@@ -341,8 +389,30 @@ export default function InventoryPage() {
               placeholder="Buscar productos..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full h-10 pl-10 pr-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm sm:text-base"
+              className="block w-full h-10 pl-10 pr-10 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm sm:text-base"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md focus:outline-none focus:text-gray-700 focus:bg-gray-100 transition-colors z-10 cursor-pointer"
+                aria-label="Limpiar búsqueda"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
         

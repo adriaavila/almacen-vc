@@ -8,6 +8,8 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Badge } from '@/components/ui/Badge';
 import { normalizeSearchText } from '@/lib/utils';
+import { useInventorySync } from '@/lib/hooks/useInventorySync';
+import { useInventoryData } from '@/lib/hooks/useInventoryData';
 
 type ConvexProduct = {
   _id: Id<"products">;
@@ -26,7 +28,11 @@ type ConvexProduct = {
 };
 
 export default function StockPage() {
-  const products = useQuery(api.products.listWithInventory);
+  // Sincronizar datos de Convex al store de Zustand
+  useInventorySync();
+  
+  // Obtener datos híbridos (Convex o cache)
+  const products = useInventoryData();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
@@ -83,7 +89,16 @@ export default function StockPage() {
         sorted.sort((a, b) => b.name.localeCompare(a.name, 'es'));
         break;
       case 'stock-asc':
-        sorted.sort((a, b) => a.stockCafetin - b.stockCafetin);
+        // Primero mostrar items con bajo stock, luego los demás
+        // Dentro de cada grupo, ordenar por stock (menor a mayor)
+        sorted.sort((a, b) => {
+          const aLowStock = a.status === 'bajo_stock' ? 0 : 1;
+          const bLowStock = b.status === 'bajo_stock' ? 0 : 1;
+          if (aLowStock !== bLowStock) {
+            return aLowStock - bLowStock; // Bajo stock primero
+          }
+          return a.stockCafetin - b.stockCafetin; // Luego por stock menor a mayor
+        });
         break;
       case 'stock-desc':
         sorted.sort((a, b) => b.stockCafetin - a.stockCafetin);
@@ -148,8 +163,30 @@ export default function StockPage() {
             placeholder="Buscar productos..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full h-10 pl-10 pr-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm sm:text-base"
+            className="block w-full h-10 pl-10 pr-10 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm sm:text-base"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md focus:outline-none focus:text-gray-700 focus:bg-gray-100 transition-colors z-10 cursor-pointer"
+              aria-label="Limpiar búsqueda"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
       

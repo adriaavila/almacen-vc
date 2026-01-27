@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ConvexProvider } from "@/lib/convex/provider";
+import { OfflineSyncManager } from "@/components/offline/OfflineSyncManager";
 
 export const metadata: Metadata = {
   title: "Vistacampo",
@@ -55,7 +56,10 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Saltar al contenido principal
         </a>
-        <ConvexProvider>{children}</ConvexProvider>
+        <ConvexProvider>
+          <OfflineSyncManager />
+          {children}
+        </ConvexProvider>
       </body>
     </html>
   );

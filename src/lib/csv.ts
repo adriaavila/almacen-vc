@@ -21,6 +21,7 @@ export interface CSVRow {
 
 // New CSV format (new schema)
 export interface CSVProductRow {
+  id?: string; // Optional Convex product ID for updating existing products
   name: string;
   brand?: string;
   category: string;
@@ -285,6 +286,12 @@ export async function parseCSVFile(file: File, includeErrors?: boolean): Promise
           const value = normalizeValue(rawValue);
           
           switch (header) {
+            case 'id':
+              // Optional field - product ID for updating existing products
+              if (!isEmptyOrPlaceholder(rawValue)) {
+                row.id = value;
+              }
+              break;
             case 'name':
               // Required field - only set if not empty
               if (!isEmptyOrPlaceholder(rawValue)) {
@@ -383,6 +390,7 @@ export async function parseCSVFile(file: File, includeErrors?: boolean): Promise
         });
       } else {
         rows.push({
+          id: row.id,
           name: row.name,
           brand: row.brand ?? '',
           category: row.category,
@@ -525,6 +533,14 @@ function parseCSVLine(line: string): string[] {
  */
 export function validateCSVProductRow(row: Partial<CSVProductRow>, rowIndex: number): ValidationResult {
   const errors: string[] = [];
+  
+  // Validate ID format if provided (Convex IDs start with 'j' or 'k' followed by alphanumeric)
+  if (row.id !== undefined && row.id !== null && row.id.trim() !== '') {
+    const idPattern = /^[jk][a-z0-9]+$/;
+    if (!idPattern.test(row.id)) {
+      errors.push(`Fila ${rowIndex + 1}: 'id' tiene un formato inválido. Debe ser un ID válido de Convex (empieza con 'j' o 'k' seguido de caracteres alfanuméricos)`);
+    }
+  }
   
   // Required fields
   if (!row.name || row.name.trim() === '') {

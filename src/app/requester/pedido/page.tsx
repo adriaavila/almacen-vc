@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
-import { useRef } from 'react';
-import { Camera } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
@@ -16,6 +14,8 @@ import { QuantityInput } from '@/components/ui/QuantityInput';
 import { setUserArea, getUserArea } from '@/lib/auth';
 import { pluralizeUnit, normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import { useInventorySync } from '@/lib/hooks/useInventorySync';
+import { useInventoryData } from '@/lib/hooks/useInventoryData';
 import { Area } from '@/types';
 
 const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
@@ -49,8 +49,11 @@ function CreateOrderPageContent() {
   
   const [selectedArea, setSelectedArea] = useState<Area>(initialArea);
   
-  // Use new products API
-  const products = useQuery(api.products.listWithInventory);
+  // Sincronizar datos de Convex al store de Zustand
+  useInventorySync();
+  
+  // Obtener datos híbridos (Convex o cache)
+  const products = useInventoryData();
   const createOrder = useMutation(api.orders.create);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -67,8 +70,6 @@ function CreateOrderPageContent() {
     isOpen: false,
   });
   const [summaryExpanded, setSummaryExpanded] = useState(true);
-  const [orderListPhoto, setOrderListPhoto] = useState<File | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   
   // Update area when URL query param changes and save to localStorage
@@ -116,13 +117,11 @@ function CreateOrderPageContent() {
     setIsSubmitting(true);
     
     try {
-      // Note: The orders system still uses itemId, but we're using productId
-      // This will need backend updates to support products OR we use legacy items
-      // For now, we'll skip this since orders.create expects itemId
+      // Use productId directly (backend now supports it)
       const orderItems = Object.entries(quantities)
         .filter(([_, cantidad]) => cantidad > 0)
         .map(([productId, cantidad]) => ({ 
-          itemId: productId as Id<"items">, // This is actually productId but typed as items for compatibility
+          productId: productId as Id<"products">,
           cantidad 
         }));
       
@@ -151,7 +150,6 @@ function CreateOrderPageContent() {
       
       // Clear form
       setQuantities({});
-      setOrderListPhoto(null);
       
       // Optional redirect after 1.5 seconds
       setTimeout(() => {
@@ -466,40 +464,14 @@ function CreateOrderPageContent() {
           </div>
         </form>
         
-        {/* Sticky CTA Buttons */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 md:px-6 py-2 md:py-3 shadow-lg mt-6 -mx-4 md:-mx-6 flex items-center gap-2 flex-wrap">
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            aria-hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setOrderListPhoto(f);
-              e.target.value = '';
-            }}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={isSubmitting}
-            onClick={() => photoInputRef.current?.click()}
-            className="h-full py-2 md:py-3 px-3 md:px-4 shrink-0"
-            title="Subir foto de la lista de pedidos"
-          >
-            <Camera className="w-5 h-5 md:mr-1.5" />
-            <span className="hidden md:inline">
-              {orderListPhoto ? 'Foto adjunta' : 'Foto lista'}
-            </span>
-          </Button>
+        {/* Sticky CTA Button */}
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 md:px-6 py-3 shadow-lg mt-6 -mx-4 md:-mx-6">
           <Button
             type="submit"
             form="pedido-form"
             variant="primary"
             disabled={isSubmitting}
-            className="flex-1 md:flex-initial h-full py-2 md:py-3"
+            className="w-full h-full py-3"
           >
             {isSubmitting ? 'Enviando...' : 'Enviar'}
           </Button>

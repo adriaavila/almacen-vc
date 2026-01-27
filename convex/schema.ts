@@ -34,11 +34,13 @@ export default defineSchema({
 
   orderItems: defineTable({
     orderId: v.id("orders"),
-    itemId: v.id("items"),
+    itemId: v.id("items"), // Legacy field - mantener por compatibilidad durante migración
+    productId: v.optional(v.id("products")), // Nuevo campo - usar este después de migración
     cantidad: v.number(),
   })
     .index("by_orderId", ["orderId"])
-    .index("by_itemId", ["itemId"]),
+    .index("by_itemId", ["itemId"])
+    .index("by_productId", ["productId"]),
 
   stock_movements: defineTable({
     itemId: v.id("items"),

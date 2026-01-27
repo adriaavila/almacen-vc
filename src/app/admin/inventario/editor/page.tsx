@@ -718,8 +718,9 @@ export default function ItemsEditorPage() {
           });
           return;
         }
-        headers = ['name', 'brand', 'category', 'subCategory', 'baseUnit', 'purchaseUnit', 'conversionFactor', 'active'];
+        headers = ['id', 'name', 'brand', 'category', 'subCategory', 'baseUnit', 'purchaseUnit', 'conversionFactor', 'active'];
         rows = filteredProducts.map(product => [
+          product._id,
           product.name,
           product.brand,
           product.category,
@@ -863,6 +864,7 @@ export default function ItemsEditorPage() {
       // Call bulk import mutation
       const result = await bulkImport({
         products: validRows.map((row) => ({
+          id: row.id,
           name: row.name,
           brand: row.brand,
           category: row.category,
