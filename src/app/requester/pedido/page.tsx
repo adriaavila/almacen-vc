@@ -135,6 +135,29 @@ function CreateOrderPageContent() {
         return;
       }
       
+      // Validate stock before submitting
+      const stockErrors: string[] = [];
+      for (const [productId, cantidad] of Object.entries(quantities)) {
+        if (cantidad > 0) {
+          const product = areaProducts.find(p => p._id === productId);
+          if (product && cantidad > product.stockAlmacen) {
+            stockErrors.push(
+              `${product.name}: solicitado ${cantidad} ${product.baseUnit}, disponible ${product.stockAlmacen} ${product.baseUnit}`
+            );
+          }
+        }
+      }
+      
+      if (stockErrors.length > 0) {
+        setToast({
+          message: `Stock insuficiente:\n${stockErrors.join('\n')}`,
+          type: 'error',
+          isOpen: true,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
       await createOrder({
         area: selectedArea,
         items: orderItems,
@@ -166,11 +189,11 @@ function CreateOrderPageContent() {
     }
   };
   
-  // Filter products by area - for now show all active products
+  // Filter products by area - show all active products (those without stock will be grayed out)
   const areaProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    // Filter active products with stock
-    let filtered = products.filter(p => p.active && p.totalStock > 0);
+    // Show all active products (products without stock will be displayed in gray and disabled)
+    let filtered = products.filter(p => p.active);
     
     // For Limpieza area, only show products from Limpieza category
     if (selectedArea === 'Limpieza') {
@@ -434,33 +457,49 @@ function CreateOrderPageContent() {
                     {isExpanded && (
                       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                         <div className="divide-y divide-gray-200">
-                          {categoryProducts.map((product) => (
-                            <div key={product._id} className="py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 hover:bg-gray-50 transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <div className="mb-0">
-                                  <span className="text-sm font-semibold text-gray-900 truncate block">
-                                    {product.name}
-                                  </span>
+                          {categoryProducts.map((product) => {
+                            const hasStock = product.stockAlmacen > 0;
+                            const isDisabled = !hasStock;
+                            return (
+                              <div 
+                                key={product._id} 
+                                className={`py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 transition-colors ${
+                                  isDisabled 
+                                    ? 'opacity-50 cursor-not-allowed' 
+                                    : 'hover:bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="mb-0">
+                                    <span className={`text-sm font-semibold truncate block ${
+                                      isDisabled ? 'text-gray-400' : 'text-gray-900'
+                                    }`}>
+                                      {product.name}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className={`text-xs truncate block ${
+                                      isDisabled ? 'text-gray-300' : 'text-gray-500'
+                                    }`}>
+                                      {product.category}
+                                      {product.subCategory && ` · ${product.subCategory}`}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div>
-                                  <span className="text-xs text-gray-500 truncate block">
-                                    {product.category}
-                                    {product.subCategory && ` · ${product.subCategory}`}
-                                  </span>
+                                <div className="shrink-0">
+                                  <QuantityInput
+                                    itemId={product._id}
+                                    value={quantities[product._id] || 0}
+                                    onChange={(value) => handleQuantityChange(product._id, value)}
+                                    min={0}
+                                    max={product.stockAlmacen}
+                                    unit={product.baseUnit}
+                                    disabled={isDisabled}
+                                  />
                                 </div>
                               </div>
-                              <div className="shrink-0">
-                                <QuantityInput
-                                  itemId={product._id}
-                                  value={quantities[product._id] || 0}
-                                  onChange={(value) => handleQuantityChange(product._id, value)}
-                                  min={0}
-                                  max={product.totalStock}
-                                  unit={product.baseUnit}
-                                />
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}

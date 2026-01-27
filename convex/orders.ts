@@ -306,8 +306,9 @@ async function processProductDelivery(
     .first();
 
   if (!almacenInventory || almacenInventory.stockActual < cantidad) {
+    const disponible = almacenInventory?.stockActual || 0;
     throw new Error(
-      `Stock insuficiente en almacén para ${product.name}. Disponible: ${almacenInventory?.stockActual || 0}, Solicitado: ${cantidad}`
+      `Stock insuficiente en almacén para ${product.name}. Disponible: ${disponible} ${product.baseUnit}, Solicitado: ${cantidad} ${product.baseUnit}`
     );
   }
 

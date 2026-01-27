@@ -9,6 +9,7 @@ interface QuantityInputProps {
   unit?: string;
   suggested?: boolean;
   itemId?: string;
+  disabled?: boolean;
 }
 
 export function QuantityInput({
@@ -19,6 +20,7 @@ export function QuantityInput({
   unit,
   suggested = false,
   itemId,
+  disabled = false,
 }: QuantityInputProps) {
   const [displayValue, setDisplayValue] = useState<string>(value.toString());
   const [isFocused, setIsFocused] = useState(false);
@@ -83,46 +85,60 @@ export function QuantityInput({
     setIsFocused(true);
   };
 
+  const isAtMax = max !== undefined && value >= max;
+
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={handleDecrement}
-        disabled={value <= min}
-        className="min-w-[44px] min-h-[44px] w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-95"
-        aria-label="Decrementar cantidad"
-      >
-        –
-      </button>
-      <div className="flex flex-col items-center gap-0.5">
-        <input
-          type="number"
-          id={itemId ? `qty-${itemId}` : undefined}
-          min={min}
-          max={max}
-          value={displayValue}
-          onChange={handleInputChange}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          step="0.1"
-          className="w-16 min-h-[44px] h-10 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base font-semibold transition-all duration-200 invalid:border-red-500"
-        />
-        {unit && (
-          <span className="text-[10px] text-gray-500 leading-tight">{pluralizeUnit(unit, value)}</span>
-        )}
-        {suggested && (
-          <span className="text-[10px] text-gray-400 leading-tight">← sugerido</span>
-        )}
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleDecrement}
+          disabled={disabled || value <= min}
+          className="min-w-[44px] min-h-[44px] w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-95"
+          aria-label="Decrementar cantidad"
+        >
+          –
+        </button>
+        <div className="flex flex-col items-center gap-0.5">
+          <input
+            type="number"
+            id={itemId ? `qty-${itemId}` : undefined}
+            min={min}
+            max={max}
+            value={displayValue}
+            onChange={handleInputChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            step="0.1"
+            disabled={disabled}
+            className="w-16 min-h-[44px] h-10 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base font-semibold transition-all duration-200 invalid:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+          />
+          {unit && (
+            <span className={`text-[10px] leading-tight ${
+              disabled ? 'text-gray-300' : 'text-gray-500'
+            }`}>
+              {pluralizeUnit(unit, value)}
+            </span>
+          )}
+          {suggested && (
+            <span className="text-[10px] text-gray-400 leading-tight">← sugerido</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleIncrement}
+          disabled={disabled || (max !== undefined && value >= max)}
+          className="min-w-[44px] min-h-[44px] w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-95"
+          aria-label="Incrementar cantidad"
+        >
+          +
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={handleIncrement}
-        disabled={max !== undefined && value >= max}
-        className="min-w-[44px] min-h-[44px] w-10 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-95"
-        aria-label="Incrementar cantidad"
-      >
-        +
-      </button>
+      {isAtMax && max !== undefined && max > 0 && !disabled && (
+        <span className="text-[10px] text-yellow-600 font-medium leading-tight whitespace-nowrap">
+          No hay más stock
+        </span>
+      )}
     </div>
   );
 }
