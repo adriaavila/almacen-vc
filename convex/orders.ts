@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
@@ -6,6 +6,13 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 // Query: Get all orders
 export const list = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("orders").collect();
+  },
+});
+
+// Internal Query: Get all orders (for use in internalActions)
+export const internalList = internalQuery({
   handler: async (ctx) => {
     return await ctx.db.query("orders").collect();
   },

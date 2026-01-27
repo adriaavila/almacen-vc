@@ -1,5 +1,5 @@
 import { internalAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
@@ -31,10 +31,11 @@ export const sendNotification = internalAction({
     }
 
     // Calcular el número de orden real basado en el orden cronológico
-    const allOrders = await ctx.runQuery(api.orders.list);
+    // Contar pedidos anteriores (createdAt <) y sumar 1 para el pedido actual
+    const allOrders = await ctx.runQuery(internal.orders.internalList);
     const orderNumber = allOrders.filter(
-      (o) => o.createdAt <= args.createdAt
-    ).length;
+      (o) => o.createdAt < args.createdAt
+    ).length + 1;
 
     // Construir el mensaje HTML
     const itemsText = args.items
