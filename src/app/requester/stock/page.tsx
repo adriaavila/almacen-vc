@@ -1,15 +1,22 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useQuery } from 'convex/react';
-import { api } from 'convex/_generated/api';
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { Toast } from '@/components/ui/Toast';
+import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
+import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { normalizeSearchText } from '@/lib/utils';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useInventorySync } from '@/lib/hooks/useInventorySync';
 import { useInventoryData } from '@/lib/hooks/useInventoryData';
+import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
 
 type ConvexProduct = {
   _id: Id<"products">;
@@ -21,22 +28,51 @@ type ConvexProduct = {
   purchaseUnit: string;
   conversionFactor: number;
   active: boolean;
+  availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
 };
 
-export default function StockPage() {
+function StockPageContent() {
   // Sincronizar datos de Convex al store de Zustand
   useInventorySync();
   
   // Obtener datos híbridos (Convex o cache)
   const products = useInventoryData();
+  // Usar wrapper offline para updateStock
+  const updateStock = useOfflineMutation('updateStock');
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
+  const [editMode, setEditMode] = useState(false);
+  const [adjustingId, setAdjustingId] = useState<Id<"products"> | null>(null);
+  const [adjustValue, setAdjustValue] = useState<string>('0');
+  const [editingProduct, setEditingProduct] = useState<ConvexProduct | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    isOpen: boolean;
+  }>({
+    message: '',
+    type: 'info',
+    isOpen: false,
+  });
+
+  // Read status query parameter on mount
+  useEffect(() => {
+    const statusParam = searchParams?.get('status');
+    if (statusParam === 'bajo_stock') {
+      setSelectedStatus('bajo_stock');
+    }
+  }, [searchParams]);
 
   // Get unique subcategories from cafetin products only
   const subCategories = useMemo(() => {
@@ -67,15 +103,24 @@ export default function StockPage() {
       filtered = filtered.filter(product => product.subCategory === selectedSubCategory);
     }
     
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = normalizeSearchText(searchQuery);
+    // Filter by search query (using debounced query)
+    if (debouncedSearchQuery.trim()) {
+      const query = normalizeSearchText(debouncedSearchQuery);
       filtered = filtered.filter(product => 
         normalizeSearchText(product.name).includes(query) ||
         normalizeSearchText(product.category).includes(query) ||
         (product.subCategory && normalizeSearchText(product.subCategory).includes(query)) ||
         (product.brand && normalizeSearchText(product.brand).includes(query))
       );
+    }
+    
+    // Filter by status
+    if (selectedStatus !== 'all') {
+      if (selectedStatus === 'bajo_stock') {
+        filtered = filtered.filter(product => product.status === 'bajo_stock');
+      } else if (selectedStatus === 'out_of_stock') {
+        filtered = filtered.filter(product => product.stockCafetin === 0);
+      }
     }
     
     // Sort products
@@ -108,7 +153,176 @@ export default function StockPage() {
     }
     
     return sorted;
-  }, [products, selectedSubCategory, searchQuery, sortOrder]);
+  }, [products, selectedSubCategory, selectedStatus, debouncedSearchQuery, sortOrder]);
+  
+  const handleAdjustClick = (product: ConvexProduct, delta?: number) => {
+    if (adjustingId === product._id) {
+      // Already adjusting this product, apply delta
+      if (delta !== undefined) {
+        const currentValue = parseInt(adjustValue, 10) || 0;
+        const newValue = currentValue + delta;
+        if (newValue < 0) return;
+        setAdjustValue(newValue.toString());
+      }
+    } else {
+      // Start adjusting this product
+      setAdjustingId(product._id);
+      // Always use cafetin location
+      const currentStock = product.stockCafetin;
+      if (delta !== undefined) {
+        setAdjustValue(delta > 0 ? '1' : '0');
+      } else {
+        // Initialize with current stock so user can modify it directly
+        setAdjustValue(currentStock.toString());
+      }
+    }
+  };
+  
+  const handleQuickAdjust = async (productId: Id<"products">, delta: number) => {
+    if (!products) return;
+    const product = products.find(p => p._id === productId);
+    if (!product) return;
+    
+    // Always use cafetin location
+    const currentStock = product.stockCafetin;
+    const newStock = currentStock + delta;
+    if (newStock < 0) return;
+    
+    try {
+      const result = await updateStock({ 
+        productId, 
+        location: 'cafetin',
+        newStock,
+        user: "requester"
+      });
+      
+      // Si la acción fue encolada (offline), mostrar mensaje diferente
+      if (result && 'queued' in result && result.queued) {
+        setToast({
+          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
+          type: 'info',
+          isOpen: true,
+        });
+      } else {
+        setToast({
+          message: 'Stock actualizado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar stock:', error);
+      setToast({
+        message: 'Error al actualizar stock. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
+    }
+  };
+  
+  const handleSaveAdjustment = async (productId: Id<"products">) => {
+    if (!products) return;
+    const numValue = parseInt(adjustValue, 10);
+    const product = products.find(p => p._id === productId);
+    
+    if (!product || isNaN(numValue)) return;
+    
+    // Always use cafetin location
+    const newStock = numValue;
+    if (newStock < 0) return;
+    
+    try {
+      const result = await updateStock({ 
+        productId, 
+        location: 'cafetin',
+        newStock,
+        user: "requester"
+      });
+      
+      setAdjustingId(null);
+      setAdjustValue('0');
+      
+      // Si la acción fue encolada (offline), mostrar mensaje diferente
+      if (result && 'queued' in result && result.queued) {
+        setToast({
+          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
+          type: 'info',
+          isOpen: true,
+        });
+      } else {
+        setToast({
+          message: 'Stock actualizado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar stock:', error);
+      setToast({
+        message: 'Error al actualizar stock. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
+    }
+  };
+  
+  const handleCancelAdjustment = () => {
+    setAdjustingId(null);
+    setAdjustValue('0');
+  };
+  
+  const handleDirectEdit = (product: ConvexProduct) => {
+    setEditingProduct(product);
+    // Always use cafetin location
+    const currentStock = product.stockCafetin;
+    setEditValue(currentStock.toString());
+  };
+
+  const handleSaveDirectEdit = async () => {
+    if (!editingProduct) return;
+    
+    const numValue = parseInt(editValue, 10);
+    if (!isNaN(numValue) && numValue >= 0) {
+      // Always use cafetin location
+      try {
+        const result = await updateStock({ 
+          productId: editingProduct._id, 
+          location: 'cafetin',
+          newStock: numValue,
+          user: "requester"
+        });
+        setEditingProduct(null);
+        setEditValue('');
+        
+        // Si la acción fue encolada (offline), mostrar mensaje diferente
+        if (result && 'queued' in result && result.queued) {
+          setToast({
+            message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
+            type: 'info',
+            isOpen: true,
+          });
+        } else {
+          setToast({
+            message: 'Stock actualizado correctamente',
+            type: 'success',
+            isOpen: true,
+          });
+        }
+      } catch (error) {
+        console.error('Error al actualizar stock:', error);
+        setToast({
+          message: 'Error al actualizar stock. Intente de nuevo.',
+          type: 'error',
+          isOpen: true,
+        });
+      }
+    }
+  };
+
+  const handleCancelDirectEdit = () => {
+    setEditingProduct(null);
+    setEditValue('');
+  };
   
   const isLowStock = (product: ConvexProduct) => {
     return product.status === 'bajo_stock';
@@ -126,9 +340,7 @@ export default function StockPage() {
           title="Stock"
           subtitle="Inventario del Cafetín"
         />
-        <div className="text-center py-12 text-gray-500">
-          <p>Cargando inventario...</p>
-        </div>
+        <ProductListSkeleton count={8} />
       </PageContainer>
     );
   }
@@ -192,53 +404,96 @@ export default function StockPage() {
       
       {/* Selectors */}
       <div className="mb-6 w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Subcategory Selector */}
-          <div>
-            <label htmlFor="subcategory-select" className="block text-sm font-medium text-gray-700 mb-1">
-              Filtrar por subcategoría
-            </label>
-            <select
-              id="subcategory-select"
-              value={selectedSubCategory}
-              onChange={(e) => setSelectedSubCategory(e.target.value)}
-              disabled={subCategories.length <= 1}
-              className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* Subcategory Filter Button */}
+          <div className="flex items-center gap-2">
+            <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory}>
+              <SelectTrigger className="w-auto min-w-[180px]" disabled={subCategories.length <= 1}>
+                <SelectValue placeholder="Subcategorías" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">Subcategorías</SelectItem>
+                {subCategories.filter(subCat => subCat !== 'All').map(subCategory => (
+                  <SelectItem key={subCategory} value={subCategory}>{subCategory}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Edit Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setEditMode(!editMode)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border ${
+                editMode
+                  ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
             >
-              <option value="All">Todas las subcategorías</option>
-              {subCategories.filter(subCat => subCat !== 'All').map(subCategory => (
-                <option key={subCategory} value={subCategory}>{subCategory}</option>
-              ))}
-            </select>
+              {editMode ? (
+                <>
+                  <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Modo Edición
+                </>
+              ) : (
+                <>
+                  <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Editar
+                </>
+              )}
+            </button>
           </div>
           
-          {/* Sort Order Selector */}
-          <div>
-            <label htmlFor="sort-select" className="block text-sm font-medium text-gray-700 mb-1">
-              Ordenar por
-            </label>
-            <select
-              id="sort-select"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+          {/* Status Segmented Control */}
+          <div className="flex items-center gap-0 bg-white border border-gray-300 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setSelectedStatus('all')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedStatus === 'all'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
+              }`}
             >
-              <option value="name-asc">Orden alfabético (A-Z)</option>
-              <option value="name-desc">Orden alfabético (Z-A)</option>
-              <option value="stock-asc">Stock (menor a mayor)</option>
-              <option value="stock-desc">Stock (mayor a menor)</option>
-            </select>
+              Todas
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus('bajo_stock')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedStatus === 'bajo_stock'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Bajo Stock
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus('out_of_stock')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedStatus === 'out_of_stock'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Sin Stock
+            </button>
           </div>
         </div>
         
         {/* Clear Filters Button */}
-        {(searchQuery || selectedSubCategory !== 'All' || sortOrder !== 'name-asc') && (
+        {(debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' || sortOrder !== 'name-asc') && (
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedSubCategory('All');
+                setSelectedStatus('all');
                 setSortOrder('name-asc');
               }}
               className="text-sm text-emerald-600 hover:text-emerald-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
@@ -255,63 +510,161 @@ export default function StockPage() {
       {/* Stock List */}
       <div className="space-y-3 w-full">
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <p>No se encontraron productos</p>
-          </div>
+          debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' ? (
+            <EmptySearchResultsState
+              onClearFilters={() => {
+                setSearchQuery('');
+                setSelectedSubCategory('All');
+                setSelectedStatus('all');
+                setSortOrder('name-asc');
+              }}
+            />
+          ) : (
+            <EmptyState
+              title="No hay productos"
+              message="No se encontraron productos en el inventario del cafetín."
+            />
+          )
         ) : (
           filteredProducts.map((product) => {
             const lowStock = isLowStock(product);
+            const isAdjusting = adjustingId === product._id;
             
             return (
               <div
                 key={product._id}
-                className={`bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden w-full ${
+                onClick={() => {
+                  if (editMode) {
+                    router.push(`/requester/stock/${product._id}`);
+                  }
+                }}
+                className={`bg-white rounded-md shadow-sm border overflow-hidden w-full transition-all ${
                   lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
+                } ${
+                  editMode 
+                    ? 'cursor-pointer hover:border-emerald-500 hover:shadow-md border-gray-200' 
+                    : 'border-gray-200'
                 }`}
               >
-                <div className="p-3 sm:p-4 w-full">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 w-full">
-                    {/* Left Side - Product Info */}
-                    <div className="flex-1 min-w-0 w-full sm:w-auto">
-                      <h3 className="text-base sm:text-lg font-semibold text-emerald-600 mb-1 overflow-wrap-anywhere">
-                        {product.name}
-                      </h3>
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 overflow-wrap-anywhere">
-                          {product.subCategory || product.category}
-                        </span>
-                        {product.brand && product.brand !== 'Genérica' && product.brand !== '' && (
-                          <span className="text-xs text-gray-500 overflow-wrap-anywhere">
-                            {product.brand}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 overflow-wrap-anywhere">
-                        {formatUnitDisplay(product)}
-                      </div>
-                      
-                      {/* Stock Display */}
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-xs uppercase text-gray-500 font-medium whitespace-nowrap">
-                          Stock Cafetín:
-                        </span>
-                        <span className={`text-lg sm:text-xl font-bold ${
-                          product.stockCafetin === 0 ? 'text-gray-400' : 'text-gray-900'
+                <div className="p-2 sm:p-3 w-full">
+                  <div className="flex flex-col gap-2 w-full">
+                    {/* Product Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`text-sm sm:text-base font-semibold text-emerald-600 mb-0.5 overflow-wrap-anywhere ${
+                          editMode ? 'hover:text-emerald-800' : ''
                         }`}>
-                          {product.stockCafetin}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {product.baseUnit}
-                        </span>
+                          {product.name}
+                          {editMode && (
+                            <span className="ml-2 text-xs text-gray-400">
+                              (Click para editar)
+                            </span>
+                          )}
+                        </h3>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 overflow-wrap-anywhere">
+                            {product.subCategory || product.category}
+                          </span>
+                          {product.brand && product.brand !== 'Genérica' && product.brand !== '' && (
+                            <span className="text-xs text-gray-500 overflow-wrap-anywhere">
+                              {product.brand}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className={`h-2 w-2 rounded-full ${
+                          lowStock ? 'bg-red-500' : 'bg-emerald-500'
+                        }`}></span>
+                        <Badge variant={lowStock ? 'bajo-minimo' : 'ok'}>
+                          {lowStock ? 'Bajo Stock' : 'OK'}
+                        </Badge>
                       </div>
                     </div>
                     
-                    {/* Right Side - Status Badge */}
-                    <div className="flex items-start gap-2 sm:flex-col sm:items-end">
-                      {lowStock ? (
-                        <Badge variant="bajo-minimo">Bajo Stock</Badge>
+                    {/* Stock Display with Controls */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs uppercase text-gray-500 font-medium whitespace-nowrap">
+                        STOCK
+                      </span>
+                      <span className={`text-lg sm:text-xl font-bold whitespace-nowrap ${
+                        lowStock ? 'text-red-600' : 'text-gray-900'
+                      }`}>
+                        {product.stockCafetin}
+                      </span>
+                      <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                        {product.baseUnit}
+                      </span>
+                      
+                      {/* Adjustment Controls */}
+                      {isAdjusting && adjustingId === product._id ? (
+                        <>
+                          <div className="flex items-center gap-2 ml-auto">
+                            <button
+                              onClick={() => handleAdjustClick(product, -1)}
+                              className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                              aria-label="Decrementar"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              value={adjustValue}
+                              onChange={(e) => setAdjustValue(e.target.value)}
+                              className="w-16 h-9 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleAdjustClick(product, 1)}
+                              className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                              aria-label="Incrementar"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                              onClick={() => handleSaveAdjustment(product._id)}
+                              className="px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
+                            >
+                              Guardar
+                            </button>
+                            <button
+                              onClick={handleCancelAdjustment}
+                              className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </>
                       ) : (
-                        <Badge variant="ok">OK</Badge>
+                        <div className="flex items-center gap-1 sm:gap-2 ml-auto">
+                          <button
+                            onClick={() => handleQuickAdjust(product._id, -1)}
+                            className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                            title="Reducir stock en 1"
+                            aria-label="Reducir stock en 1"
+                          >
+                            −
+                          </button>
+                          <button
+                            onClick={() => handleAdjustClick(product)}
+                            className="px-2 sm:px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white whitespace-nowrap h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                            title="Ajustar cantidad"
+                          >
+                            Ajustar
+                          </button>
+                          <button
+                            onClick={() => handleQuickAdjust(product._id, 1)}
+                            className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                            title="Aumentar stock en 1"
+                            aria-label="Aumentar stock en 1"
+                          >
+                            +
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -321,6 +674,79 @@ export default function StockPage() {
           })
         )}
       </div>
+
+      {/* Edit Stock Modal */}
+      {editingProduct && (
+        <Modal
+          isOpen={editingProduct !== null}
+          onClose={handleCancelDirectEdit}
+          title={`Editar stock de ${editingProduct.name}`}
+        >
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
+                Stock actual (Cafetín)
+              </label>
+              <input
+                id="stock-input"
+                type="number"
+                min="0"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveDirectEdit();
+                  }
+                }}
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                Unidad: {editingProduct.baseUnit}
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelDirectEdit}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <Button
+                onClick={handleSaveDirectEdit}
+                variant="primary"
+                className="px-4 py-2 text-sm h-auto"
+              >
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
     </PageContainer>
+  );
+}
+
+export default function StockPage() {
+  return (
+    <Suspense fallback={
+      <PageContainer>
+        <RequesterHeader 
+          title="Stock"
+          subtitle="Inventario del Cafetín"
+        />
+        <ProductListSkeleton count={8} />
+      </PageContainer>
+    }>
+      <StockPageContent />
+    </Suspense>
   );
 }

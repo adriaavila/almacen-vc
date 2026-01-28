@@ -292,6 +292,11 @@ async function processProductDelivery(
   }>,
   movementIds: Array<string>
 ) {
+  // Validate that orderId is provided (required for movements from order delivery)
+  if (!orderId) {
+    throw new Error("orderId es requerido para crear movimientos desde entrega de pedidos");
+  }
+
   const product = await ctx.db.get(productId);
   if (!product) {
     throw new Error(`Producto con ID ${productId} no encontrado`);
@@ -364,6 +369,7 @@ async function processProductDelivery(
       nextStock: newAlmacenStock,
       user: "system", // TODO: Add when auth is implemented
       timestamp: now,
+      orderId,
     });
     movementIds.push(movementId);
   } else {
@@ -378,6 +384,7 @@ async function processProductDelivery(
       nextStock: newAlmacenStock,
       user: "system", // TODO: Add when auth is implemented
       timestamp: now,
+      orderId,
     });
     movementIds.push(movementId);
   }
@@ -694,6 +701,7 @@ export const reprocessDeliveredOrder = mutation({
             nextStock: almacenInventory.stockActual, // Stock de almacén no cambia (ya fue descontado antes)
             user: "system",
             timestamp: order.createdAt, // Use original order timestamp
+            orderId: args.orderId,
           });
 
           processedItems.push({
@@ -851,6 +859,7 @@ export const reprocessAllDeliveredOrders = mutation({
                 nextStock: almacenInventory.stockActual,
                 user: "system",
                 timestamp: order.createdAt,
+                orderId: order._id,
               });
 
               processed++;

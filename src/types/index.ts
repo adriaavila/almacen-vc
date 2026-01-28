@@ -85,6 +85,7 @@ export interface Product {
   purchaseUnit: string;    // Purchase unit (caja, fardo, saco)
   conversionFactor: number; // How many baseUnits in purchaseUnit
   active: boolean;
+  availableForSale?: boolean; // Available for sale in POS (defaults to true)
 }
 
 // Product with aggregated inventory (from products.listWithInventory)
@@ -130,6 +131,7 @@ export interface Movement {
   nextStock: number;
   user: string;
   timestamp: number;
+  orderId?: Id<'orders'>;  // Relación con pedido (si el movimiento viene de entregar un pedido)
   // Populated field
   product?: Product;
 }

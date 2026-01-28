@@ -13,6 +13,7 @@ type ConvexProduct = {
   purchaseUnit: string;
   conversionFactor: number;
   active: boolean;
+  availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
   stockCafetin: number;

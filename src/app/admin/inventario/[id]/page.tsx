@@ -1,24 +1,74 @@
 'use client';
 
-import { useRouter, useParams } from 'next/navigation';
-import { useQuery } from 'convex/react';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Toast } from '@/components/ui/Toast';
 
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const productId = params?.id as Id<'products'>;
+  const editMode = searchParams?.get('edit') === 'true';
 
   const product = useQuery(api.products.getWithInventory, productId ? { id: productId } : 'skip');
   const movements = useQuery(
     api.movements.getByProduct,
     productId ? { productId, limit: 20 } : 'skip'
   );
+  
+  const updateProduct = useMutation(api.products.update);
+  const setMinStock = useMutation(api.inventory.setMinStock);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    brand: '',
+    category: '',
+    subCategory: '',
+    baseUnit: '',
+    purchaseUnit: '',
+    conversionFactor: 1,
+    active: true,
+    stockMinimo: 0,
+  });
+  
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    isOpen: boolean;
+  }>({
+    message: '',
+    type: 'info',
+    isOpen: false,
+  });
+  
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Initialize form data when product loads
+  useEffect(() => {
+    if (product && editMode) {
+      const almacenInventory = product.inventory?.find(inv => inv.location === 'almacen');
+      setFormData({
+        name: product.name || '',
+        brand: product.brand || '',
+        category: product.category || '',
+        subCategory: product.subCategory || '',
+        baseUnit: product.baseUnit || '',
+        purchaseUnit: product.purchaseUnit || '',
+        conversionFactor: product.conversionFactor || 1,
+        active: product.active ?? true,
+        stockMinimo: almacenInventory?.stockMinimo || 0,
+      });
+    }
+  }, [product, editMode]);
 
   const formatShortDate = (timestamp: number) => {
     return new Intl.DateTimeFormat('es-ES', {
@@ -29,6 +79,120 @@ export default function ProductDetailPage() {
     }).format(new Date(timestamp));
   };
 
+  // Build return URL preserving filters
+  const getReturnUrl = () => {
+    const category = searchParams?.get('category');
+    const status = searchParams?.get('status');
+    const search = searchParams?.get('search');
+    let url = '/admin/inventario';
+    const params = [];
+    if (category) params.push(`category=${encodeURIComponent(category)}`);
+    if (status) params.push(`status=${status}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (params.length > 0) url += '?' + params.join('&');
+    return url;
+  };
+  
+  const handleSave = async () => {
+    if (!productId) return;
+    
+    // Validation
+    if (!formData.name.trim()) {
+      setToast({
+        message: 'El nombre es requerido',
+        type: 'error',
+        isOpen: true,
+      });
+      return;
+    }
+    if (!formData.category.trim()) {
+      setToast({
+        message: 'La categoría es requerida',
+        type: 'error',
+        isOpen: true,
+      });
+      return;
+    }
+    if (!formData.baseUnit.trim()) {
+      setToast({
+        message: 'La unidad base es requerida',
+        type: 'error',
+        isOpen: true,
+      });
+      return;
+    }
+    if (!formData.purchaseUnit.trim()) {
+      setToast({
+        message: 'La unidad de compra es requerida',
+        type: 'error',
+        isOpen: true,
+      });
+      return;
+    }
+    if (formData.conversionFactor <= 0) {
+      setToast({
+        message: 'El factor de conversión debe ser mayor a 0',
+        type: 'error',
+        isOpen: true,
+      });
+      return;
+    }
+    if (formData.stockMinimo < 0) {
+      setToast({
+        message: 'El stock mínimo no puede ser negativo',
+        type: 'error',
+        isOpen: true,
+      });
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      // Update product
+      await updateProduct({
+        id: productId,
+        name: formData.name.trim(),
+        brand: formData.brand.trim() || undefined,
+        category: formData.category.trim(),
+        subCategory: formData.subCategory.trim() || undefined,
+        baseUnit: formData.baseUnit.trim(),
+        purchaseUnit: formData.purchaseUnit.trim(),
+        conversionFactor: formData.conversionFactor,
+        active: formData.active,
+      });
+      
+      // Update stock mínimo
+      await setMinStock({
+        productId,
+        location: 'almacen',
+        stockMinimo: formData.stockMinimo,
+      });
+      
+      setToast({
+        message: 'Producto actualizado correctamente',
+        type: 'success',
+        isOpen: true,
+      });
+      
+      // Navigate back after a short delay
+      setTimeout(() => {
+        router.push(getReturnUrl());
+      }, 1000);
+    } catch (error: any) {
+      console.error('Error al guardar producto:', error);
+      setToast({
+        message: error.message || 'Error al guardar producto. Intente de nuevo.',
+        type: 'error',
+        isOpen: true,
+      });
+      setIsSaving(false);
+    }
+  };
+  
+  const handleCancel = () => {
+    router.push(getReturnUrl());
+  };
+  
   // Get movement display info
   const getMovementInfo = (type: string) => {
     switch (type) {
@@ -95,11 +259,16 @@ export default function ProductDetailPage() {
         <div className="mb-6">
           <Button
             variant="secondary"
-            onClick={() => router.push('/admin/inventario')}
+            onClick={handleCancel}
             className="mb-4"
           >
             ← Volver a inventario
           </Button>
+          {editMode && (
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <p className="text-sm text-emerald-800 font-medium">Modo Edición</p>
+            </div>
+          )}
         </div>
 
         {/* Header with Stock */}
@@ -158,37 +327,208 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">Categoría</p>
-              <p className="text-base text-gray-900">
-                {product.category}
-                {product.subCategory && ` • ${product.subCategory}`}
-              </p>
-            </div>
-            {product.brand && product.brand !== '' && (
+          {editMode ? (
+            <div className="space-y-6 pt-6 border-t border-gray-200">
+              {/* Basic Information */}
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Marca</p>
-                <p className="text-base text-gray-900">{product.brand}</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Básica</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="brand" className="block text-sm font-medium text-gray-700 mb-1">
+                      Marca
+                    </label>
+                    <input
+                      id="brand"
+                      type="text"
+                      value={formData.brand}
+                      onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                      Categoría <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="category"
+                      type="text"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="subCategory" className="block text-sm font-medium text-gray-700 mb-1">
+                      Subcategoría
+                    </label>
+                    <input
+                      id="subCategory"
+                      type="text"
+                      value={formData.subCategory}
+                      onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
               </div>
-            )}
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">Unidad Base</p>
-              <p className="text-base text-gray-900">{product.baseUnit}</p>
+              
+              {/* Units & Conversion */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Unidades y Conversión</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="baseUnit" className="block text-sm font-medium text-gray-700 mb-1">
+                      Unidad Base <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="baseUnit"
+                      type="text"
+                      value={formData.baseUnit}
+                      onChange={(e) => setFormData({ ...formData, baseUnit: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="purchaseUnit" className="block text-sm font-medium text-gray-700 mb-1">
+                      Unidad de Compra <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="purchaseUnit"
+                      type="text"
+                      value={formData.purchaseUnit}
+                      onChange={(e) => setFormData({ ...formData, purchaseUnit: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="conversionFactor" className="block text-sm font-medium text-gray-700 mb-1">
+                      Factor de Conversión <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="conversionFactor"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={formData.conversionFactor}
+                      onChange={(e) => setFormData({ ...formData, conversionFactor: parseFloat(e.target.value) || 1 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Status */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado</h3>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.active}
+                      onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                      className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Activo</span>
+                  </label>
+                </div>
+              </div>
+              
+              {/* Stock Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm font-medium text-gray-500 mb-1">Stock Almacén (actual)</p>
+                    <p className="text-2xl font-bold text-gray-900">{almacenStock}</p>
+                    <p className="text-xs text-gray-500 mt-1">{product.baseUnit}</p>
+                  </div>
+                  <div>
+                    <label htmlFor="stockMinimo" className="block text-sm font-medium text-gray-700 mb-1">
+                      Stock Mínimo (Almacén) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="stockMinimo"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.stockMinimo}
+                      onChange={(e) => setFormData({ ...formData, stockMinimo: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Alerta cuando el stock esté por debajo de este valor</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
+                <Button
+                  variant="secondary"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">Unidad de Compra</p>
-              <p className="text-base text-gray-900">
-                {product.purchaseUnit} ({product.conversionFactor} {product.baseUnit})
-              </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200">
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Categoría</p>
+                <p className="text-base text-gray-900">
+                  {product.category}
+                  {product.subCategory && ` • ${product.subCategory}`}
+                </p>
+              </div>
+              {product.brand && product.brand !== '' && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Marca</p>
+                  <p className="text-base text-gray-900">{product.brand}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Unidad Base</p>
+                <p className="text-base text-gray-900">{product.baseUnit}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Unidad de Compra</p>
+                <p className="text-base text-gray-900">
+                  {product.purchaseUnit} ({product.conversionFactor} {product.baseUnit})
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Estado</p>
+                <p className="text-base text-gray-900">
+                  {product.active ? 'Activo' : 'Inactivo'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">Estado</p>
-              <p className="text-base text-gray-900">
-                {product.active ? 'Activo' : 'Inactivo'}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Recent Movements */}
@@ -309,6 +649,14 @@ export default function ProductDetailPage() {
             </div>
           )}
         </div>
+        
+        {/* Toast */}
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          isOpen={toast.isOpen}
+          onClose={() => setToast({ ...toast, isOpen: false })}
+        />
       </PageContainer>
     </div>
   );

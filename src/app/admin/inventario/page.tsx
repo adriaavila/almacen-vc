@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
 import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useInventorySync } from '@/lib/hooks/useInventorySync';
@@ -30,6 +31,7 @@ type ConvexProduct = {
   purchaseUnit: string;
   conversionFactor: number;
   active: boolean;
+  availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
   stockCafetin: number;
@@ -44,14 +46,15 @@ export default function InventoryPage() {
   const products = useInventoryData();
   // Usar wrapper offline para updateStock
   const updateStock = useOfflineMutation('updateStock');
+  const router = useRouter();
   const searchParams = useSearchParams();
   
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
+  const [editMode, setEditMode] = useState(false);
   const [adjustingId, setAdjustingId] = useState<Id<"products"> | null>(null);
   const [adjustValue, setAdjustValue] = useState<string>('0');
   const [editingProduct, setEditingProduct] = useState<ConvexProduct | null>(null);
@@ -74,15 +77,20 @@ export default function InventoryPage() {
     }
   }, [searchParams]);
 
-  // Get unique categories from all active products
+  // Get unique categories from almacen products only
   const categories = useMemo(() => {
     if (!products || products.length === 0) return [];
-    const filtered = products.filter(p => p.active);
+    // Filter only almacen products (exclude Cafetin)
+    const almacenProducts = products.filter(p => 
+      p.active && 
+      p.category !== 'Cafetin' && 
+      p.category !== 'Cafetín'
+    );
     
     // Get unique categories from filtered products
     const cats = Array.from(
       new Set(
-        filtered
+        almacenProducts
           .map(product => product.category)
           .filter((cat): cat is string => !!cat && cat.trim() !== '')
       )
@@ -95,21 +103,16 @@ export default function InventoryPage() {
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
     
-    // Only show active products
-    let filtered = products.filter(p => p.active);
+    // Only show active almacen products (exclude Cafetin)
+    let filtered = products.filter(p => 
+      p.active && 
+      p.category !== 'Cafetin' && 
+      p.category !== 'Cafetín'
+    );
     
     // Filter by category
     if (selectedCategory !== 'All') {
       filtered = filtered.filter(product => product.category === selectedCategory);
-    }
-    
-    // Filter by location
-    if (selectedLocation !== 'all') {
-      if (selectedLocation === 'almacen') {
-        filtered = filtered.filter(product => product.stockAlmacen > 0);
-      } else if (selectedLocation === 'cafetin') {
-        filtered = filtered.filter(product => product.stockCafetin > 0);
-      }
     }
     
     // Filter by search query (using debounced query)
@@ -125,18 +128,15 @@ export default function InventoryPage() {
     
     // Filter by status
     if (selectedStatus !== 'all') {
-      filtered = filtered.filter(product => product.status === selectedStatus);
+      if (selectedStatus === 'bajo_stock') {
+        filtered = filtered.filter(product => product.status === 'bajo_stock');
+      } else if (selectedStatus === 'out_of_stock') {
+        filtered = filtered.filter(product => product.stockAlmacen === 0);
+      }
     }
     
     // Sort products
     const sorted = [...filtered];
-    
-    // Get stock value based on selected location
-    const getStockValue = (product: ConvexProduct) => {
-      if (selectedLocation === 'almacen') return product.stockAlmacen;
-      if (selectedLocation === 'cafetin') return product.stockCafetin;
-      return product.stockAlmacen; // Default to almacen for 'all'
-    };
     
     switch (sortOrder) {
       case 'name-asc':
@@ -154,18 +154,18 @@ export default function InventoryPage() {
           if (aLowStock !== bLowStock) {
             return aLowStock - bLowStock; // Bajo stock primero
           }
-          return getStockValue(a) - getStockValue(b); // Luego por stock menor a mayor
+          return a.stockAlmacen - b.stockAlmacen; // Luego por stock menor a mayor
         });
         break;
       case 'stock-desc':
-        sorted.sort((a, b) => getStockValue(b) - getStockValue(a));
+        sorted.sort((a, b) => b.stockAlmacen - a.stockAlmacen);
         break;
       default:
         sorted.sort((a, b) => a.name.localeCompare(b.name, 'es'));
     }
     
     return sorted;
-  }, [products, selectedCategory, selectedLocation, selectedStatus, debouncedSearchQuery, sortOrder]);
+  }, [products, selectedCategory, selectedStatus, debouncedSearchQuery, sortOrder]);
   
   const handleAdjustClick = (product: ConvexProduct, delta?: number) => {
     if (adjustingId === product._id) {
@@ -179,9 +179,8 @@ export default function InventoryPage() {
     } else {
       // Start adjusting this product
       setAdjustingId(product._id);
-      // Use selected location, default to almacen if "all" is selected
-      const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
-      const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
+      // Always use almacen location
+      const currentStock = product.stockAlmacen;
       if (delta !== undefined) {
         setAdjustValue(delta > 0 ? '1' : '0');
       } else {
@@ -196,16 +195,15 @@ export default function InventoryPage() {
     const product = products.find(p => p._id === productId);
     if (!product) return;
     
-    // Use selected location, default to almacen if "all" is selected
-    const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
-    const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
+    // Always use almacen location
+    const currentStock = product.stockAlmacen;
     const newStock = currentStock + delta;
     if (newStock < 0) return;
     
     try {
       const result = await updateStock({ 
         productId, 
-        location,
+        location: 'almacen',
         newStock,
         user: "admin"
       });
@@ -241,15 +239,14 @@ export default function InventoryPage() {
     
     if (!product || isNaN(numValue)) return;
     
-    // Use selected location, default to almacen if "all" is selected
-    const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
+    // Always use almacen location
     const newStock = numValue;
     if (newStock < 0) return;
     
     try {
       const result = await updateStock({ 
         productId, 
-        location,
+        location: 'almacen',
         newStock,
         user: "admin"
       });
@@ -288,9 +285,8 @@ export default function InventoryPage() {
   
   const handleDirectEdit = (product: ConvexProduct) => {
     setEditingProduct(product);
-    // Use selected location, default to almacen if "all" is selected
-    const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
-    const currentStock = location === 'almacen' ? product.stockAlmacen : product.stockCafetin;
+    // Always use almacen location
+    const currentStock = product.stockAlmacen;
     setEditValue(currentStock.toString());
   };
 
@@ -299,12 +295,11 @@ export default function InventoryPage() {
     
     const numValue = parseInt(editValue, 10);
     if (!isNaN(numValue) && numValue >= 0) {
-      // Use selected location, default to almacen if "all" is selected
-      const location = selectedLocation === 'all' ? 'almacen' : selectedLocation as 'almacen' | 'cafetin';
+      // Always use almacen location
       try {
         const result = await updateStock({ 
           productId: editingProduct._id, 
-          location,
+          location: 'almacen',
           newStock: numValue,
           user: "admin"
         });
@@ -421,71 +416,95 @@ export default function InventoryPage() {
         
         {/* Selectors */}
         <div className="mb-6 w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Category Selector */}
-            <div>
-              <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Filtrar por categoría
-              </label>
-              <select
-                id="category-select"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                disabled={categories.length <= 1}
-                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            {/* Category Filter Button with Edit Button */}
+            <div className="flex items-center gap-2">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-auto min-w-[180px]" disabled={categories.length <= 1}>
+                  <SelectValue placeholder="Categorías" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">Categorías</SelectItem>
+                  {categories.filter(cat => cat !== 'All').map(category => (
+                    <SelectItem key={category} value={category}>{category}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {/* Edit Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setEditMode(!editMode)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border ${
+                  editMode
+                    ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
               >
-                <option value="All">Todas las categorías</option>
-                {categories.filter(cat => cat !== 'All').map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
+                {editMode ? (
+                  <>
+                    <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Modo Edición
+                  </>
+                ) : (
+                  <>
+                    <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Editar
+                  </>
+                )}
+              </button>
             </div>
             
-            {/* Location Selector */}
-            <div>
-              <label htmlFor="location-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Ubicación
-              </label>
-              <select
-                id="location-select"
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+            {/* Status Segmented Control */}
+            <div className="flex items-center gap-0 bg-white border border-gray-300 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setSelectedStatus('all')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  selectedStatus === 'all'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                }`}
               >
-                <option value="all">Todas las ubicaciones</option>
-                <option value="almacen">Almacén</option>
-                <option value="cafetin">Cafetín</option>
-              </select>
-            </div>
-            
-            {/* Sort Order Selector */}
-            <div>
-              <label htmlFor="sort-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Ordenar por
-              </label>
-              <select
-                id="sort-select"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                Todas
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStatus('bajo_stock')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  selectedStatus === 'bajo_stock'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                }`}
               >
-                <option value="name-asc">Orden alfabético (A-Z)</option>
-                <option value="name-desc">Orden alfabético (Z-A)</option>
-                <option value="stock-asc">Stock (menor a mayor)</option>
-                <option value="stock-desc">Stock (mayor a menor)</option>
-              </select>
+                Bajo Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStatus('out_of_stock')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  selectedStatus === 'out_of_stock'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Sin Stock
+              </button>
             </div>
           </div>
           
           {/* Clear Filters Button */}
-          {(debouncedSearchQuery || selectedCategory !== 'All' || selectedLocation !== 'all' || selectedStatus !== 'all' || sortOrder !== 'name-asc') && (
+          {(debouncedSearchQuery || selectedCategory !== 'All' || selectedStatus !== 'all' || sortOrder !== 'name-asc') && (
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedCategory('All');
-                  setSelectedLocation('all');
                   setSelectedStatus('all');
                   setSortOrder('name-asc');
                 }}
@@ -503,12 +522,11 @@ export default function InventoryPage() {
         {/* Inventory List */}
         <div className="space-y-3 w-full">
           {filteredProducts.length === 0 ? (
-            debouncedSearchQuery || selectedCategory !== 'All' || selectedLocation !== 'all' || selectedStatus !== 'all' ? (
+            debouncedSearchQuery || selectedCategory !== 'All' || selectedStatus !== 'all' ? (
               <EmptySearchResultsState
                 onClearFilters={() => {
                   setSearchQuery('');
                   setSelectedCategory('All');
-                  setSelectedLocation('all');
                   setSelectedStatus('all');
                   setSortOrder('name-asc');
                 }}
@@ -524,89 +542,51 @@ export default function InventoryPage() {
               const lowStock = isLowStock(product);
               const isAdjusting = adjustingId === product._id;
               
+              // Build URL with edit mode and preserve filters
+              const editUrl = editMode 
+                ? `/admin/inventario/${product._id}?edit=true${selectedCategory !== 'All' ? `&category=${encodeURIComponent(selectedCategory)}` : ''}${selectedStatus !== 'all' ? `&status=${selectedStatus}` : ''}${debouncedSearchQuery ? `&search=${encodeURIComponent(debouncedSearchQuery)}` : ''}`
+                : `/admin/inventario/${product._id}`;
+              
               return (
                 <div
                   key={product._id}
-                  className={`bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden w-full ${
-                    lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
+                  className={`bg-white rounded-md shadow-sm border overflow-hidden w-full ${
+                    editMode 
+                      ? `cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all ${lowStock ? 'border-l-4 border-l-red-500 border-r-2 border-t-2 border-b-2' : 'border-l-4 border-l-emerald-500 border-r-2 border-t-2 border-b-2'}`
+                      : `${lowStock ? 'border-l-4 border-l-red-500 border-gray-200' : 'border-l-4 border-l-emerald-500 border-gray-200'}`
                   }`}
+                  onClick={editMode ? () => router.push(editUrl) : undefined}
                 >
-                  <div className="p-3 sm:p-4 w-full">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 w-full">
-                      {/* Left Side - Product Info */}
-                      <div className="flex-1 min-w-0 w-full sm:w-auto">
-                        <Link href={`/admin/inventario/${product._id}`}>
-                          <h3 className="text-base sm:text-lg font-semibold text-emerald-600 hover:text-emerald-800 mb-1 cursor-pointer overflow-wrap-anywhere">
-                            {product.name}
-                          </h3>
-                        </Link>
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 overflow-wrap-anywhere">
-                            {product.subCategory || product.category}
-                          </span>
-                          {product.brand && product.brand !== 'Genérica' && product.brand !== '' && (
-                            <span className="text-xs text-gray-500 overflow-wrap-anywhere">
-                              {product.brand}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 overflow-wrap-anywhere">
-                          {formatUnitDisplay(product)}
-                        </div>
-                        
-                        {/* Stock Display */}
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="text-xs uppercase text-gray-500 font-medium whitespace-nowrap">
-                            {selectedLocation === 'all' 
-                              ? 'Stock'
-                              : selectedLocation === 'almacen'
-                              ? 'Stock Almacén'
-                              : 'Stock Cafetín'}
-                          </span>
-                          {selectedLocation === 'all' ? (
-                            <>
-                              <span className={`text-xl sm:text-2xl font-bold whitespace-nowrap ${
-                                lowStock ? 'text-red-600' : 'text-gray-900'
-                              }`}>
-                                {product.stockAlmacen}
-                              </span>
-                              <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                                (Alm)
-                              </span>
-                              {/* Solo mostrar stock cafetín si el producto pertenece al cafetín */}
-                              {product.category === 'Cafetin' && (
-                                <>
-                                  <span className="text-gray-400 mx-1">/</span>
-                                  <span className={`text-xl sm:text-2xl font-bold whitespace-nowrap ${
-                                    product.stockCafetin === 0 ? 'text-gray-400' : 'text-gray-900'
-                                  }`}>
-                                    {product.stockCafetin}
-                                  </span>
-                                  <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                                    (Caf) {product.baseUnit}
-                                  </span>
-                                </>
-                              )}
-                            </>
+                  <div className="p-2 sm:p-3 w-full">
+                    <div className="flex flex-col gap-2 w-full">
+                      {/* Product Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          {editMode ? (
+                            <h3 className="text-sm sm:text-base font-semibold text-emerald-600 hover:text-emerald-800 mb-0.5 cursor-pointer overflow-wrap-anywhere">
+                              {product.name}
+                              <span className="ml-2 text-xs text-gray-400">(Click para editar)</span>
+                            </h3>
                           ) : (
-                            <>
-                              <span className={`text-xl sm:text-2xl font-bold whitespace-nowrap ${
-                                lowStock ? 'text-red-600' : 'text-gray-900'
-                              }`}>
-                                {selectedLocation === 'almacen' ? product.stockAlmacen : product.stockCafetin}
-                              </span>
-                              <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                                {product.baseUnit}
-                              </span>
-                            </>
+                            <Link href={`/admin/inventario/${product._id}`}>
+                              <h3 className="text-sm sm:text-base font-semibold text-emerald-600 hover:text-emerald-800 mb-0.5 cursor-pointer overflow-wrap-anywhere">
+                                {product.name}
+                              </h3>
+                            </Link>
                           )}
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 overflow-wrap-anywhere">
+                              {product.subCategory || product.category}
+                            </span>
+                            {product.brand && product.brand !== 'Genérica' && product.brand !== '' && (
+                              <span className="text-xs text-gray-500 overflow-wrap-anywhere">
+                                {product.brand}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      
-                      {/* Right Side - Controls */}
-                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-3 shrink-0">
                         {/* Status Badge */}
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
                           <span className={`h-2 w-2 rounded-full ${
                             lowStock ? 'bg-red-500' : 'bg-emerald-500'
                           }`}></span>
@@ -614,14 +594,29 @@ export default function InventoryPage() {
                             {lowStock ? 'Bajo Stock' : 'OK'}
                           </Badge>
                         </div>
+                      </div>
+                      
+                      {/* Stock Display with Controls */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs uppercase text-gray-500 font-medium whitespace-nowrap">
+                          STOCK
+                        </span>
+                        <span className={`text-lg sm:text-xl font-bold whitespace-nowrap ${
+                          lowStock ? 'text-red-600' : 'text-gray-900'
+                        }`}>
+                          {product.stockAlmacen}
+                        </span>
+                        <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                          {product.baseUnit}
+                        </span>
                         
                         {/* Adjustment Controls */}
                         {isAdjusting && adjustingId === product._id ? (
-                          <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
-                            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          <>
+                            <div className="flex items-center gap-2 ml-auto">
                               <button
                                 onClick={() => handleAdjustClick(product, -1)}
-                                className="min-w-[44px] min-h-[44px] w-8 h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                                 aria-label="Decrementar"
                               >
                                 −
@@ -631,37 +626,37 @@ export default function InventoryPage() {
                                 min="0"
                                 value={adjustValue}
                                 onChange={(e) => setAdjustValue(e.target.value)}
-                                className="w-16 min-h-[44px] px-2 py-1 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                className="w-16 h-9 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                                 autoFocus
                               />
                               <button
                                 onClick={() => handleAdjustClick(product, 1)}
-                                className="min-w-[44px] min-h-[44px] w-8 h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                                 aria-label="Incrementar"
                               >
                                 +
                               </button>
                             </div>
-                            <div className="flex gap-2 w-full sm:w-auto justify-end">
+                            <div className="flex gap-2 w-full sm:w-auto">
                               <button
                                 onClick={() => handleSaveAdjustment(product._id)}
-                                className="px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
+                                className="px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
                               >
                                 Guardar
                               </button>
                               <button
                                 onClick={handleCancelAdjustment}
-                                className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
+                                className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
                               >
                                 Cancelar
                               </button>
                             </div>
-                          </div>
+                          </>
                         ) : (
-                          <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
+                          <div className="flex items-center gap-1 sm:gap-2 ml-auto">
                             <button
                               onClick={() => handleQuickAdjust(product._id, -1)}
-                              className="min-w-[44px] min-h-[44px] w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm sm:text-base transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                              className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                               title="Reducir stock en 1"
                               aria-label="Reducir stock en 1"
                             >
@@ -669,14 +664,14 @@ export default function InventoryPage() {
                             </button>
                             <button
                               onClick={() => handleAdjustClick(product)}
-                              className="px-2 sm:px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white whitespace-nowrap min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                              className="px-2 sm:px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white whitespace-nowrap h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                               title="Ajustar cantidad"
                             >
                               Ajustar
                             </button>
                             <button
                               onClick={() => handleQuickAdjust(product._id, 1)}
-                              className="min-w-[44px] min-h-[44px] w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm sm:text-base transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                              className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                               title="Aumentar stock en 1"
                               aria-label="Aumentar stock en 1"
                             >
@@ -704,7 +699,7 @@ export default function InventoryPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
-                Stock actual ({selectedLocation === 'all' ? 'Almacén' : selectedLocation === 'almacen' ? 'Almacén' : 'Cafetín'})
+                Stock actual (Almacén)
               </label>
               <input
                 id="stock-input"

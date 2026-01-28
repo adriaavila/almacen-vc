@@ -45,6 +45,7 @@ type ConvexProduct = {
   purchaseUnit: string;
   conversionFactor: number;
   active: boolean;
+  availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
   stockCafetin: number;
@@ -85,10 +86,14 @@ export default function POSPage() {
     return slots.find(s => s.id === activeSlotId) || slots[0];
   }, [slots, activeSlotId]);
 
-  // Filter products for grid (only active products with cafetin stock)
+  // Filter products for grid (only active products with cafetin stock and available for sale)
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    return products.filter(product => product.active && product.stockCafetin > 0);
+    return products.filter(product => 
+      product.active && 
+      product.stockCafetin > 0 && 
+      product.availableForSale !== false // Default to true if undefined
+    );
   }, [products]);
 
   // Handle slot activation

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
@@ -69,8 +69,26 @@ function CreateOrderPageContent() {
     type: 'info',
     isOpen: false,
   });
-  const [summaryExpanded, setSummaryExpanded] = useState(true);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setSummaryExpanded(false);
+      }
+    };
+
+    if (summaryExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [summaryExpanded]);
   
   // Update area when URL query param changes and save to localStorage
   useEffect(() => {
@@ -135,15 +153,17 @@ function CreateOrderPageContent() {
         return;
       }
       
-      // Validate stock before submitting
+      // Validate stock before submitting (except for Cafetín - they order directly from supplier)
       const stockErrors: string[] = [];
-      for (const [productId, cantidad] of Object.entries(quantities)) {
-        if (cantidad > 0) {
-          const product = areaProducts.find(p => p._id === productId);
-          if (product && cantidad > product.stockAlmacen) {
-            stockErrors.push(
-              `${product.name}: solicitado ${cantidad} ${product.baseUnit}, disponible ${product.stockAlmacen} ${product.baseUnit}`
-            );
+      if (selectedArea !== 'Cafetín') {
+        for (const [productId, cantidad] of Object.entries(quantities)) {
+          if (cantidad > 0) {
+            const product = areaProducts.find(p => p._id === productId);
+            if (product && cantidad > product.stockAlmacen) {
+              stockErrors.push(
+                `${product.name}: solicitado ${cantidad} ${product.baseUnit}, disponible ${product.stockAlmacen} ${product.baseUnit}`
+              );
+            }
           }
         }
       }
@@ -198,6 +218,16 @@ function CreateOrderPageContent() {
     // For Limpieza area, only show products from Limpieza category
     if (selectedArea === 'Limpieza') {
       filtered = filtered.filter(p => p.category === 'Limpieza');
+    } else if (selectedArea === 'Cafetín') {
+      // Solo mostrar productos de Cafetín (manejar ambas variantes: con y sin tilde)
+      filtered = filtered.filter(p => 
+        p.category === 'Cafetín' || p.category === 'Cafetin'
+      );
+    } else if (selectedArea === 'Cocina') {
+      // Excluir productos de Cafetín (manejar ambas variantes: con y sin tilde)
+      filtered = filtered.filter(p => 
+        p.category !== 'Cafetín' && p.category !== 'Cafetin'
+      );
     }
     
     return filtered;
@@ -253,10 +283,36 @@ function CreateOrderPageContent() {
       );
     });
     
+    // Sort categories based on area
+    const categoryOrder = Object.keys(grouped);
+    if (selectedArea === 'Cocina') {
+      categoryOrder.sort((a, b) => {
+        // Cocina first
+        if (a === 'Cocina' && b !== 'Cocina') return -1;
+        if (a !== 'Cocina' && b === 'Cocina') return 1;
+        // Limpieza second
+        if (a === 'Limpieza' && b !== 'Cocina' && b !== 'Limpieza') return -1;
+        if (a !== 'Cocina' && a !== 'Limpieza' && b === 'Limpieza') return 1;
+        // Others alphabetically
+        return a.localeCompare(b, 'es', { sensitivity: 'base' });
+      });
+    } else {
+      // Default alphabetical order for other areas
+      categoryOrder.sort((a, b) => 
+        a.localeCompare(b, 'es', { sensitivity: 'base' })
+      );
+    }
+    
+    // Rebuild grouped object in sorted order
+    const sortedGrouped: Record<string, typeof filteredProducts> = {};
+    categoryOrder.forEach(category => {
+      sortedGrouped[category] = grouped[category];
+    });
+    
     // Initialize expanded state for new categories (default: expanded)
     setExpandedCategories(prev => {
       const updated = { ...prev };
-      Object.keys(grouped).forEach(category => {
+      Object.keys(sortedGrouped).forEach(category => {
         if (!(category in updated)) {
           updated[category] = true;
         }
@@ -264,8 +320,8 @@ function CreateOrderPageContent() {
       return updated;
     });
     
-    return grouped;
-  }, [filteredProducts]);
+    return sortedGrouped;
+  }, [filteredProducts, selectedArea]);
   
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => ({
@@ -299,58 +355,8 @@ function CreateOrderPageContent() {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       <PageContainer>
-        {/* Selected Products Summary Panel */}
-        {selectedProducts.length > 0 && (
-          <div className="sticky top-0 z-10 bg-white border-t-4 border-t-emerald-500 rounded-md shadow-sm mb-4">
-            <button
-              type="button"
-              onClick={() => setSummaryExpanded(!summaryExpanded)}
-              className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-900">Seleccionados</span>
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
-                  {selectedProducts.length}
-                </span>
-              </div>
-              <svg
-                className={`w-5 h-5 text-gray-400 transition-transform ${summaryExpanded ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-            {summaryExpanded && (
-              <div className="border-t border-gray-200 p-3 max-h-48 overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {selectedProducts.map((product) => (
-                    <div
-                      key={product._id}
-                      className="flex items-center justify-between bg-gray-50 rounded-md p-2 border border-gray-200"
-                    >
-                      <span className="text-sm font-medium text-gray-900 truncate flex-1 mr-2">
-                        {product.name}
-                      </span>
-                      <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {product.cantidad} {pluralizeUnit(product.baseUnit, product.cantidad)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        
         <form id="pedido-form" onSubmit={handleSubmit} className="space-y-4">
           {/* Search and Filter Section */}
           <div className="bg-white rounded-md shadow-sm border border-gray-200 p-3 mb-4">
@@ -459,7 +465,16 @@ function CreateOrderPageContent() {
                         <div className="divide-y divide-gray-200">
                           {categoryProducts.map((product) => {
                             const hasStock = product.stockAlmacen > 0;
-                            const isDisabled = !hasStock;
+                            // Para Cafetín, nunca deshabilitar por falta de stock (se pide directo del proveedor)
+                            // Para otras áreas, deshabilitar si no hay stock
+                            const isDisabled = selectedArea !== 'Cafetín' && !hasStock;
+                            
+                            // Para Cafetín: si tiene stock, aplicar límite (mostrará aviso); si no tiene stock, sin límite
+                            // Para otras áreas: siempre aplicar límite de stock
+                            const maxQuantity = selectedArea === 'Cafetín' 
+                              ? (hasStock ? product.stockAlmacen : undefined)
+                              : product.stockAlmacen;
+                            
                             return (
                               <div 
                                 key={product._id} 
@@ -492,7 +507,7 @@ function CreateOrderPageContent() {
                                     value={quantities[product._id] || 0}
                                     onChange={(value) => handleQuantityChange(product._id, value)}
                                     min={0}
-                                    max={product.stockAlmacen}
+                                    max={maxQuantity}
                                     unit={product.baseUnit}
                                     disabled={isDisabled}
                                   />
@@ -509,20 +524,77 @@ function CreateOrderPageContent() {
             )}
           </div>
         </form>
-        
-        {/* Sticky CTA Button */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 md:px-6 py-3 shadow-lg mt-6 -mx-4 md:-mx-6">
-          <Button
-            type="submit"
-            form="pedido-form"
-            variant="primary"
-            disabled={isSubmitting}
-            className="w-full h-full py-3"
-          >
-            {isSubmitting ? 'Enviando...' : 'Enviar'}
-          </Button>
-        </div>
       </PageContainer>
+
+      {/* Fixed Bottom Bar with Dropdown and Submit Button */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3">
+          <div className="flex items-center gap-3">
+            {/* Selected Products Dropdown - Left Side */}
+            {selectedProducts.length > 0 && (
+              <div className="relative flex-1" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setSummaryExpanded(!summaryExpanded)}
+                  className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-md transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-900">Seleccionados</span>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
+                      {selectedProducts.length}
+                    </span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transition-transform ${summaryExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {summaryExpanded && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto z-10">
+                    <div className="p-3 space-y-2">
+                      {selectedProducts.map((product) => (
+                        <div
+                          key={product._id}
+                          className="flex items-center justify-between bg-gray-50 rounded-md p-2 border border-gray-200"
+                        >
+                          <span className="text-sm font-medium text-gray-900 truncate flex-1 mr-2">
+                            {product.name}
+                          </span>
+                          <span className="text-sm text-gray-600 whitespace-nowrap">
+                            {product.cantidad} {pluralizeUnit(product.baseUnit, product.cantidad)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Submit Button - Right Side */}
+            <div className={selectedProducts.length > 0 ? 'w-auto' : 'w-full'}>
+              <Button
+                type="submit"
+                form="pedido-form"
+                variant="primary"
+                disabled={isSubmitting}
+                className="w-full h-full py-3 min-w-[120px]"
+              >
+                {isSubmitting ? 'Enviando...' : 'Enviar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Toast */}
       <Toast

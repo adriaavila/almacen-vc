@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 
 // ============================================================
 // QUERIES
@@ -206,6 +207,127 @@ export const getStats = query({
     }
 
     return stats;
+  },
+});
+
+// Get movements by order ID
+export const getByOrderId = query({
+  args: {
+    orderId: v.id("orders"),
+  },
+  handler: async (ctx, args) => {
+    const movements = await ctx.db
+      .query("movements")
+      .withIndex("by_orderId", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    // Populate product info
+    const movementsWithProducts = await Promise.all(
+      movements.map(async (mov) => {
+        const product = await ctx.db.get(mov.productId);
+        return {
+          ...mov,
+          product: product || undefined,
+        };
+      })
+    );
+
+    // Sort by timestamp descending
+    movementsWithProducts.sort((a, b) => b.timestamp - a.timestamp);
+
+    return movementsWithProducts;
+  },
+});
+
+// Get movements grouped by order
+export const listGroupedByOrder = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 100;
+    
+    // Get all movements
+    const allMovements = await ctx.db
+      .query("movements")
+      .withIndex("by_timestamp")
+      .order("desc")
+      .collect();
+
+    // Separate movements with and without orderId
+    const movementsWithOrders: Array<typeof allMovements[0] & { orderId: Id<"orders"> }> = [];
+    const movementsWithoutOrders: typeof allMovements = [];
+
+    for (const mov of allMovements) {
+      if (mov.orderId) {
+        movementsWithOrders.push(mov as typeof mov & { orderId: Id<"orders"> });
+      } else {
+        movementsWithoutOrders.push(mov);
+      }
+    }
+
+    // Group movements by orderId
+    const groupedByOrderId = new Map<Id<"orders">, typeof movementsWithOrders>();
+    for (const mov of movementsWithOrders) {
+      if (!groupedByOrderId.has(mov.orderId)) {
+        groupedByOrderId.set(mov.orderId, []);
+      }
+      groupedByOrderId.get(mov.orderId)!.push(mov);
+    }
+
+    // Get order info and populate products for each group
+    const groups = await Promise.all(
+      Array.from(groupedByOrderId.entries()).map(async ([orderId, movements]) => {
+        const order = await ctx.db.get(orderId);
+        
+        // Populate product info for movements
+        const movementsWithProducts = await Promise.all(
+          movements.map(async (mov) => {
+            const product = await ctx.db.get(mov.productId);
+            return {
+              ...mov,
+              product: product || undefined,
+            };
+          })
+        );
+
+        // Sort movements by timestamp descending
+        movementsWithProducts.sort((a, b) => b.timestamp - a.timestamp);
+
+        return {
+          orderId,
+          order: order || null,
+          movements: movementsWithProducts,
+          timestamp: order?.createdAt || 0,
+          area: order?.area || "",
+        };
+      })
+    );
+
+    // Sort groups by order timestamp (most recent first)
+    groups.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Limit groups
+    const limitedGroups = groups.slice(0, limit);
+
+    // Populate products for movements without orders
+    const otherMovementsWithProducts = await Promise.all(
+      movementsWithoutOrders.map(async (mov) => {
+        const product = await ctx.db.get(mov.productId);
+        return {
+          ...mov,
+          product: product || undefined,
+        };
+      })
+    );
+
+    // Sort other movements by timestamp descending
+    otherMovementsWithProducts.sort((a, b) => b.timestamp - a.timestamp);
+
+    return {
+      groups: limitedGroups,
+      otherMovements: otherMovementsWithProducts,
+    };
   },
 });
 

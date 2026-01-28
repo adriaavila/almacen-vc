@@ -509,6 +509,7 @@ export const update = mutation({
     purchaseUnit: v.optional(v.string()),
     conversionFactor: v.optional(v.number()),
     active: v.optional(v.boolean()),
+    availableForSale: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
