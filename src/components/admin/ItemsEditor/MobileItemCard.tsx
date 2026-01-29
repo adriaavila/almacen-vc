@@ -130,7 +130,7 @@ export function MobileItemCard({ item, tableType, onItemClick, onDelete }: Mobil
             </h3>
             <div className="flex items-center gap-2">
               <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                {item.location === 'almacen' ? 'Almacén' : item.location === 'cafetin' ? 'Cafetín' : item.location || 'N/A'}
+                {item.location === 'almacen' ? 'Almacén' : item.location === 'cafetin' ? 'Cafetin' : item.location || 'N/A'}
               </span>
             </div>
           </div>

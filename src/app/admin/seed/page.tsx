@@ -184,7 +184,7 @@ export default function SeedPage() {
         setMessage(
           `✅ Actualización completada:\n` +
           `- Productos actualizados: ${result.updated}\n` +
-          `- Total productos en cafetín: ${result.total}`
+          `- Total productos en cafetin: ${result.total}`
         );
         setSettingStock(false);
       }
@@ -267,7 +267,7 @@ export default function SeedPage() {
                 📦 Importar Productos CAFETIN
               </h2>
               <p className="text-sm text-gray-600 mb-4">
-                Importa {CAFETIN_PRODUCTS.length} productos del cafetín. Los productos duplicados serán omitidos.
+                Importa {CAFETIN_PRODUCTS.length} productos del cafetin. Los productos duplicados serán omitidos.
               </p>
               <Button
                 onClick={handleImportCafetin}
@@ -296,7 +296,7 @@ export default function SeedPage() {
 
             <div>
               <h2 className="text-lg font-semibold text-purple-600 mb-2 text-center">
-                📊 Establecer Stock Cafetín a 1
+                📊 Establecer Stock Cafetin a 1
               </h2>
               <p className="text-sm text-gray-600 mb-4">
                 Establece el stock a 1 para todos los productos en la ubicación CAFETIN. Se crearán registros de movimiento para cada ajuste.

@@ -9,7 +9,7 @@ import { Id } from "./_generated/dataModel";
 export const sendNotification = internalAction({
   args: {
     orderId: v.id("orders"),
-    area: v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
     createdAt: v.number(),
     items: v.array(
       v.object({

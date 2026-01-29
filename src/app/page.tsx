@@ -12,7 +12,9 @@ export default function Home() {
 
   const handleAreaClick = (area: Area) => {
     setUserArea(area);
-    router.push(`/requester/pedido?area=${area}`);
+    // Cafetin abre POS por defecto; el resto abre pedido
+    const path = area === 'Cafetin' ? '/requester/pos' : `/requester/pedido?area=${area}`;
+    router.push(path);
   };
 
   return (
@@ -42,7 +44,7 @@ export default function Home() {
                 <Button 
                   variant="primary" 
                   className="w-full py-3 text-base"
-                  onClick={() => handleAreaClick('Cafetín')}
+                  onClick={() => handleAreaClick('Cafetin')}
                 >
                   Cafetin
                 </Button>

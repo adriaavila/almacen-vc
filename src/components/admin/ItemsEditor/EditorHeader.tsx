@@ -280,7 +280,7 @@ export function EditorHeader({
                 {[
                   { key: 'all' as const, label: 'Todas' },
                   { key: 'almacen' as const, label: 'Almacén' },
-                  { key: 'cafetin' as const, label: 'Cafetín' },
+                  { key: 'cafetin' as const, label: 'Cafetin' },
                 ].map((location) => (
                   <button
                     key={location.key}

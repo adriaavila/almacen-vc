@@ -57,7 +57,7 @@ export default function OwnerDashboardPage() {
       })),
       consumption: {
         Cocina: consumption?.Cocina || 0,
-        Cafetín: consumption?.Cafetin || 0,
+        Cafetin: consumption?.Cafetin || 0,
         Limpieza: consumption?.Limpieza || 0,
       },
       metadata: {

@@ -22,7 +22,7 @@ interface ConsumptionByAreaChartProps {
 
 const COLORS = {
   Cocina: '#10b981',
-  Cafetín: '#14b8a6',
+  Cafetin: '#14b8a6',
   Limpieza: '#f59e0b',
 };
 
@@ -46,7 +46,7 @@ export function ConsumptionByAreaChart({ startDate, endDate }: ConsumptionByArea
   // Map ASCII-safe keys to display names
   const data = [
     { name: 'Cocina', cantidad: consumption.Cocina || 0 },
-    { name: 'Cafetín', cantidad: consumption.Cafetin || 0 },
+    { name: 'Cafetin', cantidad: consumption.Cafetin || 0 },
     { name: 'Limpieza', cantidad: consumption.Limpieza || 0 },
   ];
 

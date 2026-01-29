@@ -84,8 +84,7 @@ export default function InventoryPage() {
     // Filter only almacen products (exclude Cafetin)
     const almacenProducts = products.filter(p => 
       p.active && 
-      p.category !== 'Cafetin' && 
-      p.category !== 'Cafetín'
+      p.category !== 'Cafetin'
     );
     
     // Get unique categories from filtered products
@@ -107,8 +106,7 @@ export default function InventoryPage() {
     // Only show active almacen products (exclude Cafetin)
     let filtered = products.filter(p => 
       p.active && 
-      p.category !== 'Cafetin' && 
-      p.category !== 'Cafetín'
+      p.category !== 'Cafetin'
     );
     
     // Filter by category

@@ -298,7 +298,7 @@ export function ItemDrawer({
                   <span className="ml-2 font-medium">{item.stockAlmacen}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Stock Cafetín:</span>
+                  <span className="text-gray-500">Stock Cafetin:</span>
                   <span className="ml-2 font-medium">{item.stockCafetin}</span>
                 </div>
                 <div>
@@ -351,7 +351,7 @@ export function ItemDrawer({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="almacen">Almacén</SelectItem>
-                    <SelectItem value="cafetin">Cafetín</SelectItem>
+                    <SelectItem value="cafetin">Cafetin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

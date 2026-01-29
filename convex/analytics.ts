@@ -76,7 +76,7 @@ export const getOrderStats = query({
       pending: orders.filter((o) => o.status === "pendiente").length,
       byArea: {
         Cocina: orders.filter((o) => o.area === "Cocina").length,
-        Cafetin: orders.filter((o) => o.area === "Cafetín").length,
+        Cafetin: orders.filter((o) => o.area === "Cafetin").length,
         Limpieza: orders.filter((o) => o.area === "Limpieza").length,
       },
     };
@@ -136,7 +136,7 @@ export const getOrdersByArea = query({
     // Use ASCII-safe keys for Convex compatibility
     const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza"> = {
       Cocina: "Cocina",
-      "Cafetín": "Cafetin",
+      "Cafetin": "Cafetin",
       Limpieza: "Limpieza",
     };
     
@@ -482,7 +482,7 @@ export const getConsumptionByArea = query({
     // Use ASCII-safe keys for Convex compatibility
     const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza"> = {
       Cocina: "Cocina",
-      "Cafetín": "Cafetin",
+      "Cafetin": "Cafetin",
       Limpieza: "Limpieza",
     };
     
@@ -525,7 +525,7 @@ export const getAreaConsumptionTrends = query({
     // Use ASCII-safe keys for Convex compatibility
     const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza"> = {
       Cocina: "Cocina",
-      "Cafetín": "Cafetin",
+      "Cafetin": "Cafetin",
       Limpieza: "Limpieza",
     };
     

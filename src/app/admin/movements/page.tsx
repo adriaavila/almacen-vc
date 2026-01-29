@@ -54,13 +54,6 @@ function OrderGroup({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/pedidos/${orderId}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-sm text-emerald-600 hover:text-emerald-800"
-          >
-            Ver pedido
-          </Link>
           <svg
             className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             fill="none"
@@ -80,23 +73,17 @@ function OrderGroup({
             <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Producto
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tipo
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cantidad
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Origen → Destino
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Usuario
                   </th>
                 </tr>
               </thead>
@@ -110,10 +97,7 @@ function OrderGroup({
                       key={movement._id}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(movement.timestamp)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm">
                         {movement.product ? (
                           <Link
                             href={`/admin/inventario/${movement.productId}`}
@@ -125,14 +109,14 @@ function OrderGroup({
                           <span className="text-gray-500">Producto eliminado</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.bgColor} ${info.textColor}`}
                         >
                           {info.label}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm">
                         <span
                           className={`font-medium ${
                             isPositive ? 'text-emerald-700' : 'text-red-700'
@@ -147,11 +131,8 @@ function OrderGroup({
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                         {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {movement.user}
                       </td>
                     </tr>
                   );
@@ -169,11 +150,11 @@ function OrderGroup({
               return (
                 <div
                   key={movement._id}
-                  className={`bg-white border-l-4 ${info.borderColor} p-4`}
+                  className={`bg-white border-l-4 ${info.borderColor} p-3`}
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 mb-1">
+                      <p className="text-sm font-medium text-gray-900">
                         {movement.product ? (
                           <Link
                             href={`/admin/inventario/${movement.productId}`}
@@ -185,11 +166,8 @@ function OrderGroup({
                           <span className="text-gray-500">Producto eliminado</span>
                         )}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {formatShortDate(movement.timestamp)}
-                      </p>
                     </div>
-                    <div className="ml-4 text-right">
+                    <div className="ml-3 text-right">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.bgColor} ${info.textColor}`}
                       >
@@ -198,15 +176,12 @@ function OrderGroup({
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
-                      </p>
-                      <p className="text-xs text-gray-600">{movement.user}</p>
-                    </div>
-                    <div className="text-right">
+                    <p className="text-xs text-gray-500">
+                      {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
+                    </p>
+                    <div className="text-right flex items-baseline gap-1">
                       <p
-                        className={`text-lg font-bold ${
+                        className={`text-base font-bold ${
                           isPositive ? 'text-emerald-700' : 'text-red-700'
                         }`}
                       >
@@ -214,7 +189,7 @@ function OrderGroup({
                         {movement.quantity}
                       </p>
                       {movement.product && (
-                        <p className="text-xs text-gray-500">{movement.product.baseUnit}</p>
+                        <span className="text-xs text-gray-500">{movement.product.baseUnit}</span>
                       )}
                     </div>
                   </div>
@@ -229,7 +204,7 @@ function OrderGroup({
 }
 
 export default function MovementsPage() {
-  const [groupByOrder, setGroupByOrder] = useState(false);
+  const [groupByOrder, setGroupByOrder] = useState(true);
   
   const movements = useQuery(api.movements.list, {
     limit: 100,
@@ -352,10 +327,10 @@ export default function MovementsPage() {
         key={movement._id}
         className="hover:bg-gray-50 transition-colors"
       >
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
           {formatDate(movement.timestamp)}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm">
+        <td className="px-4 py-2 whitespace-nowrap text-sm">
           {movement.product ? (
             <Link
               href={`/admin/inventario/${movement.productId}`}
@@ -367,14 +342,14 @@ export default function MovementsPage() {
             <span className="text-gray-500">Producto eliminado</span>
           )}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm">
+        <td className="px-4 py-2 whitespace-nowrap text-sm">
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.bgColor} ${info.textColor}`}
           >
             {info.label}
           </span>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm">
+        <td className="px-4 py-2 whitespace-nowrap text-sm">
           <span
             className={`font-medium ${
               isPositive ? 'text-emerald-700' : 'text-red-700'
@@ -389,11 +364,8 @@ export default function MovementsPage() {
             </span>
           )}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
           {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
-        </td>
-        <td className="px-6 py-4 text-sm text-gray-500">
-          {movement.user}
         </td>
       </tr>
     );
@@ -407,11 +379,11 @@ export default function MovementsPage() {
     return (
       <div
         key={movement._id}
-        className={`bg-white rounded-md shadow-sm border border-l-4 ${info.borderColor} p-4`}
+        className={`bg-white rounded-md shadow-sm border border-l-4 ${info.borderColor} p-3`}
       >
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 mb-1">
+            <p className="text-sm font-medium text-gray-900">
               {movement.product ? (
                 <Link
                   href={`/admin/inventario/${movement.productId}`}
@@ -423,11 +395,11 @@ export default function MovementsPage() {
                 <span className="text-gray-500">Producto eliminado</span>
               )}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 mt-0.5">
               {formatShortDate(movement.timestamp)}
             </p>
           </div>
-          <div className="ml-4 text-right">
+          <div className="ml-3 text-right">
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.bgColor} ${info.textColor}`}
             >
@@ -436,15 +408,12 @@ export default function MovementsPage() {
           </div>
         </div>
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-500 mb-1">
-              {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
-            </p>
-            <p className="text-xs text-gray-600">{movement.user}</p>
-          </div>
-          <div className="text-right">
+          <p className="text-xs text-gray-500">
+            {movement.from ? `${movement.from} → ${movement.to}` : movement.to}
+          </p>
+          <div className="text-right flex items-baseline gap-1">
             <p
-              className={`text-lg font-bold ${
+              className={`text-base font-bold ${
                 isPositive ? 'text-emerald-700' : 'text-red-700'
               }`}
             >
@@ -452,7 +421,7 @@ export default function MovementsPage() {
               {movement.quantity}
             </p>
             {movement.product && (
-              <p className="text-xs text-gray-500">{movement.product.baseUnit}</p>
+              <span className="text-xs text-gray-500">{movement.product.baseUnit}</span>
             )}
           </div>
         </div>
@@ -616,23 +585,20 @@ export default function MovementsPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fecha
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Producto
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Tipo
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Cantidad
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Origen → Destino
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Usuario
                       </th>
                     </tr>
                   </thead>
@@ -642,7 +608,7 @@ export default function MovementsPage() {
                 </table>
               </div>
               {/* Mobile Cards */}
-              <div className="md:hidden space-y-3 p-4">
+              <div className="md:hidden space-y-2 p-3">
                 {filteredGroupedData.otherMovements.map(renderMovementCard)}
               </div>
             </div>
@@ -666,30 +632,27 @@ export default function MovementsPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Producto
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tipo
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cantidad
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Origen → Destino
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Usuario
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMovements.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
                       No hay movimientos que coincidan con los filtros
                     </td>
                   </tr>
@@ -701,7 +664,7 @@ export default function MovementsPage() {
           </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden space-y-2">
             {filteredMovements.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <p className="text-gray-500">

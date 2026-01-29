@@ -18,7 +18,7 @@ import { useInventorySync } from '@/lib/hooks/useInventorySync';
 import { useInventoryData } from '@/lib/hooks/useInventoryData';
 import { Area } from '@/types';
 
-const validAreas: Area[] = ['Cocina', 'Cafetín', 'Limpieza'];
+const validAreas: Area[] = ['Cocina', 'Cafetin', 'Limpieza'];
 
 type ConvexProduct = {
   _id: Id<"products">;
@@ -37,12 +37,12 @@ type ConvexProduct = {
   status: "ok" | "bajo_stock";
 };
 
-/** Unidad a mostrar en el pedido: compra para Cafetín (productos a la venta), base para el resto. */
+/** Unidad a mostrar en el pedido: compra para Cafetin (productos a la venta), base para el resto. */
 function getOrderUnit(
   product: { availableForSale?: boolean; baseUnit: string; purchaseUnit: string },
   area: Area
 ): string {
-  if (area === "Cafetín" && product.availableForSale !== false) {
+  if (area === "Cafetin" && product.availableForSale !== false) {
     return product.purchaseUnit;
   }
   return product.baseUnit;
@@ -54,7 +54,7 @@ function toBaseUnitQuantity(
   displayQty: number,
   area: Area
 ): number {
-  if (area === "Cafetín" && product.availableForSale !== false) {
+  if (area === "Cafetin" && product.availableForSale !== false) {
     return displayQty * product.conversionFactor;
   }
   return displayQty;
@@ -183,9 +183,9 @@ function CreateOrderPageContent() {
         return;
       }
       
-      // Validate stock before submitting (except for Cafetín - they order directly from supplier)
+      // Validate stock before submitting (except for Cafetin - they order directly from supplier)
       const stockErrors: string[] = [];
-      if (selectedArea !== 'Cafetín') {
+      if (selectedArea !== 'Cafetin') {
         for (const [productId, displayQty] of Object.entries(quantities)) {
           if (displayQty > 0) {
             const product = areaProducts.find(p => p._id === productId);
@@ -251,16 +251,14 @@ function CreateOrderPageContent() {
     // For Limpieza area, only show products from Limpieza category
     if (selectedArea === 'Limpieza') {
       filtered = filtered.filter(p => p.category === 'Limpieza');
-    } else if (selectedArea === 'Cafetín') {
-      // Cafetín primero, luego Cocina y Limpieza (unidad de compra en productos Cafetín; base en Cocina/Limpieza)
+    } else if (selectedArea === 'Cafetin') {
+      // Cafetin primero, luego Cocina y Limpieza (unidad de compra en productos Cafetin; base en Cocina/Limpieza)
       filtered = filtered.filter(p =>
-        p.category === 'Cafetín' || p.category === 'Cafetin' || p.category === 'Cocina' || p.category === 'Limpieza'
+        p.category === 'Cafetin' || p.category === 'Cocina' || p.category === 'Limpieza'
       );
     } else if (selectedArea === 'Cocina') {
-      // Excluir productos de Cafetín (manejar ambas variantes: con y sin tilde)
-      filtered = filtered.filter(p => 
-        p.category !== 'Cafetín' && p.category !== 'Cafetin'
-      );
+      // Excluir productos de Cafetin
+      filtered = filtered.filter(p => p.category !== 'Cafetin');
     }
     
     return filtered;
@@ -329,9 +327,9 @@ function CreateOrderPageContent() {
         // Others alphabetically
         return a.localeCompare(b, 'es', { sensitivity: 'base' });
       });
-    } else if (selectedArea === 'Cafetín') {
+    } else if (selectedArea === 'Cafetin') {
       categoryOrder.sort((a, b) => {
-        const cafetin = (c: string) => c === 'Cafetín' || c === 'Cafetin';
+        const cafetin = (c: string) => c === 'Cafetin';
         if (cafetin(a) && !cafetin(b)) return -1;
         if (!cafetin(a) && cafetin(b)) return 1;
         if (a === 'Cocina' && b !== 'Cocina' && !cafetin(b)) return -1;
@@ -509,14 +507,14 @@ function CreateOrderPageContent() {
                         <div className="divide-y divide-gray-200">
                           {categoryProducts.map((product) => {
                             const hasStock = product.stockAlmacen > 0;
-                            // Para Cafetín, nunca deshabilitar por falta de stock (se pide directo del proveedor)
+                            // Para Cafetin, nunca deshabilitar por falta de stock (se pide directo del proveedor)
                             // Para otras áreas, deshabilitar si no hay stock
-                            const isDisabled = selectedArea !== 'Cafetín' && !hasStock;
+                            const isDisabled = selectedArea !== 'Cafetin' && !hasStock;
                             
-                            // Para Cafetín: si tiene stock, límite en unidad de visualización (compra o base); si no, sin límite
+                            // Para Cafetin: si tiene stock, límite en unidad de visualización (compra o base); si no, sin límite
                             // Para otras áreas: siempre límite en base unit
-                            const usePurchaseUnit = selectedArea === 'Cafetín' && product.availableForSale !== false;
-                            const maxQuantity = selectedArea === 'Cafetín'
+                            const usePurchaseUnit = selectedArea === 'Cafetin' && product.availableForSale !== false;
+                            const maxQuantity = selectedArea === 'Cafetin'
                               ? (hasStock
                                   ? (usePurchaseUnit
                                       ? Math.floor(product.stockAlmacen / product.conversionFactor)

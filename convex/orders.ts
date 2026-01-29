@@ -84,7 +84,7 @@ export const getPending = query({
 // Query: Get orders by area
 export const getByArea = query({
   args: {
-    area: v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
   },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -97,7 +97,7 @@ export const getByArea = query({
 // Query: Get last delivered order by area (for suggestions)
 export const getLastByArea = query({
   args: {
-    area: v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
   },
   handler: async (ctx, args) => {
     const orders = await ctx.db
@@ -120,7 +120,7 @@ export const getLastByArea = query({
 // Mutation: Create a new order with items
 export const create = mutation({
   args: {
-    area: v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
     items: v.array(
       v.object({
         productId: v.id("products"), // Requerido - solo usar productId
@@ -233,8 +233,8 @@ export const deliver = mutation({
     const movementIds: Array<string> = [];
 
     // Determine destination location based on order area
-    // Only Cafetín has a dedicated location in the new system
-    const shouldTransfer = order.area === "Cafetín";
+    // Only Cafetin has a dedicated location in the new system
+    const shouldTransfer = order.area === "Cafetin";
     const destinationLocation = shouldTransfer ? "cafetin" : null;
 
     // Process each order item
@@ -272,6 +272,15 @@ export const deliver = mutation({
   },
 });
 
+/** True if category is Cafetin (comparison ignores case and accents). */
+function isCafetinCategory(category: string): boolean {
+  const normalized = category
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  return normalized === "cafetin";
+}
+
 // Helper function to process product delivery with transfer
 async function processProductDelivery(
   ctx: MutationCtx,
@@ -302,8 +311,6 @@ async function processProductDelivery(
     throw new Error(`Producto con ID ${productId} no encontrado`);
   }
 
-  const isCafetinCategory = product.category?.toLowerCase() === "cafetin";
-
   // Get almacen inventory
   const almacenInventory = await ctx.db
     .query("inventory")
@@ -312,10 +319,10 @@ async function processProductDelivery(
     )
     .first();
 
-  // Cafetín order + product with category Cafetín: if no stock in almacen, approve as supplier intake (COMPRA to cafetin only)
+  // Cafetin order + product category Cafetin: if no stock in almacen, approve as supplier intake (COMPRA to cafetin only)
   if (
     destinationLocation === "cafetin" &&
-    isCafetinCategory &&
+    isCafetinCategory(product.category ?? "") &&
     (!almacenInventory || almacenInventory.stockActual < cantidad)
   ) {
     const now = Date.now();
@@ -366,7 +373,7 @@ async function processProductDelivery(
     return;
   }
 
-  // Require stock in almacen for: Cocina/Limpieza, or Cafetín order with product not in category Cafetín
+  // Require stock in almacen for Cocina/Limpieza (or Cafetin when almacen had enough — handled above)
   if (!almacenInventory || almacenInventory.stockActual < cantidad) {
     const disponible = almacenInventory?.stockActual ?? 0;
     throw new Error(
@@ -387,7 +394,7 @@ async function processProductDelivery(
   let newDestStock = cantidad;
   let prevDestStock = 0;
 
-  // If transfer is needed (Cafetín), update destination inventory
+  // If transfer is needed (Cafetin), update destination inventory
   if (destinationLocation) {
     const destInventory = await ctx.db
       .query("inventory")
@@ -519,7 +526,7 @@ export const getOrderByDateRange = query({
   args: {
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    area: v.optional(v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza"))),
+    area: v.optional(v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"))),
     status: v.optional(v.union(v.literal("pendiente"), v.literal("entregado"))),
   },
   handler: async (ctx, args) => {
@@ -663,7 +670,7 @@ export const reprocessDeliveredOrder = mutation({
     }
 
     // Determine destination location based on order area
-    const shouldTransfer = order.area === "Cafetín";
+    const shouldTransfer = order.area === "Cafetin";
     const destinationLocation = shouldTransfer ? "cafetin" : null;
 
     const processedItems: Array<{
@@ -697,7 +704,7 @@ export const reprocessDeliveredOrder = mutation({
           continue;
         }
 
-        // Only process transfers for Cafetín orders
+        // Only process transfers for Cafetin orders
         if (shouldTransfer && destinationLocation) {
           // Get almacen inventory
           const almacenInventory = await ctx.db
@@ -764,7 +771,7 @@ export const reprocessDeliveredOrder = mutation({
             transferred: true,
           });
         } else {
-          // For non-Cafetín orders, just mark as processed
+          // For non-Cafetin orders, just mark as processed
           processedItems.push({
             productId: productId,
             productName: product.name,
@@ -794,7 +801,7 @@ export const reprocessDeliveredOrder = mutation({
 export const reprocessAllDeliveredOrders = mutation({
   args: {
     batchSize: v.optional(v.number()),
-    area: v.optional(v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza"))),
+    area: v.optional(v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"))),
   },
   handler: async (ctx, args) => {
     const batchSize = args.batchSize || 10;
@@ -840,7 +847,7 @@ export const reprocessAllDeliveredOrders = mutation({
           continue;
         }
 
-        const shouldTransfer = order.area === "Cafetín";
+        const shouldTransfer = order.area === "Cafetin";
         const destinationLocation = shouldTransfer ? "cafetin" : null;
         let processed = 0;
         let errors = 0;
@@ -861,7 +868,7 @@ export const reprocessAllDeliveredOrders = mutation({
               continue;
             }
 
-            // Only process transfers for Cafetín orders
+            // Only process transfers for Cafetin orders
             if (shouldTransfer && destinationLocation) {
               const almacenInventory = await ctx.db
                 .query("inventory")

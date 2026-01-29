@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   orders: defineTable({
-    area: v.union(v.literal("Cocina"), v.literal("Cafetín"), v.literal("Limpieza")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
     status: v.union(v.literal("pendiente"), v.literal("entregado")),
     createdAt: v.number(), // Timestamp
   })
@@ -135,7 +135,7 @@ export default defineSchema({
     productId: v.id("products"),
     type: v.union(
       v.literal("COMPRA"),         // Entrada de proveedor
-      v.literal("TRASLADO"),       // Almacén -> Cafetín
+      v.literal("TRASLADO"),       // Almacén -> Cafetin
       v.literal("CONSUMO"),        // Uso en cafetín o venta
       v.literal("AJUSTE")          // Corrección manual (merma/error)
     ),

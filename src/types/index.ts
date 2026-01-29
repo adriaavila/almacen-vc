@@ -2,7 +2,7 @@ import { Id } from 'convex/_generated/dataModel';
 
 export type PedidoStatus = 'pendiente' | 'entregado';
 
-export type Area = 'Cocina' | 'Cafetín' | 'Limpieza';
+export type Area = 'Cocina' | 'Cafetin' | 'Limpieza';
 
 export type ItemStatus = 'ok' | 'bajo_stock';
 
@@ -37,7 +37,7 @@ export interface Item {
   location: string;
   extra_notes?: string;
   status: ItemStatus;
-  sharedAreas?: string[]; // Areas that can see this item: ["Cocina", "Cafetín", "Limpieza"]
+  sharedAreas?: string[]; // Areas that can see this item: ["Cocina", "Cafetin", "Limpieza"]
   updatedBy?: string;
   updatedAt?: number;
 }

@@ -564,7 +564,7 @@ export const transformedStockData: Omit<Item, 'status'>[] = [
     stock_actual: 6,
     stock_minimo: calculateStockMinimo(6, 'Cocina', 'Endulzantes'),
     location: 'Almacén Principal',
-    sharedAreas: ['Cocina', 'Cafetín'],
+    sharedAreas: ['Cocina', 'Cafetin'],
   },
   {
     id: '37',

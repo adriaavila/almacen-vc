@@ -108,3 +108,35 @@ export const runFullMigration = mutation({
     };
   },
 });
+
+// ============================================================
+// MIGRATE Cafetín -> Cafetin (area and category, no accent)
+// Run once from Convex dashboard before deploying schema/code change.
+// ============================================================
+export const migrateCafetinNoAccent = mutation({
+  args: {},
+  handler: async (ctx) => {
+    let ordersUpdated = 0;
+    const orders = await ctx.db.query("orders").collect();
+    for (const order of orders) {
+      // Legacy data may have area "Cafetín" (with accent) before schema change
+      if ((order.area as string) === "Cafetín") {
+        await ctx.db.patch(order._id, { area: "Cafetin" });
+        ordersUpdated++;
+      }
+    }
+    let productsUpdated = 0;
+    const products = await ctx.db.query("products").collect();
+    for (const product of products) {
+      if ((product.category as string) === "Cafetín") {
+        await ctx.db.patch(product._id, { category: "Cafetin" });
+        productsUpdated++;
+      }
+    }
+    return {
+      ordersUpdated,
+      productsUpdated,
+      message: `Migrated ${ordersUpdated} orders and ${productsUpdated} products from Cafetín to Cafetin.`,
+    };
+  },
+});

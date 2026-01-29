@@ -5,7 +5,6 @@ export interface ExportData {
   consumption?: {
     Cocina?: number;
     Cafetin?: number;
-    Cafetín?: number; // Display name
     Limpieza?: number;
   };
   metadata?: {
@@ -83,7 +82,7 @@ export function exportToCSV(data: ExportData, filename: string = 'export.csv'): 
     sections.push(`Cocina,${data.consumption.Cocina || 0}`);
     // Handle ASCII-safe key (Cafetin) - backend uses this, frontend maps to display name
     const cafetinValue = data.consumption.Cafetin || 0;
-    sections.push(`Cafetín,${cafetinValue}`);
+    sections.push(`Cafetin,${cafetinValue}`);
     sections.push(`Limpieza,${data.consumption.Limpieza || 0}`);
     sections.push('');
   }

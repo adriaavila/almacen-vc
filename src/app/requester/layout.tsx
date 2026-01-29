@@ -15,12 +15,12 @@ export default function RequesterLayout({
   const [userArea, setUserArea] = useState<string | null>(null);
   const [isCafetin, setIsCafetin] = useState(false);
 
-  // Check if user area is Cafetín
+  // Check if user area is Cafetin
   useEffect(() => {
     const checkArea = () => {
       const area = getUserArea();
       setUserArea(area);
-      setIsCafetin(area === 'Cafetín');
+      setIsCafetin(area === 'Cafetin');
     };
 
     // Initial check
@@ -45,7 +45,7 @@ export default function RequesterLayout({
     const checkScreenSize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      // On desktop, force sidebar open (only if Cafetín)
+      // On desktop, force sidebar open (only if Cafetin)
       if (!mobile && isCafetin) {
         setSidebarOpen(true);
       }
@@ -76,10 +76,10 @@ export default function RequesterLayout({
     }
   };
 
-  // Sidebar is open if: explicitly open OR on desktop (and is Cafetín)
+  // Sidebar is open if: explicitly open OR on desktop (and is Cafetin)
   const isSidebarOpen = (sidebarOpen || !isMobile) && isCafetin;
 
-  // If Cafetín, show sidebar layout; otherwise show navbar layout
+  // If Cafetin, show sidebar layout; otherwise show navbar layout
   if (isCafetin) {
     return (
       <div className="flex min-h-screen bg-gray-50">
@@ -108,7 +108,7 @@ export default function RequesterLayout({
     );
   }
 
-  // For non-Cafetín areas, show navbar layout
+  // For non-Cafetin areas, show navbar layout
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />

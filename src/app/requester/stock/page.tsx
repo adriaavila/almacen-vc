@@ -339,7 +339,7 @@ function StockPageContent() {
       <PageContainer>
         <RequesterHeader 
           title="Stock"
-          subtitle="Inventario del Cafetín"
+          subtitle="Inventario del Cafetin"
         />
         <ProductListSkeleton count={8} />
       </PageContainer>
@@ -350,7 +350,7 @@ function StockPageContent() {
     <PageContainer>
       <RequesterHeader 
         title="Stock"
-        subtitle="Inventario del Cafetín"
+        subtitle="Inventario del Cafetin"
       />
       
       {/* Search Bar */}
@@ -523,7 +523,7 @@ function StockPageContent() {
           ) : (
             <EmptyState
               title="No hay productos"
-              message="No se encontraron productos en el inventario del cafetín."
+              message="No se encontraron productos en el inventario del cafetin."
             />
           )
         ) : (
@@ -687,7 +687,7 @@ function StockPageContent() {
           <div className="space-y-4">
             <div>
               <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
-                Stock actual (Cafetín)
+                Stock actual (Cafetin)
               </label>
               <input
                 id="stock-input"
@@ -759,7 +759,7 @@ export default function StockPage() {
       <PageContainer>
         <RequesterHeader 
           title="Stock"
-          subtitle="Inventario del Cafetín"
+          subtitle="Inventario del Cafetin"
         />
         <ProductListSkeleton count={8} />
       </PageContainer>

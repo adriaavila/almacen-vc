@@ -431,7 +431,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
           {/* Stock Mínimo */}
           <div>
             <label htmlFor="edit-stockMinimo" className="block text-sm font-medium text-gray-700 mb-1">
-              Stock Mínimo ({location === 'almacen' ? 'Almacén' : 'Cafetín'}) *
+              Stock Mínimo ({location === 'almacen' ? 'Almacén' : 'Cafetin'}) *
             </label>
             <input
               id="edit-stockMinimo"

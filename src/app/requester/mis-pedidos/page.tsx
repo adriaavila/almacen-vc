@@ -18,7 +18,7 @@ import { Area } from '@/types';
 export default function MyOrdersPage() {
   const [userArea, setUserAreaState] = useState<Area | null>(null);
   const ordersCocina = useQuery(api.orders.getByArea, { area: 'Cocina' });
-  const ordersCafetin = useQuery(api.orders.getByArea, { area: 'Cafetín' });
+  const ordersCafetin = useQuery(api.orders.getByArea, { area: 'Cafetin' });
   const ordersLimpieza = useQuery(api.orders.getByArea, { area: 'Limpieza' });
   
   const [expandedOrderId, setExpandedOrderId] = useState<Id<"orders"> | null>(null);
@@ -56,7 +56,7 @@ export default function MyOrdersPage() {
   // Get filtered orders based on user's area
   const filteredOrders = userArea === 'Cocina'
     ? (ordersCocina ?? [])
-    : userArea === 'Cafetín'
+    : userArea === 'Cafetin'
     ? (ordersCafetin ?? [])
     : userArea === 'Limpieza'
     ? (ordersLimpieza ?? [])

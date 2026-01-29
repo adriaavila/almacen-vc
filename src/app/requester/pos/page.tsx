@@ -266,7 +266,7 @@ export default function POSPage() {
         }
 
         const orderId = await createOrder({
-          area: 'Cafetín',
+          area: 'Cafetin',
           items: slot.items.map(item => ({
             productId: item.productId,
             cantidad: item.cantidad,
@@ -314,7 +314,7 @@ export default function POSPage() {
       <PageContainer className="flex-1 flex flex-col overflow-hidden max-w-full space-y-1! sm:space-y-1.5! md:space-y-2! py-1.5! sm:py-2! md:py-2.5!">
         <RequesterHeader 
           title="Punto de Venta"
-          subtitle="Cafetín - Venta al público"
+          subtitle="Cafetin - Venta al público"
         />
 
         {/* Zona A: Panel de Control Multitarea */}

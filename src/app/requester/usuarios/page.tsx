@@ -13,7 +13,7 @@ type User = {
   nombre: string;
   email: string;
   rol: 'admin' | 'requester' | 'mantenimiento';
-  area: 'Cocina' | 'Cafetín' | 'Limpieza' | 'Mantenimiento' | 'Admin';
+  area: 'Cocina' | 'Cafetin' | 'Limpieza' | 'Mantenimiento' | 'Admin';
   activo: boolean;
 };
 
@@ -24,7 +24,7 @@ const mockUsers: User[] = [
     nombre: 'Juan Pérez',
     email: 'juan@vistacampo.com',
     rol: 'requester',
-    area: 'Cafetín',
+    area: 'Cafetin',
     activo: true,
   },
   {
@@ -54,7 +54,7 @@ export default function UsuariosPage() {
     nombre: '',
     email: '',
     rol: 'requester' as User['rol'],
-    area: 'Cafetín' as User['area'],
+    area: 'Cafetin' as User['area'],
     activo: true,
   });
 
@@ -74,7 +74,7 @@ export default function UsuariosPage() {
         nombre: '',
         email: '',
         rol: 'requester',
-        area: 'Cafetín',
+        area: 'Cafetin',
         activo: true,
       });
     }
@@ -88,7 +88,7 @@ export default function UsuariosPage() {
       nombre: '',
       email: '',
       rol: 'requester',
-      area: 'Cafetín',
+      area: 'Cafetin',
       activo: true,
     });
   };
@@ -297,7 +297,7 @@ export default function UsuariosPage() {
                 onChange={(e) => setFormData({ ...formData, area: e.target.value as User['area'] })}
                 className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               >
-                <option value="Cafetín">Cafetín</option>
+                <option value="Cafetin">Cafetin</option>
                 <option value="Cocina">Cocina</option>
                 <option value="Limpieza">Limpieza</option>
                 <option value="Mantenimiento">Mantenimiento</option>

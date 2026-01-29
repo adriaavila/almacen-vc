@@ -171,7 +171,7 @@ function renderInventoryCell(column: ColumnConfig, item: any, onItemClick: (item
     case 'location':
       return (
         <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-          {item.location === 'almacen' ? 'Almacén' : item.location === 'cafetin' ? 'Cafetín' : item.location || 'N/A'}
+          {item.location === 'almacen' ? 'Almacén' : item.location === 'cafetin' ? 'Cafetin' : item.location || 'N/A'}
         </span>
       );
     case 'stockActual':
