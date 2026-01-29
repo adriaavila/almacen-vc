@@ -232,12 +232,7 @@ export const deliver = mutation({
     }> = [];
     const movementIds: Array<string> = [];
 
-    // Determine destination location based on order area
-    // Only Cafetin has a dedicated location in the new system
-    const shouldTransfer = order.area === "Cafetin";
-    const destinationLocation = shouldTransfer ? "cafetin" : null;
-
-    // Process each order item
+    // Process each order item (destination per product: Cafetin + availableForSale -> cafetin; else CONSUMO)
     for (const oi of orderItems) {
       // Use only productId - skip if not available
       if (!oi.productId) {
@@ -245,13 +240,15 @@ export const deliver = mutation({
       }
       
       const productId = oi.productId;
+      const product = await ctx.db.get(productId);
+      const effectiveDestination: "cafetin" | null =
+        order.area === "Cafetin" && product?.availableForSale !== false ? "cafetin" : null;
 
-      // Use new inventory system
       await processProductDelivery(
         ctx,
         productId,
         oi.cantidad,
-        destinationLocation,
+        effectiveDestination,
         args.id,
         deliveredItems,
         lowStockItems,
@@ -439,7 +436,7 @@ async function processProductDelivery(
       productId,
       type: "CONSUMO",
       from: "ALMACEN",
-      to: "ALMACEN",
+      to: "CONSUMO",
       quantity: cantidad,
       prevStock: prevAlmacenStock,
       nextStock: newAlmacenStock,
@@ -669,10 +666,6 @@ export const reprocessDeliveredOrder = mutation({
       throw new Error("El pedido no tiene ítems");
     }
 
-    // Determine destination location based on order area
-    const shouldTransfer = order.area === "Cafetin";
-    const destinationLocation = shouldTransfer ? "cafetin" : null;
-
     const processedItems: Array<{
       productId: string;
       productName: string;
@@ -681,7 +674,7 @@ export const reprocessDeliveredOrder = mutation({
     }> = [];
     const errors: Array<{ orderItemId: string; error: string }> = [];
 
-    // Process each orderItem
+    // Process each orderItem (only transfer to cafetin when product is available for sale)
     for (const oi of orderItems) {
       try {
         // Use only productId - skip if not available
@@ -704,8 +697,10 @@ export const reprocessDeliveredOrder = mutation({
           continue;
         }
 
-        // Only process transfers for Cafetin orders
-        if (shouldTransfer && destinationLocation) {
+        const effectiveDestination: "cafetin" | null =
+          order.area === "Cafetin" && product.availableForSale !== false ? "cafetin" : null;
+
+        if (effectiveDestination === "cafetin") {
           // Get almacen inventory
           const almacenInventory = await ctx.db
             .query("inventory")
@@ -726,7 +721,7 @@ export const reprocessDeliveredOrder = mutation({
           const destInventory = await ctx.db
             .query("inventory")
             .withIndex("by_product_location", (q) =>
-              q.eq("productId", productId).eq("location", destinationLocation)
+              q.eq("productId", productId).eq("location", effectiveDestination)
             )
             .first();
 
@@ -743,7 +738,7 @@ export const reprocessDeliveredOrder = mutation({
           } else {
             await ctx.db.insert("inventory", {
               productId,
-              location: destinationLocation,
+              location: effectiveDestination,
               stockActual: newDestStock,
               stockMinimo: 0,
               updatedAt: now,
@@ -755,7 +750,7 @@ export const reprocessDeliveredOrder = mutation({
             productId,
             type: "TRASLADO",
             from: "ALMACEN",
-            to: destinationLocation.toUpperCase(),
+            to: effectiveDestination.toUpperCase(),
             quantity: oi.cantidad,
             prevStock: almacenInventory.stockActual,
             nextStock: almacenInventory.stockActual, // Stock de almacén no cambia (ya fue descontado antes)
@@ -847,8 +842,6 @@ export const reprocessAllDeliveredOrders = mutation({
           continue;
         }
 
-        const shouldTransfer = order.area === "Cafetin";
-        const destinationLocation = shouldTransfer ? "cafetin" : null;
         let processed = 0;
         let errors = 0;
 
@@ -868,8 +861,10 @@ export const reprocessAllDeliveredOrders = mutation({
               continue;
             }
 
-            // Only process transfers for Cafetin orders
-            if (shouldTransfer && destinationLocation) {
+            const effectiveDestination: "cafetin" | null =
+              order.area === "Cafetin" && product.availableForSale !== false ? "cafetin" : null;
+
+            if (effectiveDestination === "cafetin") {
               const almacenInventory = await ctx.db
                 .query("inventory")
                 .withIndex("by_product_location", (q) =>
@@ -885,7 +880,7 @@ export const reprocessAllDeliveredOrders = mutation({
               const destInventory = await ctx.db
                 .query("inventory")
                 .withIndex("by_product_location", (q) =>
-                  q.eq("productId", productId).eq("location", destinationLocation)
+                  q.eq("productId", productId).eq("location", effectiveDestination)
                 )
                 .first();
 
@@ -901,7 +896,7 @@ export const reprocessAllDeliveredOrders = mutation({
               } else {
                 await ctx.db.insert("inventory", {
                   productId,
-                  location: destinationLocation,
+                  location: effectiveDestination,
                   stockActual: newDestStock,
                   stockMinimo: 0,
                   updatedAt: now,
@@ -913,7 +908,7 @@ export const reprocessAllDeliveredOrders = mutation({
                 productId,
                 type: "TRASLADO",
                 from: "ALMACEN",
-                to: destinationLocation.toUpperCase(),
+                to: effectiveDestination.toUpperCase(),
                 quantity: oi.cantidad,
                 prevStock: almacenInventory.stockActual,
                 nextStock: almacenInventory.stockActual,

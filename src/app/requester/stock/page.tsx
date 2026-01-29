@@ -75,10 +75,10 @@ function StockPageContent() {
     }
   }, [searchParams]);
 
-  // Get unique subcategories from cafetin products only
+  // Get unique subcategories from cafetin products only (a la venta)
   const subCategories = useMemo(() => {
     if (!products || products.length === 0) return [];
-    const filtered = products.filter(p => p.active && p.stockCafetin > 0);
+    const filtered = products.filter(p => p.active && p.stockCafetin > 0 && p.availableForSale !== false);
     
     // Get unique subcategories from filtered products
     const subCats = Array.from(
@@ -92,12 +92,12 @@ function StockPageContent() {
     return ['All', ...subCats];
   }, [products]);
   
-  // Filter and search products - only show cafetin location products
+  // Filter and search products - only show cafetin products a la venta
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
     
-    // Only show active products with cafetin stock
-    let filtered = products.filter(p => p.active && p.stockCafetin > 0);
+    // Only show active products with cafetin stock and available for sale
+    let filtered = products.filter(p => p.active && p.stockCafetin > 0 && p.availableForSale !== false);
     
     // Filter by subcategory
     if (selectedSubCategory !== 'All') {
