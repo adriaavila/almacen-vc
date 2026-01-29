@@ -728,6 +728,7 @@ function StockPageContent() {
 
       {/* Edit Product Modal */}
       <EditProductModal
+        key={editingProductId ?? 'closed'}
         isOpen={editingProductId !== null}
         onClose={() => setEditingProductId(null)}
         productId={editingProductId}

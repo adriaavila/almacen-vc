@@ -30,11 +30,35 @@ type ConvexProduct = {
   purchaseUnit: string;
   conversionFactor: number;
   active: boolean;
+  availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
 };
+
+/** Unidad a mostrar en el pedido: compra para Cafetín (productos a la venta), base para el resto. */
+function getOrderUnit(
+  product: { availableForSale?: boolean; baseUnit: string; purchaseUnit: string },
+  area: Area
+): string {
+  if (area === "Cafetín" && product.availableForSale !== false) {
+    return product.purchaseUnit;
+  }
+  return product.baseUnit;
+}
+
+/** Convierte cantidad ingresada (en unidad de visualización) a cantidad en unidad base para el backend. */
+function toBaseUnitQuantity(
+  product: { availableForSale?: boolean; conversionFactor: number },
+  displayQty: number,
+  area: Area
+): number {
+  if (area === "Cafetín" && product.availableForSale !== false) {
+    return displayQty * product.conversionFactor;
+  }
+  return displayQty;
+}
 
 function CreateOrderPageContent() {
   const router = useRouter();
@@ -135,13 +159,19 @@ function CreateOrderPageContent() {
     setIsSubmitting(true);
     
     try {
-      // Use productId directly (backend now supports it)
+      // Use productId directly (backend now supports it). Convert to base unit for backend.
       const orderItems = Object.entries(quantities)
-        .filter(([_, cantidad]) => cantidad > 0)
-        .map(([productId, cantidad]) => ({ 
-          productId: productId as Id<"products">,
-          cantidad 
-        }));
+        .filter(([_, displayQty]) => displayQty > 0)
+        .map(([productId, displayQty]) => {
+          const product = areaProducts.find(p => p._id === productId);
+          const cantidadBase = product
+            ? toBaseUnitQuantity(product, displayQty, selectedArea)
+            : displayQty;
+          return {
+            productId: productId as Id<"products">,
+            cantidad: cantidadBase,
+          };
+        });
       
       if (orderItems.length === 0) {
         setToast({
@@ -156,13 +186,16 @@ function CreateOrderPageContent() {
       // Validate stock before submitting (except for Cafetín - they order directly from supplier)
       const stockErrors: string[] = [];
       if (selectedArea !== 'Cafetín') {
-        for (const [productId, cantidad] of Object.entries(quantities)) {
-          if (cantidad > 0) {
+        for (const [productId, displayQty] of Object.entries(quantities)) {
+          if (displayQty > 0) {
             const product = areaProducts.find(p => p._id === productId);
-            if (product && cantidad > product.stockAlmacen) {
-              stockErrors.push(
-                `${product.name}: solicitado ${cantidad} ${product.baseUnit}, disponible ${product.stockAlmacen} ${product.baseUnit}`
-              );
+            if (product) {
+              const cantidadBase = toBaseUnitQuantity(product, displayQty, selectedArea);
+              if (cantidadBase > product.stockAlmacen) {
+                stockErrors.push(
+                  `${product.name}: solicitado ${cantidadBase} ${product.baseUnit}, disponible ${product.stockAlmacen} ${product.baseUnit}`
+                );
+              }
             }
           }
         }
@@ -219,9 +252,9 @@ function CreateOrderPageContent() {
     if (selectedArea === 'Limpieza') {
       filtered = filtered.filter(p => p.category === 'Limpieza');
     } else if (selectedArea === 'Cafetín') {
-      // Solo mostrar productos de Cafetín (manejar ambas variantes: con y sin tilde)
-      filtered = filtered.filter(p => 
-        p.category === 'Cafetín' || p.category === 'Cafetin'
+      // Cafetín primero, luego Cocina y Limpieza (unidad de compra en productos Cafetín; base en Cocina/Limpieza)
+      filtered = filtered.filter(p =>
+        p.category === 'Cafetín' || p.category === 'Cafetin' || p.category === 'Cocina' || p.category === 'Limpieza'
       );
     } else if (selectedArea === 'Cocina') {
       // Excluir productos de Cafetín (manejar ambas variantes: con y sin tilde)
@@ -294,6 +327,17 @@ function CreateOrderPageContent() {
         if (a === 'Limpieza' && b !== 'Cocina' && b !== 'Limpieza') return -1;
         if (a !== 'Cocina' && a !== 'Limpieza' && b === 'Limpieza') return 1;
         // Others alphabetically
+        return a.localeCompare(b, 'es', { sensitivity: 'base' });
+      });
+    } else if (selectedArea === 'Cafetín') {
+      categoryOrder.sort((a, b) => {
+        const cafetin = (c: string) => c === 'Cafetín' || c === 'Cafetin';
+        if (cafetin(a) && !cafetin(b)) return -1;
+        if (!cafetin(a) && cafetin(b)) return 1;
+        if (a === 'Cocina' && b !== 'Cocina' && !cafetin(b)) return -1;
+        if (a !== 'Cocina' && !cafetin(a) && b === 'Cocina') return 1;
+        if (a === 'Limpieza' && b !== 'Limpieza' && !cafetin(b) && b !== 'Cocina') return -1;
+        if (a !== 'Limpieza' && !cafetin(a) && a !== 'Cocina' && b === 'Limpieza') return 1;
         return a.localeCompare(b, 'es', { sensitivity: 'base' });
       });
     } else {
@@ -469,10 +513,15 @@ function CreateOrderPageContent() {
                             // Para otras áreas, deshabilitar si no hay stock
                             const isDisabled = selectedArea !== 'Cafetín' && !hasStock;
                             
-                            // Para Cafetín: si tiene stock, aplicar límite (mostrará aviso); si no tiene stock, sin límite
-                            // Para otras áreas: siempre aplicar límite de stock
-                            const maxQuantity = selectedArea === 'Cafetín' 
-                              ? (hasStock ? product.stockAlmacen : undefined)
+                            // Para Cafetín: si tiene stock, límite en unidad de visualización (compra o base); si no, sin límite
+                            // Para otras áreas: siempre límite en base unit
+                            const usePurchaseUnit = selectedArea === 'Cafetín' && product.availableForSale !== false;
+                            const maxQuantity = selectedArea === 'Cafetín'
+                              ? (hasStock
+                                  ? (usePurchaseUnit
+                                      ? Math.floor(product.stockAlmacen / product.conversionFactor)
+                                      : product.stockAlmacen)
+                                  : undefined)
                               : product.stockAlmacen;
                             
                             return (
@@ -508,7 +557,7 @@ function CreateOrderPageContent() {
                                     onChange={(value) => handleQuantityChange(product._id, value)}
                                     min={0}
                                     max={maxQuantity}
-                                    unit={product.baseUnit}
+                                    unit={getOrderUnit(product, selectedArea)}
                                     disabled={isDisabled}
                                   />
                                 </div>
@@ -570,7 +619,7 @@ function CreateOrderPageContent() {
                             {product.name}
                           </span>
                           <span className="text-sm text-gray-600 whitespace-nowrap">
-                            {product.cantidad} {pluralizeUnit(product.baseUnit, product.cantidad)}
+                            {product.cantidad} {pluralizeUnit(getOrderUnit(product, selectedArea), product.cantidad)}
                           </span>
                         </div>
                       ))}

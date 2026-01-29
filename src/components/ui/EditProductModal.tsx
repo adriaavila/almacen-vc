@@ -73,9 +73,9 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
     isOpen: false,
   });
 
-  // Initialize form when product loads
+  // Initialize form when product loads (only when loaded product matches requested productId to avoid stale data)
   useEffect(() => {
-    if (product && isOpen) {
+    if (product && isOpen && productId && product._id === productId) {
       const inventory = product.inventory?.find(inv => inv.location === location);
       
       setName(product.name || '');
@@ -95,7 +95,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
       setActive(product.active ?? true);
       setError(null);
     }
-  }, [product, isOpen, location]);
+  }, [product, isOpen, location, productId]);
 
   // Reset form when modal closes
   useEffect(() => {
