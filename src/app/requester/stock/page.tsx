@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
@@ -12,6 +12,7 @@ import { Toast } from '@/components/ui/Toast';
 import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
 import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EditProductModal } from '@/components/ui/EditProductModal';
 import { normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useInventorySync } from '@/lib/hooks/useInventorySync';
@@ -43,7 +44,6 @@ function StockPageContent() {
   const products = useInventoryData();
   // Usar wrapper offline para updateStock
   const updateStock = useOfflineMutation('updateStock');
-  const router = useRouter();
   const searchParams = useSearchParams();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +52,7 @@ function StockPageContent() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [editMode, setEditMode] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<Id<"products"> | null>(null);
   const [adjustingId, setAdjustingId] = useState<Id<"products"> | null>(null);
   const [adjustValue, setAdjustValue] = useState<string>('0');
   const [editingProduct, setEditingProduct] = useState<ConvexProduct | null>(null);
@@ -535,7 +536,7 @@ function StockPageContent() {
                 key={product._id}
                 onClick={() => {
                   if (editMode) {
-                    router.push(`/requester/stock/${product._id}`);
+                    setEditingProductId(product._id);
                   }
                 }}
                 className={`bg-white rounded-md shadow-sm border overflow-hidden w-full transition-all ${
@@ -602,7 +603,7 @@ function StockPageContent() {
                         <>
                           <div className="flex items-center gap-2 ml-auto">
                             <button
-                              onClick={() => handleAdjustClick(product, -1)}
+                              onClick={(e) => { e.stopPropagation(); handleAdjustClick(product, -1); }}
                               className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                               aria-label="Decrementar"
                             >
@@ -613,11 +614,12 @@ function StockPageContent() {
                               min="0"
                               value={adjustValue}
                               onChange={(e) => setAdjustValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
                               className="w-16 h-9 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                               autoFocus
                             />
                             <button
-                              onClick={() => handleAdjustClick(product, 1)}
+                              onClick={(e) => { e.stopPropagation(); handleAdjustClick(product, 1); }}
                               className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                               aria-label="Incrementar"
                             >
@@ -626,13 +628,13 @@ function StockPageContent() {
                           </div>
                           <div className="flex gap-2 w-full sm:w-auto">
                             <button
-                              onClick={() => handleSaveAdjustment(product._id)}
+                              onClick={(e) => { e.stopPropagation(); handleSaveAdjustment(product._id); }}
                               className="px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
                             >
                               Guardar
                             </button>
                             <button
-                              onClick={handleCancelAdjustment}
+                              onClick={(e) => { e.stopPropagation(); handleCancelAdjustment(); }}
                               className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
                             >
                               Cancelar
@@ -642,7 +644,7 @@ function StockPageContent() {
                       ) : (
                         <div className="flex items-center gap-1 sm:gap-2 ml-auto">
                           <button
-                            onClick={() => handleQuickAdjust(product._id, -1)}
+                            onClick={(e) => { e.stopPropagation(); handleQuickAdjust(product._id, -1); }}
                             className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                             title="Reducir stock en 1"
                             aria-label="Reducir stock en 1"
@@ -650,14 +652,14 @@ function StockPageContent() {
                             −
                           </button>
                           <button
-                            onClick={() => handleAdjustClick(product)}
+                            onClick={(e) => { e.stopPropagation(); handleAdjustClick(product); }}
                             className="px-2 sm:px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white whitespace-nowrap h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                             title="Ajustar cantidad"
                           >
                             Ajustar
                           </button>
                           <button
-                            onClick={() => handleQuickAdjust(product._id, 1)}
+                            onClick={(e) => { e.stopPropagation(); handleQuickAdjust(product._id, 1); }}
                             className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                             title="Aumentar stock en 1"
                             aria-label="Aumentar stock en 1"
@@ -723,6 +725,21 @@ function StockPageContent() {
           </div>
         </Modal>
       )}
+
+      {/* Edit Product Modal */}
+      <EditProductModal
+        isOpen={editingProductId !== null}
+        onClose={() => setEditingProductId(null)}
+        productId={editingProductId}
+        location="cafetin"
+        onProductUpdated={() => {
+          setToast({
+            message: 'Producto actualizado correctamente',
+            type: 'success',
+            isOpen: true,
+          });
+        }}
+      />
 
       {/* Toast */}
       <Toast

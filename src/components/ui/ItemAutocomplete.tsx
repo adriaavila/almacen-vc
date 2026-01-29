@@ -14,6 +14,8 @@ interface ItemAutocompleteProps {
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  showCreateOption?: boolean;
+  onCreateNew?: () => void;
 }
 
 type ConvexProduct = {
@@ -38,6 +40,8 @@ export function ItemAutocomplete({
   placeholder = 'Buscar producto...',
   className = '',
   autoFocus = false,
+  showCreateOption = true,
+  onCreateNew,
 }: ItemAutocompleteProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -87,9 +91,13 @@ export function ItemAutocomplete({
     setSelectedIndex(-1);
   };
 
+  // Calculate total items including create button
+  const totalItems = filteredProducts.length + (showCreateOption && onCreateNew ? 1 : 0);
+  const createButtonIndex = showCreateOption && onCreateNew ? filteredProducts.length : -1;
+
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen || filteredProducts.length === 0) {
+    if (!isOpen) {
       if (e.key === 'Enter') {
         e.preventDefault();
       }
@@ -99,7 +107,9 @@ export function ItemAutocomplete({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex((prev) => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
+        if (totalItems > 0) {
+          setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : prev));
+        }
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -107,7 +117,11 @@ export function ItemAutocomplete({
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < filteredProducts.length) {
+        if (selectedIndex === createButtonIndex && onCreateNew) {
+          onCreateNew();
+          setIsOpen(false);
+          setSelectedIndex(-1);
+        } else if (selectedIndex >= 0 && selectedIndex < filteredProducts.length) {
           handleSelect(filteredProducts[selectedIndex]);
         }
         break;
@@ -149,8 +163,12 @@ export function ItemAutocomplete({
   useEffect(() => {
     if (selectedProduct && !isOpen) {
       setSearchQuery(selectedProduct.name);
+    } else if (value && !selectedProduct && !isOpen) {
+      // Product is selected but not in the list yet (e.g., just created)
+      // Keep the current search query or clear it
+      // The product will appear in the list once the query updates
     }
-  }, [selectedProduct, isOpen]);
+  }, [selectedProduct, isOpen, value]);
 
   return (
     <div className={`relative ${className}`}>
@@ -191,7 +209,7 @@ export function ItemAutocomplete({
       </div>
 
       {/* Dropdown */}
-      {isOpen && filteredProducts.length > 0 && (
+      {isOpen && (filteredProducts.length > 0 || (showCreateOption && onCreateNew)) && (
         <div
           ref={dropdownRef}
           className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
@@ -239,11 +257,33 @@ export function ItemAutocomplete({
               </div>
             </button>
           ))}
+          
+          {/* Create new product button */}
+          {showCreateOption && onCreateNew && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateNew();
+                setIsOpen(false);
+                setSelectedIndex(-1);
+              }}
+              className={`w-full text-left px-4 py-3 border-t border-gray-200 bg-gray-50 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${
+                createButtonIndex === selectedIndex ? 'bg-gray-100' : ''
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">➕</span>
+                <span className="text-sm font-medium text-emerald-600">
+                  Crear nuevo producto
+                </span>
+              </div>
+            </button>
+          )}
         </div>
       )}
 
       {/* No results */}
-      {isOpen && searchQuery.trim() && filteredProducts.length === 0 && (
+      {isOpen && searchQuery.trim() && filteredProducts.length === 0 && !(showCreateOption && onCreateNew) && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4">
           <p className="text-sm text-gray-500 text-center">
             No se encontraron productos

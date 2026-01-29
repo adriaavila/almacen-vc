@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
@@ -15,6 +14,7 @@ import { Toast } from '@/components/ui/Toast';
 import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
 import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EditProductModal } from '@/components/ui/EditProductModal';
 import { normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useInventorySync } from '@/lib/hooks/useInventorySync';
@@ -55,6 +55,7 @@ export default function InventoryPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [editMode, setEditMode] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<Id<"products"> | null>(null);
   const [adjustingId, setAdjustingId] = useState<Id<"products"> | null>(null);
   const [adjustValue, setAdjustValue] = useState<string>('0');
   const [editingProduct, setEditingProduct] = useState<ConvexProduct | null>(null);
@@ -542,11 +543,6 @@ export default function InventoryPage() {
               const lowStock = isLowStock(product);
               const isAdjusting = adjustingId === product._id;
               
-              // Build URL with edit mode and preserve filters
-              const editUrl = editMode 
-                ? `/admin/inventario/${product._id}?edit=true${selectedCategory !== 'All' ? `&category=${encodeURIComponent(selectedCategory)}` : ''}${selectedStatus !== 'all' ? `&status=${selectedStatus}` : ''}${debouncedSearchQuery ? `&search=${encodeURIComponent(debouncedSearchQuery)}` : ''}`
-                : `/admin/inventario/${product._id}`;
-              
               return (
                 <div
                   key={product._id}
@@ -555,7 +551,7 @@ export default function InventoryPage() {
                       ? `cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all ${lowStock ? 'border-l-4 border-l-red-500 border-r-2 border-t-2 border-b-2' : 'border-l-4 border-l-emerald-500 border-r-2 border-t-2 border-b-2'}`
                       : `${lowStock ? 'border-l-4 border-l-red-500 border-gray-200' : 'border-l-4 border-l-emerald-500 border-gray-200'}`
                   }`}
-                  onClick={editMode ? () => router.push(editUrl) : undefined}
+                  onClick={editMode ? () => setEditingProductId(product._id) : undefined}
                 >
                   <div className="p-2 sm:p-3 w-full">
                     <div className="flex flex-col gap-2 w-full">
@@ -568,11 +564,9 @@ export default function InventoryPage() {
                               <span className="ml-2 text-xs text-gray-400">(Click para editar)</span>
                             </h3>
                           ) : (
-                            <Link href={`/admin/inventario/${product._id}`}>
-                              <h3 className="text-sm sm:text-base font-semibold text-emerald-600 hover:text-emerald-800 mb-0.5 cursor-pointer overflow-wrap-anywhere">
-                                {product.name}
-                              </h3>
-                            </Link>
+                            <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-0.5 overflow-wrap-anywhere">
+                              {product.name}
+                            </h3>
                           )}
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 overflow-wrap-anywhere">
@@ -747,6 +741,21 @@ export default function InventoryPage() {
           display: none;
         }
       `}</style>
+
+      {/* Edit Product Modal */}
+      <EditProductModal
+        isOpen={editingProductId !== null}
+        onClose={() => setEditingProductId(null)}
+        productId={editingProductId}
+        onProductUpdated={() => {
+          // Refresh will happen automatically via useInventorySync
+          setToast({
+            message: 'Producto actualizado correctamente',
+            type: 'success',
+            isOpen: true,
+          });
+        }}
+      />
 
       {/* Toast */}
       <Toast

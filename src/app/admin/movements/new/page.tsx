@@ -10,6 +10,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import { ItemAutocomplete } from '@/components/ui/ItemAutocomplete';
+import { CreateProductModal } from '@/components/ui/CreateProductModal';
 
 type ConvexProduct = {
   _id: Id<'products'>;
@@ -38,6 +39,7 @@ export default function RegisterIngresoPage() {
   const [motivo, setMotivo] = useState<'compra' | 'ajuste'>('compra');
   const [referencia, setReferencia] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error';
@@ -55,6 +57,21 @@ export default function RegisterIngresoPage() {
   const handleProductChange = (productId: Id<'products'> | null, product: ConvexProduct | null) => {
     setSelectedProductId(productId);
     setSelectedProduct(product);
+  };
+
+  const handleProductCreated = async (productId: Id<'products'>, product: ConvexProduct) => {
+    // Select the newly created product
+    setSelectedProductId(productId);
+    setSelectedProduct(product);
+    
+    // Show success toast
+    setToast({
+      message: `Producto "${product.name}" creado exitosamente`,
+      type: 'success',
+    });
+
+    // Refresh the inventory data by triggering a refetch
+    // The useInventorySync hook will handle this automatically
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,6 +172,8 @@ export default function RegisterIngresoPage() {
               onChange={handleProductChange}
               placeholder="Buscar producto..."
               autoFocus
+              showCreateOption={true}
+              onCreateNew={() => setShowCreateModal(true)}
             />
           </div>
 
@@ -263,6 +282,13 @@ export default function RegisterIngresoPage() {
           {isSubmitting ? 'Registrando...' : 'Registrar Ingreso'}
         </Button>
       </div>
+
+      {/* Create Product Modal */}
+      <CreateProductModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onProductCreated={handleProductCreated}
+      />
 
       {/* Toast */}
       {toast && (

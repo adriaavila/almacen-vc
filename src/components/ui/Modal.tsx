@@ -87,12 +87,14 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 animate-fade-in-up border border-gray-200 focus:outline-none"
+        className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col animate-fade-in-up border border-gray-200 focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >
-        <div className="p-6">
+        <div className="p-6 flex-shrink-0">
           <h2 id="modal-title" className="text-xl font-semibold text-gray-900 mb-4 text-center">{title}</h2>
+        </div>
+        <div className="px-6 pb-6 overflow-y-auto flex-1">
           {children}
         </div>
       </div>
