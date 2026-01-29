@@ -51,8 +51,10 @@ export default function OrderDetailPage() {
       });
       setIsDelivering(false);
     } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'No se pudo entregar el pedido. Intente de nuevo.';
       setToast({
-        message: 'No se pudo entregar el pedido. Intente de nuevo.',
+        message,
         type: 'error',
         isOpen: true,
       });

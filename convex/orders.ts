@@ -302,6 +302,8 @@ async function processProductDelivery(
     throw new Error(`Producto con ID ${productId} no encontrado`);
   }
 
+  const isCafetinCategory = product.category?.toLowerCase() === "cafetin";
+
   // Get almacen inventory
   const almacenInventory = await ctx.db
     .query("inventory")
@@ -310,8 +312,63 @@ async function processProductDelivery(
     )
     .first();
 
+  // Cafetín order + product with category Cafetín: if no stock in almacen, approve as supplier intake (COMPRA to cafetin only)
+  if (
+    destinationLocation === "cafetin" &&
+    isCafetinCategory &&
+    (!almacenInventory || almacenInventory.stockActual < cantidad)
+  ) {
+    const now = Date.now();
+    const cafetinInventory = await ctx.db
+      .query("inventory")
+      .withIndex("by_product_location", (q) =>
+        q.eq("productId", productId).eq("location", "cafetin")
+      )
+      .first();
+
+    const prevCafetinStock = cafetinInventory?.stockActual ?? 0;
+    const newCafetinStock = prevCafetinStock + cantidad;
+
+    if (cafetinInventory) {
+      await ctx.db.patch(cafetinInventory._id, {
+        stockActual: newCafetinStock,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("inventory", {
+        productId,
+        location: "cafetin",
+        stockActual: newCafetinStock,
+        stockMinimo: 0,
+        updatedAt: now,
+      });
+    }
+
+    const movementId = await ctx.db.insert("movements", {
+      productId,
+      type: "COMPRA",
+      from: "PROVEEDOR",
+      to: "CAFETIN",
+      quantity: cantidad,
+      prevStock: prevCafetinStock,
+      nextStock: newCafetinStock,
+      user: "system",
+      timestamp: now,
+      orderId,
+    });
+    movementIds.push(movementId);
+
+    deliveredItems.push({
+      itemId: productId,
+      cantidad,
+      newStock: newCafetinStock,
+    });
+    return;
+  }
+
+  // Require stock in almacen for: Cocina/Limpieza, or Cafetín order with product not in category Cafetín
   if (!almacenInventory || almacenInventory.stockActual < cantidad) {
-    const disponible = almacenInventory?.stockActual || 0;
+    const disponible = almacenInventory?.stockActual ?? 0;
     throw new Error(
       `Stock insuficiente en almacén para ${product.name}. Disponible: ${disponible} ${product.baseUnit}, Solicitado: ${cantidad} ${product.baseUnit}`
     );
@@ -339,7 +396,7 @@ async function processProductDelivery(
       )
       .first();
 
-    prevDestStock = destInventory?.stockActual || 0;
+    prevDestStock = destInventory?.stockActual ?? 0;
     newDestStock = prevDestStock + cantidad;
 
     if (destInventory) {
@@ -348,7 +405,6 @@ async function processProductDelivery(
         updatedAt: now,
       });
     } else {
-      // Create destination inventory if it doesn't exist
       await ctx.db.insert("inventory", {
         productId,
         location: destinationLocation,
@@ -358,7 +414,6 @@ async function processProductDelivery(
       });
     }
 
-    // Create TRASLADO movement
     const movementId = await ctx.db.insert("movements", {
       productId,
       type: "TRASLADO",
@@ -367,13 +422,12 @@ async function processProductDelivery(
       quantity: cantidad,
       prevStock: prevAlmacenStock,
       nextStock: newAlmacenStock,
-      user: "system", // TODO: Add when auth is implemented
+      user: "system",
       timestamp: now,
       orderId,
     });
     movementIds.push(movementId);
   } else {
-    // For Cocina/Limpieza, just create a CONSUMO movement (no transfer)
     const movementId = await ctx.db.insert("movements", {
       productId,
       type: "CONSUMO",
@@ -382,14 +436,13 @@ async function processProductDelivery(
       quantity: cantidad,
       prevStock: prevAlmacenStock,
       nextStock: newAlmacenStock,
-      user: "system", // TODO: Add when auth is implemented
+      user: "system",
       timestamp: now,
       orderId,
     });
     movementIds.push(movementId);
   }
 
-  // Check for low stock in almacen
   const almacenMinStock = almacenInventory.stockMinimo;
   const isLowStock = newAlmacenStock <= almacenMinStock;
 

@@ -8,7 +8,6 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
 import { SlotButton } from '@/components/ui/SlotButton';
-import { GhostAddButton } from '@/components/ui/GhostAddButton';
 import { PatientSlider } from '@/components/ui/PatientSlider';
 import { OrderSummaryPanel } from '@/components/ui/OrderSummaryPanel';
 import { normalizeSearchText } from '@/lib/utils';
@@ -86,15 +85,31 @@ export default function POSPage() {
     return slots.find(s => s.id === activeSlotId) || slots[0];
   }, [slots, activeSlotId]);
 
-  // Filter products for grid (only active products with cafetin stock and available for sale)
+  // Filter products (only active, cafetin stock, available for sale)
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
     return products.filter(product => 
       product.active && 
       product.stockCafetin > 0 && 
-      product.availableForSale !== false // Default to true if undefined
+      product.availableForSale !== false
     );
   }, [products]);
+
+  // Group products by subCategory for column layout (scroll horizontal = columns, scroll vertical = per column)
+  const productsBySubCategory = useMemo(() => {
+    const groups: Record<string, ConvexProduct[]> = {};
+    for (const product of filteredProducts) {
+      const key = product.subCategory?.trim() || 'Otros';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(product);
+    }
+    const keys = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+    const result: { subCategory: string; products: ConvexProduct[] }[] = [];
+    for (const key of keys) {
+      result.push({ subCategory: key, products: groups[key]! });
+    }
+    return result;
+  }, [filteredProducts]);
 
   // Handle slot activation
   const handleSlotClick = (slotId: number) => {
@@ -109,17 +124,15 @@ export default function POSPage() {
     }
   };
 
-  // Handle ghost add coffee - adds to current active slot (doesn't advance automatically)
-  // User can add multiple coffees to the same slot by tapping repeatedly
-  const handleGhostAddCoffee = () => {
+  // Add coffee to a specific slot (each slot has its own coffee button)
+  const handleGhostAddCoffeeForSlot = (slotId: number) => {
     if (!coffeeProductId || !products) return;
 
     const coffeeProduct = products.find(product => product._id === coffeeProductId);
     if (!coffeeProduct) return;
 
-    // Add coffee to current active slot (stays on same slot for multiple taps)
     setSlots(prev => prev.map(slot => {
-      if (slot.id === activeSlotId) {
+      if (slot.id === slotId) {
         const existingItem = slot.items.find(item => item.productId === coffeeProductId);
         if (existingItem) {
           return {
@@ -130,26 +143,24 @@ export default function POSPage() {
                 : item
             ),
           };
-        } else {
-          return {
-            ...slot,
-            items: [...slot.items, {
-              productId: coffeeProductId,
-              nombre: coffeeProduct.name,
-              cantidad: 1,
-              precio: 0,
-              unidad: coffeeProduct.baseUnit,
-            }],
-          };
         }
+        return {
+          ...slot,
+          items: [...slot.items, {
+            productId: coffeeProductId,
+            nombre: coffeeProduct.name,
+            cantidad: 1,
+            precio: 0,
+            unidad: coffeeProduct.baseUnit,
+          }],
+        };
       }
       return slot;
     }));
 
-    // Trigger feedback animation
-    setGhostAddFeedback(prev => ({ ...prev, [activeSlotId]: true }));
+    setGhostAddFeedback(prev => ({ ...prev, [slotId]: true }));
     setTimeout(() => {
-      setGhostAddFeedback(prev => ({ ...prev, [activeSlotId]: false }));
+      setGhostAddFeedback(prev => ({ ...prev, [slotId]: false }));
     }, 100);
   };
 
@@ -300,7 +311,7 @@ export default function POSPage() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      <PageContainer className="flex-1 flex flex-col overflow-hidden max-w-full">
+      <PageContainer className="flex-1 flex flex-col overflow-hidden max-w-full space-y-1! sm:space-y-1.5! md:space-y-2! py-1.5! sm:py-2! md:py-2.5!">
         <RequesterHeader 
           title="Punto de Venta"
           subtitle="Cafetín - Venta al público"
@@ -308,9 +319,8 @@ export default function POSPage() {
 
         {/* Zona A: Panel de Control Multitarea */}
         <div className="shrink-0">
-          <div className="bg-white rounded-md shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-5">
+          <div className="bg-white rounded-md shadow-sm border border-gray-200 p-1.5 sm:p-2 md:p-2.5">
             <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 lg:gap-5">
-              {/* Slots */}
               {slots.map((slot) => (
                 <SlotButton
                   key={slot.id}
@@ -319,56 +329,64 @@ export default function POSPage() {
                   itemCount={slot.items.reduce((sum, item) => sum + item.cantidad, 0)}
                   onClick={() => handleSlotClick(slot.id)}
                   showRipple={ghostAddFeedback[slot.id] || false}
+                  onCoffeeClick={() => handleGhostAddCoffeeForSlot(slot.id)}
+                  showCoffeeFeedback={ghostAddFeedback[slot.id] || false}
+                  disabledCoffee={!coffeeProductId}
                 />
               ))}
-              
-              {/* Coffee button on the right */}
-              <div className="ml-2 sm:ml-3 md:ml-4 lg:ml-5">
-                <GhostAddButton
-                  slotId={activeSlotId}
-                  onClick={handleGhostAddCoffee}
-                  disabled={!coffeeProductId}
-                  showFeedback={ghostAddFeedback[activeSlotId] || false}
-                />
-              </div>
             </div>
-            
-            {/* Order Summary Panel */}
-            <OrderSummaryPanel
-              slot={activeSlot}
-              onDecreaseQuantity={handleDecreaseQuantity}
-              onRemoveItem={handleRemoveItem}
-            />
           </div>
         </div>
 
-        {/* Zona B: Cuerpo Dinámico - Hot Zone */}
+        {/* Zona B: Productos por subcategoría — scroll horizontal (columnas), scroll vertical (por columna) */}
         <div className="flex-1 overflow-hidden min-h-0">
-          <div className="bg-white rounded-md shadow-sm border border-gray-200 p-1 sm:p-1.5 md:p-2 lg:p-3 h-full flex flex-col">
-            <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1 md:mb-2 px-1 text-center">Productos</h2>
+          <div className="bg-white rounded-md shadow-sm border border-gray-200 px-1 sm:px-1.5 md:px-2 pt-0.5 pb-0.5 sm:pt-0.5 sm:pb-0.5 h-full flex flex-col">
+            <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1 px-1 text-center shrink-0">Productos</h2>
             
-            {filteredProducts.length === 0 ? (
+            {productsBySubCategory.length === 0 ? (
               <div className="text-center py-8 text-gray-500 flex-1 flex items-center justify-center">
                 <p className="text-sm md:text-base">No hay productos disponibles</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-0.5 sm:gap-1 md:gap-2 overflow-y-auto flex-1 px-0.5">
-                {filteredProducts.map((product) => (
-                  <button
-                    key={product._id}
-                    onClick={() => handleAddProductToActiveSlot(product)}
-                    className="p-1 sm:p-1.5 md:p-2 lg:p-3 border border-gray-200 rounded hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center flex items-center justify-center min-h-[45px] sm:min-h-[55px] md:min-h-[70px] lg:min-h-[85px]"
+              <div
+                className="flex gap-2 sm:gap-3 md:gap-4 overflow-x-auto flex-1 min-h-0 scrollbar-hide"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                {productsBySubCategory.map(({ subCategory, products: categoryProducts }) => (
+                  <div
+                    key={subCategory}
+                    className="shrink-0 flex flex-col w-[140px] sm:w-[160px] md:w-[180px] lg:w-[200px] min-h-0"
                   >
-                    <h3 className="font-medium text-gray-900 text-[9px] sm:text-[10px] md:text-xs lg:text-sm leading-tight line-clamp-2">{product.name}</h3>
-                  </button>
+                    <h3 className="text-xs sm:text-sm font-bold text-gray-900 mb-1 sm:mb-1.5 shrink-0">
+                      {subCategory}
+                    </h3>
+                    <div className="flex-1 overflow-y-auto min-h-0 space-y-1 sm:space-y-1.5 pr-0.5">
+                      {categoryProducts.map((product) => (
+                        <button
+                          key={product._id}
+                          type="button"
+                          onClick={() => handleAddProductToActiveSlot(product)}
+                          className="w-full p-2 sm:p-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 active:bg-gray-600 transition-colors text-left flex flex-col gap-0.5 shadow-sm min-h-[44px]"
+                          aria-label={`Agregar ${product.name}`}
+                        >
+                          <span className="font-semibold text-white text-[10px] sm:text-xs leading-tight line-clamp-2">
+                            {product.name}
+                          </span>
+                          <span className="text-gray-400 text-[9px] sm:text-[10px]">
+                            —
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* Zona C: Atribución - Patient Slider */}
-        <div className="shrink-0 relative h-[60px] sm:h-[70px] md:h-[90px] lg:h-[110px] xl:h-[130px]">
+        {/* Zona C: Cliente / Paciente (pills) */}
+        <div className="shrink-0">
           <PatientSlider
             pacientes={mockPacientes}
             activeSlotPacienteId={activeSlot.pacienteId || currentSliderPacienteId}
@@ -376,15 +394,22 @@ export default function POSPage() {
           />
         </div>
 
-        {/* Botón Registrar Venta */}
-        <div className="shrink-0 mt-0.5 sm:mt-1 md:mt-2 lg:mt-3 pb-1 sm:pb-1.5 md:pb-2 lg:pb-3">
+        {/* Barra inferior: productos seleccionados a la izquierda, botón Registrar pegado al fondo */}
+        <div className="shrink-0 flex items-stretch gap-2 sm:gap-3 border-t border-gray-200 bg-white py-1.5 sm:py-2 px-2 sm:px-3">
+          <div className="flex-1 min-w-0 overflow-y-auto max-h-20 sm:max-h-24 md:max-h-28 flex flex-col">
+            <OrderSummaryPanel
+              slot={activeSlot}
+              onDecreaseQuantity={handleDecreaseQuantity}
+              onRemoveItem={handleRemoveItem}
+            />
+          </div>
           <Button
             variant="primary"
-            className="w-full py-1.5 sm:py-2 md:py-3 lg:py-4 text-xs sm:text-sm md:text-base lg:text-lg font-bold"
+            className="shrink-0 py-2 sm:py-2.5 md:py-3 px-4 sm:px-5 md:px-6 text-sm sm:text-base font-bold rounded-none"
             onClick={handleRegisterSale}
             disabled={isRegistering || slots.every(s => s.items.length === 0)}
           >
-            {isRegistering ? 'Registrando...' : 'REGISTRAR VENTA'}
+            {isRegistering ? 'Registrando...' : 'Registrar'}
           </Button>
         </div>
       </PageContainer>

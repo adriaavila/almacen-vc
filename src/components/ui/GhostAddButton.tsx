@@ -7,9 +7,11 @@ interface GhostAddButtonProps {
   onClick: () => void;
   disabled?: boolean;
   showFeedback?: boolean;
+  /** Use "compact" when inside a slot card */
+  size?: 'default' | 'compact';
 }
 
-export function GhostAddButton({ slotId, onClick, disabled, showFeedback }: GhostAddButtonProps) {
+export function GhostAddButton({ slotId, onClick, disabled, showFeedback, size = 'default' }: GhostAddButtonProps) {
   const [ripple, setRipple] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
 
@@ -32,26 +34,31 @@ export function GhostAddButton({ slotId, onClick, disabled, showFeedback }: Ghos
     }
   };
 
+  const isCompact = size === 'compact';
   return (
     <div className="relative flex items-center justify-center">
       <button
         onClick={handleClick}
         disabled={disabled}
         className={`
-          w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24 rounded-lg sm:rounded-xl flex items-center justify-center
+          rounded-lg sm:rounded-xl flex items-center justify-center
           transition-all duration-200
+          ${isCompact
+            ? 'w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10'
+            : 'w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24'
+          }
           ${disabled 
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:scale-105 sm:hover:scale-110 active:scale-95 shadow-md'
+            : 'bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-105 active:scale-95 shadow-md'
           }
-          ${ripple ? 'ring-2 sm:ring-3 md:ring-4 lg:ring-5 ring-emerald-300 ring-opacity-50' : ''}
+          ${ripple ? 'ring-2 ring-emerald-300 ring-opacity-50' : ''}
         `}
         aria-label="Agregar café"
       >
-        <span className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl">☕</span>
+        <span className={isCompact ? 'text-base sm:text-lg md:text-xl' : 'text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl'}>☕</span>
       </button>
       {showBadge && (
-        <span className="absolute -top-1 -right-1 sm:-top-1 sm:-right-1 md:-top-1.5 md:-right-1.5 lg:-top-2 lg:-right-2 bg-emerald-500 text-white text-[9px] sm:text-[10px] md:text-xs lg:text-sm xl:text-base font-bold px-1 sm:px-1 md:px-1.5 lg:px-2 py-0.5 sm:py-0.5 md:py-1 rounded-full animate-bounce">
+        <span className={`absolute -top-1 -right-1 bg-emerald-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full animate-bounce ${isCompact ? 'text-[8px] px-0.5' : 'sm:-top-1 sm:-right-1 md:-top-1.5 md:-right-1.5 lg:-top-2 lg:-right-2 md:text-xs lg:text-sm xl:text-base md:px-1.5 lg:px-2 md:py-1'}`}>
           +1
         </span>
       )}

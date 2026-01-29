@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { GhostAddButton } from '@/components/ui/GhostAddButton';
 
 interface SlotButtonProps {
   slotNumber: number;
@@ -8,9 +9,22 @@ interface SlotButtonProps {
   itemCount: number;
   onClick: () => void;
   showRipple?: boolean;
+  /** Add coffee to this slot; when provided, coffee button is rendered inside the card */
+  onCoffeeClick?: () => void;
+  showCoffeeFeedback?: boolean;
+  disabledCoffee?: boolean;
 }
 
-export function SlotButton({ slotNumber, isActive, itemCount, onClick, showRipple }: SlotButtonProps) {
+export function SlotButton({
+  slotNumber,
+  isActive,
+  itemCount,
+  onClick,
+  showRipple,
+  onCoffeeClick,
+  showCoffeeFeedback,
+  disabledCoffee,
+}: SlotButtonProps) {
   const [ripple, setRipple] = useState(false);
 
   useEffect(() => {
@@ -23,32 +37,47 @@ export function SlotButton({ slotNumber, isActive, itemCount, onClick, showRippl
 
   return (
     <div className="flex flex-col items-center">
-      <button
-        onClick={onClick}
+      <div
         className={`
-          relative w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24 rounded-full flex items-center justify-center
-          font-bold text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl transition-all duration-200
-          ${isActive 
-            ? 'bg-emerald-500 text-white shadow-lg sm:shadow-xl ring-2 sm:ring-3 md:ring-4 lg:ring-5 ring-emerald-200 scale-105 sm:scale-110' 
-            : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-emerald-400 hover:bg-emerald-50'
+          relative w-16 sm:w-20 md:w-24 lg:w-24 xl:w-28 rounded-lg sm:rounded-xl shadow-sm border flex flex-col items-center
+          transition-all duration-200 overflow-hidden
+          ${isActive
+            ? 'bg-white border-emerald-500 ring-2 ring-emerald-200 shadow-md'
+            : 'bg-white border-gray-200 hover:border-emerald-300 hover:shadow'
           }
           ${ripple ? 'animate-pulse' : ''}
         `}
       >
-        {slotNumber}
-        {itemCount > 0 && (
-          <span className={`
-            absolute -top-1 -right-1 sm:-top-1 sm:-right-1 md:-top-1.5 md:-right-1.5 lg:-top-2 lg:-right-2 min-w-[16px] sm:min-w-[18px] md:min-w-[20px] lg:min-w-[24px] xl:min-w-[28px] h-4 sm:h-4.5 md:h-5 lg:h-6 xl:h-7 px-1 sm:px-1 md:px-1.5 lg:px-2 rounded-full text-[9px] sm:text-[10px] md:text-xs lg:text-sm xl:text-base font-bold
-            flex items-center justify-center
-            ${isActive 
-              ? 'bg-white text-emerald-600' 
-              : 'bg-emerald-500 text-white'
-            }
-          `}>
-            {itemCount}
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex flex-col items-center pt-2 sm:pt-2.5 md:pt-3 pb-1 sm:pb-1.5"
+          aria-label={`Slot ${slotNumber}`}
+        >
+          <span className="text-xs sm:text-sm font-semibold text-gray-700">
+            Slot {slotNumber}
           </span>
+          <span className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">
+            {itemCount > 0 ? itemCount : '—'}
+          </span>
+          {itemCount > 0 && (
+            <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] sm:text-xs font-bold flex items-center justify-center">
+              {itemCount}
+            </span>
+          )}
+        </button>
+        {onCoffeeClick != null && (
+          <div className="w-full flex justify-center pb-2 sm:pb-2.5 md:pb-3 pt-0.5">
+            <GhostAddButton
+              slotId={slotNumber}
+              onClick={onCoffeeClick}
+              disabled={disabledCoffee}
+              showFeedback={showCoffeeFeedback ?? false}
+              size="compact"
+            />
+          </div>
         )}
-      </button>
+      </div>
     </div>
   );
 }
