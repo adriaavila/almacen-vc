@@ -39,10 +39,10 @@ type ConvexProduct = {
 
 /** Unidad a mostrar en el pedido: compra para Cafetin (productos a la venta), base para el resto. */
 function getOrderUnit(
-  product: { availableForSale?: boolean; baseUnit: string; purchaseUnit: string },
+  product: { availableForSale?: boolean; baseUnit: string; purchaseUnit: string; category: string },
   area: Area
 ): string {
-  if (area === "Cafetin" && product.availableForSale !== false) {
+  if (area === "Cafetin" && product.category === 'Cafetin' && product.availableForSale !== false) {
     return product.purchaseUnit;
   }
   return product.baseUnit;
@@ -50,11 +50,11 @@ function getOrderUnit(
 
 /** Convierte cantidad ingresada (en unidad de visualización) a cantidad en unidad base para el backend. */
 function toBaseUnitQuantity(
-  product: { availableForSale?: boolean; conversionFactor: number },
+  product: { availableForSale?: boolean; conversionFactor: number; category: string },
   displayQty: number,
   area: Area
 ): number {
-  if (area === "Cafetin" && product.availableForSale !== false) {
+  if (area === "Cafetin" && product.category === 'Cafetin' && product.availableForSale !== false) {
     return displayQty * product.conversionFactor;
   }
   return displayQty;
@@ -63,19 +63,19 @@ function toBaseUnitQuantity(
 function CreateOrderPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Get area from URL query param, localStorage, or default to 'Cocina'
   const areaFromUrl = searchParams?.get('area');
   const areaFromStorage = getUserArea();
-  const initialArea: Area = (areaFromUrl && validAreas.includes(areaFromUrl as Area)) 
-    ? (areaFromUrl as Area) 
+  const initialArea: Area = (areaFromUrl && validAreas.includes(areaFromUrl as Area))
+    ? (areaFromUrl as Area)
     : (areaFromStorage || 'Cocina');
-  
+
   const [selectedArea, setSelectedArea] = useState<Area>(initialArea);
-  
+
   // Sincronizar datos de Convex al store de Zustand
   useInventorySync();
-  
+
   // Obtener datos híbridos (Convex o cache)
   const products = useInventoryData();
   const createOrder = useMutation(api.orders.create);
@@ -96,7 +96,7 @@ function CreateOrderPageContent() {
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -113,12 +113,12 @@ function CreateOrderPageContent() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [summaryExpanded]);
-  
+
   // Update area when URL query param changes and save to localStorage
   useEffect(() => {
     const areaFromUrl = searchParams?.get('area');
     const storedArea = getUserArea();
-    
+
     if (areaFromUrl && validAreas.includes(areaFromUrl as Area)) {
       const area = areaFromUrl as Area;
       setSelectedArea(area);
@@ -128,7 +128,7 @@ function CreateOrderPageContent() {
       setSelectedArea(storedArea);
     }
   }, [searchParams]);
-  
+
   // Listen for area changes from other tabs/windows
   useEffect(() => {
     const handleAreaChange = () => {
@@ -137,27 +137,27 @@ function CreateOrderPageContent() {
         setSelectedArea(storedArea);
       }
     };
-    
+
     window.addEventListener('userAreaChange', handleAreaChange);
     window.addEventListener('storage', handleAreaChange);
-    
+
     return () => {
       window.removeEventListener('userAreaChange', handleAreaChange);
       window.removeEventListener('storage', handleAreaChange);
     };
   }, [searchParams]);
-  
+
   const handleQuantityChange = (productId: string, value: number) => {
     setQuantities((prev) => ({
       ...prev,
       [productId]: Math.max(0, value),
     }));
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Use productId directly (backend now supports it). Convert to base unit for backend.
       const orderItems = Object.entries(quantities)
@@ -172,7 +172,7 @@ function CreateOrderPageContent() {
             cantidad: cantidadBase,
           };
         });
-      
+
       if (orderItems.length === 0) {
         setToast({
           message: 'Debe seleccionar al menos un producto',
@@ -182,7 +182,7 @@ function CreateOrderPageContent() {
         setIsSubmitting(false);
         return;
       }
-      
+
       // Validate stock before submitting (except for Cafetin - they order directly from supplier)
       const stockErrors: string[] = [];
       if (selectedArea !== 'Cafetin') {
@@ -200,7 +200,7 @@ function CreateOrderPageContent() {
           }
         }
       }
-      
+
       if (stockErrors.length > 0) {
         setToast({
           message: `Stock insuficiente:\n${stockErrors.join('\n')}`,
@@ -210,12 +210,12 @@ function CreateOrderPageContent() {
         setIsSubmitting(false);
         return;
       }
-      
+
       await createOrder({
         area: selectedArea,
         items: orderItems,
       });
-      
+
       // Immediate feedback
       setToast({
         message: 'Pedido enviado correctamente',
@@ -223,10 +223,10 @@ function CreateOrderPageContent() {
         isOpen: true,
       });
       setIsSubmitting(false);
-      
+
       // Clear form
       setQuantities({});
-      
+
       // Optional redirect after 1.5 seconds
       setTimeout(() => {
         router.push('/requester/mis-pedidos');
@@ -241,13 +241,13 @@ function CreateOrderPageContent() {
       setIsSubmitting(false);
     }
   };
-  
+
   // Filter products by area - show all active products (those without stock will be grayed out)
   const areaProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
     // Show all active products (products without stock will be displayed in gray and disabled)
     let filtered = products.filter(p => p.active);
-    
+
     // For Limpieza area, only show products from Limpieza category
     if (selectedArea === 'Limpieza') {
       filtered = filtered.filter(p => p.category === 'Limpieza');
@@ -260,7 +260,7 @@ function CreateOrderPageContent() {
       // Excluir productos de Cafetin
       filtered = filtered.filter(p => p.category !== 'Cafetin');
     }
-    
+
     return filtered;
   }, [products, selectedArea]);
 
@@ -279,17 +279,17 @@ function CreateOrderPageContent() {
   // Filter products by search and subcategory
   const filteredProducts = useMemo(() => {
     if (!areaProducts || areaProducts.length === 0) return [];
-    
+
     return areaProducts.filter(product => {
       // Search filter (using debounced query)
-      const matchesSearch = debouncedSearchQuery === '' || 
+      const matchesSearch = debouncedSearchQuery === '' ||
         normalizeSearchText(product.name).includes(normalizeSearchText(debouncedSearchQuery)) ||
         (product.subCategory && normalizeSearchText(product.subCategory).includes(normalizeSearchText(debouncedSearchQuery)));
-      
+
       // Subcategory filter
-      const matchesSubcategory = selectedSubcategory === 'all' || 
+      const matchesSubcategory = selectedSubcategory === 'all' ||
         product.subCategory === selectedSubcategory;
-      
+
       return matchesSearch && matchesSubcategory;
     });
   }, [areaProducts, debouncedSearchQuery, selectedSubcategory]);
@@ -306,14 +306,14 @@ function CreateOrderPageContent() {
       acc[product.category].push(product);
       return acc;
     }, {} as Record<string, typeof filteredProducts>);
-    
+
     // Sort products by name within each category
     Object.keys(grouped).forEach(category => {
-      grouped[category].sort((a, b) => 
+      grouped[category].sort((a, b) =>
         a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
       );
     });
-    
+
     // Sort categories based on area
     const categoryOrder = Object.keys(grouped);
     if (selectedArea === 'Cocina') {
@@ -340,17 +340,17 @@ function CreateOrderPageContent() {
       });
     } else {
       // Default alphabetical order for other areas
-      categoryOrder.sort((a, b) => 
+      categoryOrder.sort((a, b) =>
         a.localeCompare(b, 'es', { sensitivity: 'base' })
       );
     }
-    
+
     // Rebuild grouped object in sorted order
     const sortedGrouped: Record<string, typeof filteredProducts> = {};
     categoryOrder.forEach(category => {
       sortedGrouped[category] = grouped[category];
     });
-    
+
     // Initialize expanded state for new categories (default: expanded)
     setExpandedCategories(prev => {
       const updated = { ...prev };
@@ -361,17 +361,17 @@ function CreateOrderPageContent() {
       });
       return updated;
     });
-    
+
     return sortedGrouped;
   }, [filteredProducts, selectedArea]);
-  
+
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => ({
       ...prev,
       [category]: !prev[category]
     }));
   };
-  
+
   // Calculate selected products
   const selectedProducts = useMemo(() => {
     if (!areaProducts || areaProducts.length === 0) return [];
@@ -383,7 +383,7 @@ function CreateOrderPageContent() {
       })
       .filter(Boolean) as Array<ConvexProduct & { cantidad: number }>;
   }, [quantities, areaProducts]);
-  
+
   // Loading state - prevent flickering by showing loading UI when products is undefined
   // This check must be after all hooks to comply with Rules of Hooks
   if (products === undefined) {
@@ -395,7 +395,7 @@ function CreateOrderPageContent() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <PageContainer>
@@ -465,10 +465,10 @@ function CreateOrderPageContent() {
               </div>
             )}
           </div>
-          
+
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4 text-center">Productos Disponibles</h2>
-            
+
             {Object.keys(productsByCategory).length === 0 ? (
               searchQuery || selectedSubcategory !== 'all' ? (
                 <EmptySearchResultsState
@@ -510,39 +510,36 @@ function CreateOrderPageContent() {
                             // Para Cafetin, nunca deshabilitar por falta de stock (se pide directo del proveedor)
                             // Para otras áreas, deshabilitar si no hay stock
                             const isDisabled = selectedArea !== 'Cafetin' && !hasStock;
-                            
+
                             // Para Cafetin: si tiene stock, límite en unidad de visualización (compra o base); si no, sin límite
                             // Para otras áreas: siempre límite en base unit
-                            const usePurchaseUnit = selectedArea === 'Cafetin' && product.availableForSale !== false;
+                            const usePurchaseUnit = selectedArea === 'Cafetin' && product.category === 'Cafetin' && product.availableForSale !== false;
                             const maxQuantity = selectedArea === 'Cafetin'
                               ? (hasStock
-                                  ? (usePurchaseUnit
-                                      ? Math.floor(product.stockAlmacen / product.conversionFactor)
-                                      : product.stockAlmacen)
-                                  : undefined)
+                                ? (usePurchaseUnit
+                                  ? Math.floor(product.stockAlmacen / product.conversionFactor)
+                                  : product.stockAlmacen)
+                                : undefined)
                               : product.stockAlmacen;
-                            
+
                             return (
-                              <div 
-                                key={product._id} 
-                                className={`py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 transition-colors ${
-                                  isDisabled 
-                                    ? 'opacity-50 cursor-not-allowed' 
-                                    : 'hover:bg-gray-50'
-                                }`}
+                              <div
+                                key={product._id}
+                                className={`py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 transition-colors ${isDisabled
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'hover:bg-gray-50'
+                                  }`}
                               >
                                 <div className="flex-1 min-w-0">
                                   <div className="mb-0">
-                                    <span className={`text-sm font-semibold truncate block ${
-                                      isDisabled ? 'text-gray-400' : 'text-gray-900'
-                                    }`}>
+                                    <span className={`text-sm font-semibold truncate block ${isDisabled ? 'text-gray-400' : 'text-gray-900'
+                                      }`}>
                                       {product.name}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className={`text-xs truncate block ${
-                                      isDisabled ? 'text-gray-300' : 'text-gray-500'
-                                    }`}>
+                                    <span className={`text-xs truncate block ${isDisabled ? 'text-gray-300' : 'text-gray-500'
+                                      }`}>
                                       {product.category}
                                       {product.subCategory && ` · ${product.subCategory}`}
                                     </span>
@@ -626,7 +623,7 @@ function CreateOrderPageContent() {
                 )}
               </div>
             )}
-            
+
             {/* Submit Button - Right Side */}
             <div className={selectedProducts.length > 0 ? 'w-auto' : 'w-full'}>
               <Button

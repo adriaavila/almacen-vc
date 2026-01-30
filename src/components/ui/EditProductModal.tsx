@@ -7,12 +7,14 @@ import { Id } from 'convex/_generated/dataModel';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { Toast } from './Toast';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface EditProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   productId: Id<'products'> | null;
   onProductUpdated?: () => void;
+  onProductDeleted?: () => void;
   location?: 'almacen' | 'cafetin';
 }
 
@@ -36,13 +38,16 @@ type ProductWithInventory = {
   }>;
 };
 
-export function EditProductModal({ isOpen, onClose, productId, onProductUpdated, location = 'almacen' }: EditProductModalProps) {
+export function EditProductModal({ isOpen, onClose, productId, onProductUpdated, onProductDeleted, location = 'almacen' }: EditProductModalProps) {
   const product = useQuery(
     api.products.getWithInventory,
     productId && isOpen ? { id: productId } : 'skip'
   ) as ProductWithInventory | undefined;
-  
+
+  const createProduct = useMutation(api.products.create);
+  const initializeInventory = useMutation(api.inventory.initialize);
   const updateProduct = useMutation(api.products.update);
+  const deleteProduct = useMutation(api.products.deleteProduct);
   const setMinStock = useMutation(api.inventory.setMinStock);
   const categories = useQuery(api.products.getCategories);
 
@@ -62,6 +67,8 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
   const [stockMinimo, setStockMinimo] = useState<string>('0');
   const [active, setActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     message: string;
@@ -77,7 +84,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
   useEffect(() => {
     if (product && isOpen && productId && product._id === productId) {
       const inventory = product.inventory?.find(inv => inv.location === location);
-      
+
       setName(product.name || '');
       setBrand(product.brand || '');
       setCategory(product.category || '');
@@ -121,8 +128,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productId) return;
-    
+
     setError(null);
 
     // Validation
@@ -164,31 +170,59 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
     setIsSubmitting(true);
 
     try {
-      // Update product
-      await updateProduct({
-        id: productId,
-        name: name.trim(),
-        brand: brand.trim() || undefined,
-        category: finalCategory,
-        subCategory: subCategory.trim() || undefined,
-        baseUnit: finalBaseUnit,
-        purchaseUnit: finalPurchaseUnit,
-        conversionFactor: numConversionFactor,
-        active: active,
-      });
+      if (productId) {
+        // Update product
+        await updateProduct({
+          id: productId,
+          name: name.trim(),
+          brand: brand.trim() || undefined,
+          category: finalCategory,
+          subCategory: subCategory.trim() || undefined,
+          baseUnit: finalBaseUnit,
+          purchaseUnit: finalPurchaseUnit,
+          conversionFactor: numConversionFactor,
+          active: active,
+        });
 
-      // Update stock mínimo
-      await setMinStock({
-        productId,
-        location: location,
-        stockMinimo: numStockMinimo,
-      });
+        // Update stock mínimo
+        await setMinStock({
+          productId,
+          location: location,
+          stockMinimo: numStockMinimo,
+        });
 
-      setToast({
-        message: 'Producto actualizado correctamente',
-        type: 'success',
-        isOpen: true,
-      });
+        setToast({
+          message: 'Producto actualizado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      } else {
+        // Create product
+        const newProductId = await createProduct({
+          name: name.trim(),
+          brand: brand.trim() || "",
+          category: finalCategory,
+          subCategory: subCategory.trim() || undefined,
+          baseUnit: finalBaseUnit,
+          purchaseUnit: finalPurchaseUnit,
+          conversionFactor: numConversionFactor,
+          active: active,
+        });
+
+        // Initialize inventory
+        await initializeInventory({
+          productId: newProductId,
+          location: location,
+          stockActual: 0,
+          stockMinimo: numStockMinimo,
+        });
+
+        setToast({
+          message: 'Producto creado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      }
 
       // Call callback if provided
       if (onProductUpdated) {
@@ -200,13 +234,49 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
         onClose();
       }, 1000);
     } catch (error: any) {
-      console.error('Error al actualizar producto:', error);
-      setError(error.message || 'No se pudo actualizar el producto. Intente de nuevo.');
+      console.error('Error al guardar producto:', error);
+      setError(error.message || 'No se pudo guardar el producto. Intente de nuevo.');
       setIsSubmitting(false);
     }
   };
 
-  if (!product && isOpen) {
+  const handleDelete = async () => {
+    if (!productId) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteProduct({ id: productId });
+
+      setToast({
+        message: 'Producto eliminado correctamente',
+        type: 'success',
+        isOpen: true,
+      });
+
+      if (onProductDeleted) {
+        onProductDeleted();
+      }
+
+      if (onProductUpdated) {
+        onProductUpdated();
+      }
+
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+    } catch (error: any) {
+      console.error('Error al eliminar producto:', error);
+      setToast({
+        message: 'Error al eliminar el producto',
+        type: 'error',
+        isOpen: true,
+      });
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+    }
+  };
+
+  if (productId && !product && isOpen) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Editar Producto">
         <div className="text-center py-8">
@@ -216,9 +286,11 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
     );
   }
 
+  const modalTitle = productId ? "Editar Producto" : "Crear Producto";
+
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Editar Producto">
+      <Modal isOpen={isOpen} onClose={onClose} title={modalTitle}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
@@ -462,12 +534,22 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
 
           {/* Buttons */}
           <div className="flex gap-3 pt-4">
+            {productId && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setIsDeleteModalOpen(true)}
+                disabled={isSubmitting}
+                className="mr-auto"
+              >
+                Eliminar
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1"
             >
               Cancelar
             </Button>
@@ -475,14 +557,26 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
               type="submit"
               variant="primary"
               disabled={isSubmitting}
-              className="flex-1"
             >
               {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
           </div>
         </form>
       </Modal>
-      
+
+      {/* Confirmation Modal for Delete */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDelete}
+        title="Eliminar Producto"
+        message="¿Estás seguro de que deseas eliminar este producto? Esta acción eliminará el producto y todo su inventario asociado. NO se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="destructive"
+        isLoading={isDeleting}
+      />
+
       {/* Toast */}
       <Toast
         message={toast.message}

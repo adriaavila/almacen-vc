@@ -48,6 +48,7 @@ export const getById = query({
 
         return {
           _id: product._id,
+          orderItemId: oi._id,
           nombre: product.name,
           categoria: product.category,
           subcategoria: product.subCategory,
@@ -72,7 +73,7 @@ export const getPending = query({
     // The index ["status", "createdAt"] automatically sorts by createdAt ascending
     const orders = await ctx.db
       .query("orders")
-      .withIndex("by_status_createdAt", (q) => 
+      .withIndex("by_status_createdAt", (q) =>
         q.eq("status", "pendiente")
       )
       .collect();
@@ -196,6 +197,53 @@ export const create = mutation({
   },
 });
 
+// Mutation: Update order items quantities
+export const updateItems = mutation({
+  args: {
+    orderId: v.id("orders"),
+    items: v.array(
+      v.object({
+        orderItemId: v.id("orderItems"),
+        cantidad: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error(`Pedido con ID ${args.orderId} no encontrado`);
+    }
+
+    if (order.status !== "pendiente") {
+      throw new Error("Solo se pueden modificar pedidos pendientes");
+    }
+
+    for (const item of args.items) {
+      const orderItem = await ctx.db.get(item.orderItemId);
+      if (!orderItem) {
+        throw new Error(`Item con ID ${item.orderItemId} no encontrado`);
+      }
+
+      if (orderItem.orderId !== args.orderId) {
+        throw new Error(`El item ${item.orderItemId} no pertenece al pedido ${args.orderId}`);
+      }
+
+      // Update quantity
+      if (item.cantidad > 0) {
+        await ctx.db.patch(item.orderItemId, {
+          cantidad: item.cantidad,
+        });
+      } else {
+        // Option: Delete if 0? For now let's enforce > 0 from UI, but if backend receives 0 we could delete or throw.
+        // Let's delete it if 0, effectively removing the item from order.
+        await ctx.db.delete(item.orderItemId);
+      }
+    }
+
+    return { success: true };
+  },
+});
+
 // Mutation: Deliver an order (atomic transaction)
 export const deliver = mutation({
   args: { id: v.id("orders") },
@@ -238,7 +286,7 @@ export const deliver = mutation({
       if (!oi.productId) {
         continue;
       }
-      
+
       const productId = oi.productId;
       const product = await ctx.db.get(productId);
       const effectiveDestination: "cafetin" | null =
@@ -685,7 +733,7 @@ export const reprocessDeliveredOrder = mutation({
           });
           continue;
         }
-        
+
         const productId = oi.productId;
 
         const product = await ctx.db.get(productId);
@@ -852,7 +900,7 @@ export const reprocessAllDeliveredOrders = mutation({
               errors++;
               continue;
             }
-            
+
             const productId = oi.productId;
 
             const product = await ctx.db.get(productId);

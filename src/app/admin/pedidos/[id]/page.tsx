@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
@@ -15,11 +15,15 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const params = useParams();
   const orderId = params?.id as Id<"orders">;
-  
+
   const order = useQuery(api.orders.getById, orderId ? { id: orderId } : "skip");
+  const updateItems = useMutation(api.orders.updateItems);
   const deliverOrder = useMutation(api.orders.deliver);
-  
+
   const [isDelivering, setIsDelivering] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedQuantities, setEditedQuantities] = useState<{ [key: string]: number }>({});
+
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'info';
@@ -34,12 +38,65 @@ export default function OrderDetailPage() {
     lowStockItems: Array<{ itemId: string; nombre: string; stock_actual: number; stock_minimo: number }>;
   } | null>(null);
   const [isDelivered, setIsDelivered] = useState(false);
-  
+
+  // Initialize edited quantities when entering edit mode
+  const startEditing = () => {
+    if (!order?.items) return;
+    const initialQuantities: { [key: string]: number } = {};
+    order.items.forEach((item: any) => {
+      initialQuantities[item.orderItemId] = item.cantidad;
+    });
+    setEditedQuantities(initialQuantities);
+    setIsEditing(true);
+  };
+
+  const handleQuantityChange = (orderItemId: string, value: string) => {
+    const qty = parseInt(value);
+    if (!isNaN(qty) && qty >= 0) {
+      setEditedQuantities(prev => ({
+        ...prev,
+        [orderItemId]: qty
+      }));
+    }
+  };
+
+  const handleSaveQuantities = async () => {
+    if (!orderId) return;
+    setIsDelivering(true); // Reuse loading state
+    try {
+      const itemsToUpdate = Object.entries(editedQuantities).map(([id, qty]) => ({
+        orderItemId: id as any,
+        cantidad: qty
+      }));
+
+      await updateItems({
+        orderId,
+        items: itemsToUpdate
+      });
+
+      setToast({
+        message: 'Cantidades actualizadas correctamente',
+        type: 'success',
+        isOpen: true
+      });
+      setIsEditing(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al actualizar cantidades';
+      setToast({
+        message,
+        type: 'error',
+        isOpen: true
+      });
+    } finally {
+      setIsDelivering(false);
+    }
+  };
+
   const handleDeliver = async () => {
     if (!orderId || !order) return;
-    
+
     setIsDelivering(true);
-    
+
     try {
       const result = await deliverOrder({ id: orderId });
       setDeliveryResult(result);
@@ -61,7 +118,7 @@ export default function OrderDetailPage() {
       setIsDelivering(false);
     }
   };
-  
+
   const formatDate = (timestamp: number) => {
     return new Intl.DateTimeFormat('es-ES', {
       day: 'numeric',
@@ -71,8 +128,16 @@ export default function OrderDetailPage() {
       minute: '2-digit',
     }).format(new Date(timestamp));
   };
-  
+
+  // Debug logging
+  useEffect(() => {
+    if (order) {
+      console.log('Order Status:', order.status, 'Is Delivered:', isDelivered);
+    }
+  }, [order, isDelivered]);
+
   // Loading state
+
   if (order === undefined) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -111,7 +176,7 @@ export default function OrderDetailPage() {
   if (order.status === 'entregado' && !isDelivered) {
     setIsDelivered(true);
   }
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -125,7 +190,7 @@ export default function OrderDetailPage() {
             ← Volver a pedidos
           </Button>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
@@ -143,9 +208,31 @@ export default function OrderDetailPage() {
               </Badge>
             </div>
           </div>
-          
+
+
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 text-center">Ítems del Pedido</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Ítems del Pedido</h2>
+              {order.status === 'pendiente' && !isDelivered && (
+                <div>
+                  {!isEditing ? (
+                    <Button variant="secondary" onClick={startEditing} disabled={isDelivering}>
+                      Editar Cantidades
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button variant="secondary" onClick={() => setIsEditing(false)} disabled={isDelivering}>
+                        Cancelar
+                      </Button>
+                      <Button variant="primary" onClick={handleSaveQuantities} disabled={isDelivering}>
+                        Guardar Cambios
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {order.items && order.items.length > 0 ? (
               <div className="space-y-2">
                 {order.items.map((item: any) => (
@@ -158,9 +245,22 @@ export default function OrderDetailPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-500">{item.categoria}</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {item.cantidad} {item.unidad}
-                      </span>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={editedQuantities[item.orderItemId] ?? item.cantidad}
+                            onChange={(e) => handleQuantityChange(item.orderItemId, e.target.value)}
+                          />
+                          <span className="text-sm font-medium text-gray-900">{item.unidad}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-medium text-gray-900">
+                          {item.cantidad} {item.unidad}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -172,7 +272,7 @@ export default function OrderDetailPage() {
             )}
           </div>
         </div>
-        
+
         {/* Delivery Feedback (Mejora #5) */}
         {isDelivered && deliveryResult && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -188,14 +288,14 @@ export default function OrderDetailPage() {
                     const itemData = order.items?.find((i: any) => i._id === item.itemId);
                     return (
                       <li key={item.itemId}>
-                        {itemData?.nombre || 'Item'}: {item.cantidad} {itemData?.unidad || ''} 
+                        {itemData?.nombre || 'Item'}: {item.cantidad} {itemData?.unidad || ''}
                         {itemData && ` (Stock restante: ${item.newStock} ${itemData.unidad})`}
                       </li>
                     );
                   })}
                 </ul>
               </div>
-              
+
               {deliveryResult.lowStockItems.length > 0 && (
                 <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                   <h3 className="text-sm font-medium text-yellow-800 mb-2 text-center">
@@ -223,11 +323,11 @@ export default function OrderDetailPage() {
             </Button>
           </div>
         )}
-        
+
       </PageContainer>
-      
+
       {/* Sticky CTA Button */}
-      {order.status === 'pendiente' && !isDelivered && (
+      {order.status === 'pendiente' && !isDelivered && !isEditing && (
         <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 md:p-6 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <Button

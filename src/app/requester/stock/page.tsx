@@ -39,19 +39,20 @@ type ConvexProduct = {
 function StockPageContent() {
   // Sincronizar datos de Convex al store de Zustand
   useInventorySync();
-  
+
   // Obtener datos híbridos (Convex o cache)
   const products = useInventoryData();
   // Usar wrapper offline para updateStock
   const updateStock = useOfflineMutation('updateStock');
   const searchParams = useSearchParams();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [editMode, setEditMode] = useState(false);
+  const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<Id<"products"> | null>(null);
   const [adjustingId, setAdjustingId] = useState<Id<"products"> | null>(null);
   const [adjustValue, setAdjustValue] = useState<string>('0');
@@ -79,7 +80,7 @@ function StockPageContent() {
   const subCategories = useMemo(() => {
     if (!products || products.length === 0) return [];
     const filtered = products.filter(p => p.active && p.stockCafetin > 0 && p.availableForSale !== false);
-    
+
     // Get unique subcategories from filtered products
     const subCats = Array.from(
       new Set(
@@ -88,33 +89,33 @@ function StockPageContent() {
           .filter((subCat): subCat is string => !!subCat && subCat.trim() !== '')
       )
     ).sort();
-    
+
     return ['All', ...subCats];
   }, [products]);
-  
+
   // Filter and search products - only show cafetin products a la venta
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    
+
     // Only show active products with cafetin stock and available for sale
     let filtered = products.filter(p => p.active && p.stockCafetin > 0 && p.availableForSale !== false);
-    
+
     // Filter by subcategory
     if (selectedSubCategory !== 'All') {
       filtered = filtered.filter(product => product.subCategory === selectedSubCategory);
     }
-    
+
     // Filter by search query (using debounced query)
     if (debouncedSearchQuery.trim()) {
       const query = normalizeSearchText(debouncedSearchQuery);
-      filtered = filtered.filter(product => 
+      filtered = filtered.filter(product =>
         normalizeSearchText(product.name).includes(query) ||
         normalizeSearchText(product.category).includes(query) ||
         (product.subCategory && normalizeSearchText(product.subCategory).includes(query)) ||
         (product.brand && normalizeSearchText(product.brand).includes(query))
       );
     }
-    
+
     // Filter by status
     if (selectedStatus !== 'all') {
       if (selectedStatus === 'bajo_stock') {
@@ -123,10 +124,10 @@ function StockPageContent() {
         filtered = filtered.filter(product => product.stockCafetin === 0);
       }
     }
-    
+
     // Sort products
     const sorted = [...filtered];
-    
+
     switch (sortOrder) {
       case 'name-asc':
         sorted.sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -152,10 +153,10 @@ function StockPageContent() {
       default:
         sorted.sort((a, b) => a.name.localeCompare(b.name, 'es'));
     }
-    
+
     return sorted;
   }, [products, selectedSubCategory, selectedStatus, debouncedSearchQuery, sortOrder]);
-  
+
   const handleAdjustClick = (product: ConvexProduct, delta?: number) => {
     if (adjustingId === product._id) {
       // Already adjusting this product, apply delta
@@ -178,25 +179,25 @@ function StockPageContent() {
       }
     }
   };
-  
+
   const handleQuickAdjust = async (productId: Id<"products">, delta: number) => {
     if (!products) return;
     const product = products.find(p => p._id === productId);
     if (!product) return;
-    
+
     // Always use cafetin location
     const currentStock = product.stockCafetin;
     const newStock = currentStock + delta;
     if (newStock < 0) return;
-    
+
     try {
-      const result = await updateStock({ 
-        productId, 
+      const result = await updateStock({
+        productId,
         location: 'cafetin',
         newStock,
         user: "requester"
       });
-      
+
       // Si la acción fue encolada (offline), mostrar mensaje diferente
       if (result && 'queued' in result && result.queued) {
         setToast({
@@ -220,29 +221,29 @@ function StockPageContent() {
       });
     }
   };
-  
+
   const handleSaveAdjustment = async (productId: Id<"products">) => {
     if (!products) return;
     const numValue = parseInt(adjustValue, 10);
     const product = products.find(p => p._id === productId);
-    
+
     if (!product || isNaN(numValue)) return;
-    
+
     // Always use cafetin location
     const newStock = numValue;
     if (newStock < 0) return;
-    
+
     try {
-      const result = await updateStock({ 
-        productId, 
+      const result = await updateStock({
+        productId,
         location: 'cafetin',
         newStock,
         user: "requester"
       });
-      
+
       setAdjustingId(null);
       setAdjustValue('0');
-      
+
       // Si la acción fue encolada (offline), mostrar mensaje diferente
       if (result && 'queued' in result && result.queued) {
         setToast({
@@ -266,12 +267,12 @@ function StockPageContent() {
       });
     }
   };
-  
+
   const handleCancelAdjustment = () => {
     setAdjustingId(null);
     setAdjustValue('0');
   };
-  
+
   const handleDirectEdit = (product: ConvexProduct) => {
     setEditingProduct(product);
     // Always use cafetin location
@@ -281,20 +282,20 @@ function StockPageContent() {
 
   const handleSaveDirectEdit = async () => {
     if (!editingProduct) return;
-    
+
     const numValue = parseInt(editValue, 10);
     if (!isNaN(numValue) && numValue >= 0) {
       // Always use cafetin location
       try {
-        const result = await updateStock({ 
-          productId: editingProduct._id, 
+        const result = await updateStock({
+          productId: editingProduct._id,
           location: 'cafetin',
           newStock: numValue,
           user: "requester"
         });
         setEditingProduct(null);
         setEditValue('');
-        
+
         // Si la acción fue encolada (offline), mostrar mensaje diferente
         if (result && 'queued' in result && result.queued) {
           setToast({
@@ -324,11 +325,11 @@ function StockPageContent() {
     setEditingProduct(null);
     setEditValue('');
   };
-  
+
   const isLowStock = (product: ConvexProduct) => {
     return product.status === 'bajo_stock';
   };
-  
+
   const formatUnitDisplay = (product: ConvexProduct) => {
     return product.baseUnit;
   };
@@ -337,7 +338,7 @@ function StockPageContent() {
   if (products === undefined) {
     return (
       <PageContainer>
-        <RequesterHeader 
+        <RequesterHeader
           title="Stock"
           subtitle="Inventario del Cafetin"
         />
@@ -345,14 +346,14 @@ function StockPageContent() {
       </PageContainer>
     );
   }
-  
+
   return (
     <PageContainer>
-      <RequesterHeader 
+      <RequesterHeader
         title="Stock"
         subtitle="Inventario del Cafetin"
       />
-      
+
       {/* Search Bar */}
       <div className="mb-4 w-full">
         <div className="relative w-full">
@@ -402,7 +403,7 @@ function StockPageContent() {
           )}
         </div>
       </div>
-      
+
       {/* Selectors */}
       <div className="mb-6 w-full">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -419,16 +420,15 @@ function StockPageContent() {
                 ))}
               </SelectContent>
             </Select>
-            
+
             {/* Edit Toggle Button */}
             <button
               type="button"
               onClick={() => setEditMode(!editMode)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border ${
-                editMode
-                  ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border ${editMode
+                ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
             >
               {editMode ? (
                 <>
@@ -446,46 +446,58 @@ function StockPageContent() {
                 </>
               )}
             </button>
+
+            {/* Crear Producto (Visible only in edit mode) */}
+            {editMode && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setIsCreateProductOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Crear Producto
+              </Button>
+            )}
           </div>
-          
+
           {/* Status Segmented Control */}
           <div className="flex items-center gap-0 bg-white border border-gray-300 rounded-lg p-1">
             <button
               type="button"
               onClick={() => setSelectedStatus('all')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedStatus === 'all'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedStatus === 'all'
+                ? 'bg-gray-900 text-white'
+                : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                }`}
             >
               Todas
             </button>
             <button
               type="button"
               onClick={() => setSelectedStatus('bajo_stock')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedStatus === 'bajo_stock'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedStatus === 'bajo_stock'
+                ? 'bg-gray-900 text-white'
+                : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                }`}
             >
               Bajo Stock
             </button>
             <button
               type="button"
               onClick={() => setSelectedStatus('out_of_stock')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedStatus === 'out_of_stock'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedStatus === 'out_of_stock'
+                ? 'bg-gray-900 text-white'
+                : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                }`}
             >
               Sin Stock
             </button>
           </div>
         </div>
-        
+
         {/* Clear Filters Button */}
         {(debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' || sortOrder !== 'name-asc') && (
           <div className="mt-3 flex items-center gap-2">
@@ -507,7 +519,7 @@ function StockPageContent() {
           </div>
         )}
       </div>
-      
+
       {/* Stock List */}
       <div className="space-y-3 w-full">
         {filteredProducts.length === 0 ? (
@@ -530,7 +542,7 @@ function StockPageContent() {
           filteredProducts.map((product) => {
             const lowStock = isLowStock(product);
             const isAdjusting = adjustingId === product._id;
-            
+
             return (
               <div
                 key={product._id}
@@ -539,22 +551,19 @@ function StockPageContent() {
                     setEditingProductId(product._id);
                   }
                 }}
-                className={`bg-white rounded-md shadow-sm border overflow-hidden w-full transition-all ${
-                  lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
-                } ${
-                  editMode 
-                    ? 'cursor-pointer hover:border-emerald-500 hover:shadow-md border-gray-200' 
+                className={`bg-white rounded-md shadow-sm border overflow-hidden w-full transition-all ${lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
+                  } ${editMode
+                    ? 'cursor-pointer hover:border-emerald-500 hover:shadow-md border-gray-200'
                     : 'border-gray-200'
-                }`}
+                  }`}
               >
                 <div className="p-2 sm:p-3 w-full">
                   <div className="flex flex-col gap-2 w-full">
                     {/* Product Header */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <h3 className={`text-sm sm:text-base font-semibold text-emerald-600 mb-0.5 overflow-wrap-anywhere ${
-                          editMode ? 'hover:text-emerald-800' : ''
-                        }`}>
+                        <h3 className={`text-sm sm:text-base font-semibold text-emerald-600 mb-0.5 overflow-wrap-anywhere ${editMode ? 'hover:text-emerald-800' : ''
+                          }`}>
                           {product.name}
                           {editMode && (
                             <span className="ml-2 text-xs text-gray-400">
@@ -575,29 +584,27 @@ function StockPageContent() {
                       </div>
                       {/* Status Badge */}
                       <div className="flex items-center gap-1 shrink-0">
-                        <span className={`h-2 w-2 rounded-full ${
-                          lowStock ? 'bg-red-500' : 'bg-emerald-500'
-                        }`}></span>
+                        <span className={`h-2 w-2 rounded-full ${lowStock ? 'bg-red-500' : 'bg-emerald-500'
+                          }`}></span>
                         <Badge variant={lowStock ? 'bajo-minimo' : 'ok'}>
                           {lowStock ? 'Bajo Stock' : 'OK'}
                         </Badge>
                       </div>
                     </div>
-                    
+
                     {/* Stock Display with Controls */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs uppercase text-gray-500 font-medium whitespace-nowrap">
                         STOCK
                       </span>
-                      <span className={`text-lg sm:text-xl font-bold whitespace-nowrap ${
-                        lowStock ? 'text-red-600' : 'text-gray-900'
-                      }`}>
+                      <span className={`text-lg sm:text-xl font-bold whitespace-nowrap ${lowStock ? 'text-red-600' : 'text-gray-900'
+                        }`}>
                         {product.stockCafetin}
                       </span>
                       <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
                         {product.baseUnit}
                       </span>
-                      
+
                       {/* Adjustment Controls */}
                       {isAdjusting && adjustingId === product._id ? (
                         <>
@@ -728,17 +735,28 @@ function StockPageContent() {
 
       {/* Edit Product Modal */}
       <EditProductModal
-        key={editingProductId ?? 'closed'}
-        isOpen={editingProductId !== null}
-        onClose={() => setEditingProductId(null)}
-        productId={editingProductId}
+        key={editingProductId ?? (isCreateProductOpen ? 'create' : 'closed')}
+        isOpen={editingProductId !== null || isCreateProductOpen}
+        onClose={() => {
+          setEditingProductId(null);
+          setIsCreateProductOpen(false);
+        }}
+        productId={isCreateProductOpen ? null : editingProductId}
         location="cafetin"
         onProductUpdated={() => {
           setToast({
-            message: 'Producto actualizado correctamente',
+            message: isCreateProductOpen ? 'Producto creado correctamente' : 'Producto actualizado correctamente',
             type: 'success',
             isOpen: true,
           });
+        }}
+        onProductDeleted={() => {
+          setToast({
+            message: 'Producto eliminado correctamente',
+            type: 'success',
+            isOpen: true,
+          });
+          setEditingProductId(null);
         }}
       />
 
@@ -757,7 +775,7 @@ export default function StockPage() {
   return (
     <Suspense fallback={
       <PageContainer>
-        <RequesterHeader 
+        <RequesterHeader
           title="Stock"
           subtitle="Inventario del Cafetin"
         />

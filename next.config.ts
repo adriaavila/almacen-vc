@@ -68,7 +68,9 @@ const nextConfig: NextConfig = {
     // Ensure proper URL resolution
   },
   // PWA plugin uses webpack, so we need to configure turbopack
-  turbopack: {},
+  turbopack: {
+    root: "/Users/ama/projects/almacen-vc",
+  },
 };
 
 export default pwaConfig(nextConfig);
