@@ -9,7 +9,7 @@ import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Pencil as PencilIcon, Archive as ArchiveIcon } from "lucide-react";
+import { Pencil as PencilIcon, Archive as ArchiveIcon, Plus } from "lucide-react";
 
 type User = {
   _id: Id<"users">;
@@ -117,12 +117,13 @@ export default function UsuariosPage() {
         <RequesterHeader
           title="Usuarios"
           subtitle="Gestión de personal"
-          actions={
+          rightActions={
             <Button
               variant="primary"
               onClick={() => handleOpenModal()}
+              className="!rounded-full !w-[44px] !h-[44px] !p-0 flex items-center justify-center shadow-lg"
             >
-              Crear Usuario
+              <Plus className="w-5 h-5" />
             </Button>
           }
         />
