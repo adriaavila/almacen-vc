@@ -230,4 +230,5 @@ export interface Slot {
 export interface Paciente {
   id: string;
   nombre: string;
+  estado?: string;
 }

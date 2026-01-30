@@ -6,56 +6,34 @@ import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
-import { Badge } from '@/components/ui/Badge';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
+import { Pencil as PencilIcon, Archive as ArchiveIcon } from "lucide-react";
 
 type User = {
-  id: string;
+  _id: Id<"users">;
   nombre: string;
-  email: string;
-  rol: 'admin' | 'requester' | 'mantenimiento';
-  area: 'Cocina' | 'Cafetin' | 'Limpieza' | 'Mantenimiento' | 'Admin';
-  activo: boolean;
+  fechaIngreso: number;
+  estado: "Interno" | "Casas" | "Mantenimiento" | "Desconocido";
+  isArchived: boolean;
 };
 
-// Mock data - en producción vendría de la BD
-const mockUsers: User[] = [
-  {
-    id: '1',
-    nombre: 'Juan Pérez',
-    email: 'juan@vistacampo.com',
-    rol: 'requester',
-    area: 'Cafetin',
-    activo: true,
-  },
-  {
-    id: '2',
-    nombre: 'María García',
-    email: 'maria@vistacampo.com',
-    rol: 'requester',
-    area: 'Cocina',
-    activo: true,
-  },
-  {
-    id: '3',
-    nombre: 'Carlos López',
-    email: 'carlos@vistacampo.com',
-    rol: 'admin',
-    area: 'Admin',
-    activo: true,
-  },
-];
-
 export default function UsuariosPage() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const users = useQuery(api.users.get);
+  const createUser = useMutation(api.users.create);
+  const updateUser = useMutation(api.users.edit);
+  const archiveUser = useMutation(api.users.archive);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [userToArchive, setUserToArchive] = useState<Id<"users"> | null>(null);
+
+  // Default to today for new users
   const [formData, setFormData] = useState({
     nombre: '',
-    email: '',
-    rol: 'requester' as User['rol'],
-    area: 'Cafetin' as User['area'],
-    activo: true,
+    fechaIngreso: new Date().toISOString().split('T')[0], // YYYY-MM-DD for input
+    estado: 'Interno' as User['estado'],
   });
 
   const handleOpenModal = (user?: User) => {
@@ -63,19 +41,15 @@ export default function UsuariosPage() {
       setEditingUser(user);
       setFormData({
         nombre: user.nombre,
-        email: user.email,
-        rol: user.rol,
-        area: user.area,
-        activo: user.activo,
+        fechaIngreso: new Date(user.fechaIngreso).toISOString().split('T')[0],
+        estado: user.estado || 'Interno',
       });
     } else {
       setEditingUser(null);
       setFormData({
         nombre: '',
-        email: '',
-        rol: 'requester',
-        area: 'Cafetin',
-        activo: true,
+        fechaIngreso: new Date().toISOString().split('T')[0],
+        estado: 'Interno',
       });
     }
     setIsModalOpen(true);
@@ -86,65 +60,63 @@ export default function UsuariosPage() {
     setEditingUser(null);
     setFormData({
       nombre: '',
-      email: '',
-      rol: 'requester',
-      area: 'Cafetin',
-      activo: true,
+      fechaIngreso: new Date().toISOString().split('T')[0],
+      estado: 'Interno',
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Parse date safely
+    const dateParts = formData.fechaIngreso.split('-');
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // 0-indexed
+    const day = parseInt(dateParts[2]);
+    const fechaTimestamp = new Date(year, month, day, 12, 0, 0).getTime();
+
     if (editingUser) {
-      // Update existing user
-      setUsers(users.map(u => 
-        u.id === editingUser.id 
-          ? { ...formData, id: editingUser.id }
-          : u
-      ));
+      await updateUser({
+        id: editingUser._id,
+        nombre: formData.nombre,
+        estado: formData.estado,
+      });
     } else {
-      // Create new user
-      const newUser: User = {
-        ...formData,
-        id: Date.now().toString(),
-      };
-      setUsers([...users, newUser]);
+      await createUser({
+        nombre: formData.nombre,
+        fechaIngreso: fechaTimestamp,
+        estado: formData.estado,
+      });
     }
-    
+
     handleCloseModal();
   };
 
-  const handleDelete = (userId: string) => {
-    setUserToDelete(userId);
+  const handleArchive = (userId: Id<"users">) => {
+    setUserToArchive(userId);
   };
 
-  const handleDeleteConfirm = () => {
-    if (userToDelete) {
-      setUsers(users.filter(u => u.id !== userToDelete));
-      setUserToDelete(null);
+  const handleArchiveConfirm = async () => {
+    if (userToArchive) {
+      await archiveUser({ id: userToArchive });
+      setUserToArchive(null);
     }
   };
 
-  const getRolBadgeVariant = (rol: User['rol']): 'pendiente' | 'entregado' | 'bajo-minimo' | 'ok' => {
-    switch (rol) {
-      case 'admin':
-        return 'bajo-minimo';
-      case 'requester':
-        return 'ok';
-      case 'mantenimiento':
-        return 'pendiente';
-      default:
-        return 'ok';
-    }
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <PageContainer>
-        <RequesterHeader 
+        <RequesterHeader
           title="Usuarios"
-          subtitle="Gestión de usuarios del sistema"
+          subtitle="Gestión de personal"
           actions={
             <Button
               variant="primary"
@@ -165,13 +137,7 @@ export default function UsuariosPage() {
                     Nombre
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Rol
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Área
+                    Fecha de Ingreso
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
@@ -182,47 +148,51 @@ export default function UsuariosPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.length === 0 ? (
+                {!users ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                      Cargando...
+                    </td>
+                  </tr>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                       No hay usuarios registrados
                     </td>
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                    <tr key={user._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{user.nombre}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-sm text-gray-500">{formatDate(user.fechaIngreso)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant={getRolBadgeVariant(user.rol)}>
-                          {user.rol}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.area}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant={user.activo ? 'ok' : 'pendiente'}>
-                          {user.activo ? 'Activo' : 'Inactivo'}
-                        </Badge>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${user.estado === 'Interno' ? 'bg-blue-100 text-blue-800' :
+                            user.estado === 'Casas' ? 'bg-purple-100 text-purple-800' :
+                              user.estado === 'Mantenimiento' ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'}`}>
+                          {user.estado || 'Desconocido'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleOpenModal(user)}
-                            className="text-emerald-600 hover:text-emerald-900"
+                            className="text-emerald-600 hover:text-emerald-900 p-1 rounded-full hover:bg-emerald-50 transition-colors"
+                            title="Editar"
                           >
-                            Editar
+                            <PencilIcon size={18} />
                           </button>
                           <button
-                            onClick={() => handleDelete(user.id)}
-                            className="text-red-600 hover:text-red-900"
+                            onClick={() => handleArchive(user._id)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-colors"
+                            title="Archivar"
                           >
-                            Eliminar
+                            <ArchiveIcon size={18} />
                           </button>
                         </div>
                       </td>
@@ -256,66 +226,36 @@ export default function UsuariosPage() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="rol" className="block text-sm font-medium text-gray-700 mb-1">
-                Rol
+              <label htmlFor="estado" className="block text-sm font-medium text-gray-700 mb-1">
+                Estado
               </label>
               <select
-                id="rol"
+                id="estado"
                 required
-                value={formData.rol}
-                onChange={(e) => setFormData({ ...formData, rol: e.target.value as User['rol'] })}
+                value={formData.estado}
+                onChange={(e) => setFormData({ ...formData, estado: e.target.value as User['estado'] })}
                 className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               >
-                <option value="requester">Requester</option>
-                <option value="admin">Admin</option>
-                <option value="mantenimiento">Mantenimiento</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="area" className="block text-sm font-medium text-gray-700 mb-1">
-                Área
-              </label>
-              <select
-                id="area"
-                required
-                value={formData.area}
-                onChange={(e) => setFormData({ ...formData, area: e.target.value as User['area'] })}
-                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="Cafetin">Cafetin</option>
-                <option value="Cocina">Cocina</option>
-                <option value="Limpieza">Limpieza</option>
+                <option value="Interno">Interno</option>
+                <option value="Casas">Casas</option>
                 <option value="Mantenimiento">Mantenimiento</option>
-                <option value="Admin">Admin</option>
               </select>
             </div>
 
-            <div className="flex items-center">
-              <input
-                id="activo"
-                type="checkbox"
-                checked={formData.activo}
-                onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-              />
-              <label htmlFor="activo" className="ml-2 block text-sm text-gray-700">
-                Usuario activo
+            <div>
+              <label htmlFor="fechaIngreso" className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha de Ingreso
               </label>
+              <input
+                id="fechaIngreso"
+                type="date"
+                required
+                disabled={!!editingUser} // Disable date editing if only name edit is supported/requested
+                value={formData.fechaIngreso}
+                onChange={(e) => setFormData({ ...formData, fechaIngreso: e.target.value })}
+                className="block w-full h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
+              />
+              {editingUser && <p className="text-xs text-gray-500 mt-1">La fecha de ingreso no se puede modificar.</p>}
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
@@ -338,12 +278,12 @@ export default function UsuariosPage() {
 
         {/* Confirmation Modal */}
         <ConfirmationModal
-          isOpen={userToDelete !== null}
-          onClose={() => setUserToDelete(null)}
-          onConfirm={handleDeleteConfirm}
-          title="Eliminar usuario"
-          message="¿Estás seguro de que deseas eliminar este usuario?"
-          confirmText="Eliminar"
+          isOpen={userToArchive !== null}
+          onClose={() => setUserToArchive(null)}
+          onConfirm={handleArchiveConfirm}
+          title="Archivar usuario"
+          message="¿Estás seguro de que deseas archivar este usuario? No aparecerá en la lista activa."
+          confirmText="Archivar"
           cancelText="Cancelar"
           variant="destructive"
         />

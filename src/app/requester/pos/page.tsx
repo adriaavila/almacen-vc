@@ -15,16 +15,8 @@ import { useInventorySync } from '@/lib/hooks/useInventorySync';
 import { useInventoryData } from '@/lib/hooks/useInventoryData';
 import { Slot, Paciente } from '@/types';
 
-// Mock pacientes data (will be replaced with Convex query in future)
-const mockPacientes: Paciente[] = [
-  { id: '1', nombre: 'Juan Pérez' },
-  { id: '2', nombre: 'María García' },
-  { id: '3', nombre: 'Carlos López' },
-  { id: '4', nombre: 'Ana Martínez' },
-  { id: '5', nombre: 'Pedro Rodríguez' },
-  { id: '6', nombre: 'Laura Sánchez' },
-  { id: '7', nombre: 'Miguel Torres' },
-];
+// Mock legacy removed, using database users
+
 
 const INITIAL_SLOTS: Slot[] = [
   { id: 1, pacienteId: null, items: [] },
@@ -54,11 +46,17 @@ type ConvexProduct = {
 export default function POSPage() {
   // Sincronizar datos de Convex al store de Zustand
   useInventorySync();
-  
+
   // Obtener datos híbridos (Convex o cache)
   const products = useInventoryData();
   const createOrder = useMutation(api.orders.create);
   const deliverOrder = useMutation(api.orders.deliver);
+  const users = useQuery(api.users.get);
+
+  // Map users to UI Paciente type
+  const pacientes = useMemo(() => {
+    return users?.map(u => ({ id: u._id, nombre: u.nombre, estado: u.estado })) || [];
+  }, [users]);
 
   // State
   const [slots, setSlots] = useState<Slot[]>(INITIAL_SLOTS);
@@ -70,7 +68,7 @@ export default function POSPage() {
   // Find coffee product dynamically
   useEffect(() => {
     if (products && products.length > 0) {
-      const coffeeProduct = products.find(product => 
+      const coffeeProduct = products.find(product =>
         normalizeSearchText(product.name).includes('café') ||
         normalizeSearchText(product.name).includes('cafe')
       );
@@ -88,9 +86,9 @@ export default function POSPage() {
   // Filter products (only active, cafetin stock, available for sale)
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    return products.filter(product => 
-      product.active && 
-      product.stockCafetin > 0 && 
+    return products.filter(product =>
+      product.active &&
+      product.stockCafetin > 0 &&
       product.availableForSale !== false
     );
   }, [products]);
@@ -120,7 +118,7 @@ export default function POSPage() {
       setCurrentSliderPacienteId(newActiveSlot.pacienteId);
     } else {
       // If no paciente assigned, show first paciente but don't assign yet
-      setCurrentSliderPacienteId(mockPacientes[0]?.id || null);
+      setCurrentSliderPacienteId(pacientes[0]?.id || null);
     }
   };
 
@@ -167,7 +165,7 @@ export default function POSPage() {
   // Handle add product to active slot
   const handleAddProductToActiveSlot = (product: ConvexProduct) => {
     const existingItem = activeSlot.items.find(c => c.productId === product._id);
-    
+
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
         if (existingItem) {
@@ -237,9 +235,14 @@ export default function POSPage() {
   };
 
   // Get current paciente from slider (for active slot if not assigned)
-  const [currentSliderPacienteId, setCurrentSliderPacienteId] = useState<string | null>(
-    mockPacientes[0]?.id || null
-  );
+  const [currentSliderPacienteId, setCurrentSliderPacienteId] = useState<string | null>(null);
+
+  // Update default selected patient when users load
+  useEffect(() => {
+    if (pacientes.length > 0 && !currentSliderPacienteId) {
+      setCurrentSliderPacienteId(pacientes[0].id);
+    }
+  }, [pacientes, currentSliderPacienteId]);
 
   // Handle register sale (batch save)
   const handleRegisterSale = async () => {
@@ -312,7 +315,7 @@ export default function POSPage() {
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <PageContainer className="flex-1 flex flex-col overflow-hidden max-w-full space-y-1! sm:space-y-1.5! md:space-y-2! py-1.5! sm:py-2! md:py-2.5!">
-        <RequesterHeader 
+        <RequesterHeader
           title="Punto de Venta"
           subtitle="Cafetin - Venta al público"
         />
@@ -342,7 +345,7 @@ export default function POSPage() {
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="bg-white rounded-md shadow-sm border border-gray-200 px-1 sm:px-1.5 md:px-2 pt-0.5 pb-0.5 sm:pt-0.5 sm:pb-0.5 h-full flex flex-col">
             <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1 px-1 text-center shrink-0">Productos</h2>
-            
+
             {productsBySubCategory.length === 0 ? (
               <div className="text-center py-8 text-gray-500 flex-1 flex items-center justify-center">
                 <p className="text-sm md:text-base">No hay productos disponibles</p>
@@ -388,7 +391,7 @@ export default function POSPage() {
         {/* Zona C: Cliente / Paciente (pills) */}
         <div className="shrink-0">
           <PatientSlider
-            pacientes={mockPacientes}
+            pacientes={pacientes}
             activeSlotPacienteId={activeSlot.pacienteId || currentSliderPacienteId}
             onPacienteChange={handlePacienteChange}
           />

@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import { Paciente } from '@/types';
 
 interface PatientSliderProps {
@@ -9,16 +11,42 @@ interface PatientSliderProps {
 }
 
 export function PatientSlider({ pacientes, activeSlotPacienteId, onPacienteChange }: PatientSliderProps) {
+  const [filter, setFilter] = useState<string | null>(null);
+
+  const filteredPacientes = filter
+    ? pacientes.filter(p => p.estado === filter)
+    : pacientes;
+
   return (
     <div className="w-full overflow-hidden bg-white border-t border-gray-200 py-1 sm:py-1.5 md:py-2">
-      <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5 px-1">
-        Cliente / Paciente
-      </p>
+      <div className="flex items-center gap-2 mb-1 sm:mb-1.5 px-1 overflow-x-auto scrollbar-hide">
+        <p className="text-xs sm:text-sm font-medium text-gray-700 shrink-0">
+          Cliente / Paciente
+        </p>
+        <div className="flex gap-1.5 shrink-0">
+          {['Interno', 'Casas', 'Mantenimiento'].map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => setFilter(current => current === status ? null : status)}
+              className={`
+                px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border transition-colors
+                ${filter === status
+                  ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                }
+              `}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </div>
       <div
         className="flex gap-2 sm:gap-2.5 overflow-x-auto scrollbar-hide pb-0.5"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {pacientes.map((paciente) => {
+        {filteredPacientes.map((paciente) => {
           const isActive = paciente.id === activeSlotPacienteId;
           return (
             <button
@@ -38,6 +66,11 @@ export function PatientSlider({ pacientes, activeSlotPacienteId, onPacienteChang
             </button>
           );
         })}
+        {filteredPacientes.length === 0 && (
+          <div className="text-gray-400 text-xs px-2 py-1.5 italic">
+            No se encontraron pacientes en esta categoría
+          </div>
+        )}
       </div>
     </div>
   );

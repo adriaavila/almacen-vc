@@ -111,7 +111,7 @@ export default defineSchema({
 
     active: v.boolean(),
     availableForSale: v.optional(v.boolean()), // Available for sale in POS (defaults to true)
-    
+
     // Legacy field from migration (optional to support existing data)
     packageSize: v.optional(v.number()),
     legacyItemId: v.optional(v.string()), // ID from old items table (migration tracking)
@@ -153,4 +153,11 @@ export default defineSchema({
     .index("by_type", ["type"])
     .index("by_timestamp", ["timestamp"])
     .index("by_orderId", ["orderId"]),
+
+  users: defineTable({
+    nombre: v.string(),
+    fechaIngreso: v.number(),
+    estado: v.union(v.literal("Interno"), v.literal("Casas"), v.literal("Mantenimiento"), v.literal("Desconocido")),
+    isArchived: v.boolean(),
+  }).index("by_nombre", ["nombre"]),
 });

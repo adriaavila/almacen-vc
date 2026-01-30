@@ -21,6 +21,7 @@ import type * as seed from "../seed.js";
 import type * as telegram from "../telegram.js";
 import type * as trabajosMantenimiento from "../trabajosMantenimiento.js";
 import type * as uiConfig from "../uiConfig.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   telegram: typeof telegram;
   trabajosMantenimiento: typeof trabajosMantenimiento;
   uiConfig: typeof uiConfig;
+  users: typeof users;
 }>;
 
 /**
