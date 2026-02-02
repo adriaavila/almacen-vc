@@ -11,7 +11,6 @@ import { SlotButton } from '@/components/ui/SlotButton';
 import { PatientSlider } from '@/components/ui/PatientSlider';
 import { OrderSummaryPanel } from '@/components/ui/OrderSummaryPanel';
 import { normalizeSearchText } from '@/lib/utils';
-import { useInventorySync } from '@/lib/hooks/useInventorySync';
 import { useInventoryData } from '@/lib/hooks/useInventoryData';
 import { Slot, Paciente } from '@/types';
 
@@ -44,10 +43,7 @@ type ConvexProduct = {
 };
 
 export default function POSPage() {
-  // Sincronizar datos de Convex al store de Zustand
-  useInventorySync();
-
-  // Obtener datos híbridos (Convex o cache)
+  // Obtener datos híbridos (Convex o cache) - also syncs to Zustand store
   const products = useInventoryData();
   const createOrder = useMutation(api.orders.create);
   const deliverOrder = useMutation(api.orders.deliver);
@@ -59,7 +55,8 @@ export default function POSPage() {
   }, [users]);
 
   // State
-  const [slots, setSlots] = useState<Slot[]>(INITIAL_SLOTS);
+  // Lazy state initialization for slots
+  const [slots, setSlots] = useState<Slot[]>(() => INITIAL_SLOTS);
   const [activeSlotId, setActiveSlotId] = useState<number>(1);
   const [coffeeProductId, setCoffeeProductId] = useState<Id<"products"> | null>(null);
   const [ghostAddFeedback, setGhostAddFeedback] = useState<Record<number, boolean>>({});
@@ -162,12 +159,11 @@ export default function POSPage() {
     }, 100);
   };
 
-  // Handle add product to active slot
+  // Handle add product to active slot - uses functional setState for stable callback
   const handleAddProductToActiveSlot = (product: ConvexProduct) => {
-    const existingItem = activeSlot.items.find(c => c.productId === product._id);
-
     setSlots(prev => prev.map(slot => {
       if (slot.id === activeSlotId) {
+        const existingItem = slot.items.find(c => c.productId === product._id);
         if (existingItem) {
           return {
             ...slot,
@@ -316,7 +312,7 @@ export default function POSPage() {
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <PageContainer className="flex-1 flex flex-col overflow-hidden max-w-full space-y-1! sm:space-y-1.5! md:space-y-2! py-1.5! sm:py-2! md:py-2.5!">
         <RequesterHeader
-          title="Punto de Venta"
+          title="POS"
           subtitle="Cafetin - Venta al público"
         />
 

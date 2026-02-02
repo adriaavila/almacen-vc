@@ -596,3 +596,9 @@ h6 {
   transition-duration: var(--transition-slow);
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Performance: Skip rendering off-screen product cards */
+.product-card-offscreen {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px; /* Approximate height of product button */
+}

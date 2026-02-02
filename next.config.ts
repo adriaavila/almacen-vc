@@ -65,7 +65,15 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   // Disable automatic static optimization for dynamic routes if needed
   experimental: {
-    // Ensure proper URL resolution
+    // Optimize barrel imports for better tree-shaking
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-label',
+      '@radix-ui/react-select',
+      'recharts',
+    ],
   },
   // PWA plugin uses webpack, so we need to configure turbopack
   turbopack: {

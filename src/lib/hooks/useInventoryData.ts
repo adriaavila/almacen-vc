@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { useInventoryStore } from '@/stores/inventoryStore';
@@ -22,13 +23,26 @@ type ConvexProduct = {
 
 /**
  * Hook híbrido que retorna datos de Convex si están disponibles,
- * o datos del store de Zustand si Convex está offline/undefined
+ * o datos del store de Zustand si Convex está offline/undefined.
+ * Also syncs Convex data to the store (consolidating useInventorySync logic).
  */
 export function useInventoryData(): ConvexProduct[] | undefined {
   const convexProducts = useQuery(api.products.listWithInventory);
   const cachedProducts = useInventoryStore((state) => state.products);
+  const setProducts = useInventoryStore((state) => state.setProducts);
+  const pendingActions = useInventoryStore((state) => state.pendingActions);
 
-  // Si Convex tiene datos, retornarlos (y se sincronizarán al store automáticamente)
+  // Sync to store when data arrives (consolidating useInventorySync logic)
+  // Only sync if no pending actions to avoid overwriting optimistic updates
+  useEffect(() => {
+    if (convexProducts !== undefined && convexProducts !== null) {
+      if (pendingActions.length === 0) {
+        setProducts(convexProducts as ConvexProduct[]);
+      }
+    }
+  }, [convexProducts, setProducts, pendingActions.length]);
+
+  // Si Convex tiene datos, retornarlos
   if (convexProducts !== undefined && convexProducts !== null) {
     return convexProducts as ConvexProduct[];
   }

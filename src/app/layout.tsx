@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ConvexProvider } from "@/lib/convex/provider";
 import { OfflineSyncManager } from "@/components/offline/OfflineSyncManager";
+import { poppins, workSans } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "Vistacampo",
@@ -34,23 +35,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" className={`${poppins.variable} ${workSans.variable}`}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <meta name="theme-color" content="#10b981" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body className="font-sans antialiased">
         <a href="#main-content" className="skip-link">
