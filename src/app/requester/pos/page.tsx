@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
+import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { PatientSlider } from '@/components/ui/PatientSlider';
 import { OrderSummaryPanel } from '@/components/ui/OrderSummaryPanel';
 import { normalizeSearchText } from '@/lib/utils';
 import { useInventoryData } from '@/lib/hooks/useInventoryData';
+import { useUsersData } from '@/lib/hooks/useUsersData';
 import { Slot, Paciente } from '@/types';
 
 // Mock legacy removed, using database users
@@ -45,9 +46,11 @@ type ConvexProduct = {
 export default function POSPage() {
   // Obtener datos híbridos (Convex o cache) - also syncs to Zustand store
   const products = useInventoryData();
-  const createOrder = useMutation(api.orders.create);
-  const deliverOrder = useMutation(api.orders.deliver);
-  const users = useQuery(api.users.get);
+  // Use offline-aware mutations for orders
+  const createOrder = useOfflineMutation('createOrder');
+  const deliverOrder = useOfflineMutation('deliverOrder');
+  // Use offline-aware users data
+  const users = useUsersData();
 
   // Map users to UI Paciente type
   const pacientes = useMemo(() => {
@@ -252,7 +255,8 @@ export default function POSPage() {
     setIsRegistering(true);
 
     try {
-      const orderIds: Id<"orders">[] = [];
+      // Results can be either order IDs (online) or queued responses (offline)
+      const orderResults: Array<Id<"orders"> | { actionId: string; queued: true }> = [];
 
       // Create orders for all slots with items
       // Note: orders.create expects itemId, but we're using productId
@@ -264,19 +268,28 @@ export default function POSPage() {
           pacienteIdToUse = currentSliderPacienteId;
         }
 
-        const orderId = await createOrder({
+        const result = await createOrder({
           area: 'Cafetin',
           items: slot.items.map(item => ({
             productId: item.productId,
             cantidad: item.cantidad,
           })),
         });
-        orderIds.push(orderId);
+        orderResults.push(result);
       }
 
+      // Check if any order was queued (offline mode)
+      const wasQueued = orderResults.some(result => typeof result === 'object' && 'queued' in result && result.queued);
+
       // Deliver all orders immediately (POS sales are instant, stock must be updated)
-      for (const orderId of orderIds) {
-        await deliverOrder({ id: orderId });
+      // Skip delivery if we're offline (orders will be delivered when synced)
+      if (!wasQueued) {
+        for (const result of orderResults) {
+          // Only deliver if we have a real order ID (not a queued response)
+          if (typeof result === 'string' || !('queued' in result)) {
+            await deliverOrder({ id: result as Id<"orders"> });
+          }
+        }
       }
 
       // Clear processed slots
@@ -287,7 +300,12 @@ export default function POSPage() {
         return slot;
       }));
 
-      alert(`Ventas registradas exitosamente: ${slotsWithItems.length} ${slotsWithItems.length === 1 ? 'venta' : 'ventas'}`);
+      // Show appropriate message based on online/offline status
+      if (wasQueued) {
+        alert(`Ventas guardadas (se sincronizarán cuando vuelva la conexión): ${slotsWithItems.length} ${slotsWithItems.length === 1 ? 'venta' : 'ventas'}`);
+      } else {
+        alert(`Ventas registradas exitosamente: ${slotsWithItems.length} ${slotsWithItems.length === 1 ? 'venta' : 'ventas'}`);
+      }
     } catch (error) {
       console.error('Error al registrar ventas:', error);
       alert('Error al registrar ventas. Intente de nuevo.');

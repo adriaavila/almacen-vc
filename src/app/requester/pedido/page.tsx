@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +16,7 @@ import { pluralizeUnit, normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useInventorySync } from '@/lib/hooks/useInventorySync';
 import { useInventoryData } from '@/lib/hooks/useInventoryData';
+import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
 import { Area } from '@/types';
 
 const validAreas: Area[] = ['Cocina', 'Cafetin', 'Limpieza'];
@@ -78,7 +79,8 @@ function CreateOrderPageContent() {
 
   // Obtener datos híbridos (Convex o cache)
   const products = useInventoryData();
-  const createOrder = useMutation(api.orders.create);
+  // Use offline-aware mutation for createOrder
+  const createOrder = useOfflineMutation('createOrder');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -211,15 +213,20 @@ function CreateOrderPageContent() {
         return;
       }
 
-      await createOrder({
+      const result = await createOrder({
         area: selectedArea,
         items: orderItems,
       });
 
+      // Check if order was queued (offline mode)
+      const wasQueued = typeof result === 'object' && 'queued' in result && result.queued;
+
       // Immediate feedback
       setToast({
-        message: 'Pedido enviado correctamente',
-        type: 'success',
+        message: wasQueued
+          ? 'Pedido guardado (se sincronizará cuando vuelva la conexión)'
+          : 'Pedido enviado correctamente',
+        type: wasQueued ? 'info' : 'success',
         isOpen: true,
       });
       setIsSubmitting(false);
