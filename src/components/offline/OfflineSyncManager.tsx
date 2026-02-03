@@ -1,14 +1,24 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useInventoryStore, PendingAction } from '@/stores/inventoryStore';
+import { useUsersStore } from '@/stores/usersStore';
 
+/**
+ * Component that handles background data sync and pre-fetching
+ * for offline access
+ */
 export function OfflineSyncManager() {
   const pendingActions = useInventoryStore((state) => state.pendingActions);
   const isProcessingRef = useRef(false);
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+  // Prefetch data hooks - these automatically update the stores
+  // defined in their respective files (useInventorySync logic)
+  usePrefetchData(isOnline);
 
   // Mutaciones necesarias
   const updateStock = useMutation(api.inventory.updateStock);
@@ -21,18 +31,18 @@ export function OfflineSyncManager() {
     // Leer pendingActions dentro del callback usando getState para evitar dependencias innecesarias
     const currentPendingActions = useInventoryStore.getState().pendingActions;
     const removePendingActionFn = useInventoryStore.getState().removePendingAction;
-    
+
     if (isProcessingRef.current || currentPendingActions.length === 0) return;
-    
+
     // Verificar conexión antes de procesar
     if (!navigator.onLine) {
       console.log('OfflineSyncManager: No connection, skipping queue processing');
       return;
     }
-    
+
     isProcessingRef.current = true;
     const actionsToProcess = [...currentPendingActions].sort((a, b) => a.timestamp - b.timestamp);
-    
+
     console.log(`OfflineSyncManager: Processing ${actionsToProcess.length} queued actions`);
 
     for (const action of actionsToProcess) {
@@ -44,7 +54,7 @@ export function OfflineSyncManager() {
         }
 
         let result;
-        
+
         switch (action.type) {
           case 'updateStock':
             // Validar argumentos de updateStock
@@ -106,9 +116,13 @@ export function OfflineSyncManager() {
           console.warn(`OfflineSyncManager: Action ${action.id} returned no result, keeping in queue`);
         }
       } catch (error) {
-        console.error(`OfflineSyncManager: Error processing action ${action.id} (${action.type}):`, error);
+        // Ignorar errores de "Network request failed" o similares que indiquen desconexión momentánea
+        // pero registrar otros errores
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes('Network') && !errorMessage.includes('Offline')) {
+          console.error(`OfflineSyncManager: Error processing action ${action.id} (${action.type}):`, error);
+        }
         // Mantener en la cola para reintentar después
-        // El error se loguea pero la acción permanece en la cola
       }
     }
 
@@ -128,7 +142,7 @@ export function OfflineSyncManager() {
     window.addEventListener('online', handleOnline);
 
     // Procesar cola si ya estamos online al montar
-    if (navigator.onLine && pendingActions.length > 0) {
+    if (typeof navigator !== 'undefined' && navigator.onLine && pendingActions.length > 0) {
       // Delay inicial para asegurar que todo está listo
       setTimeout(() => {
         processQueue();
@@ -138,11 +152,12 @@ export function OfflineSyncManager() {
     return () => {
       window.removeEventListener('online', handleOnline);
     };
-  }, [processQueue]); // Incluir processQueue en dependencias
+  }, [processQueue, pendingActions.length]); // Incluir processQueue en dependencias
 
   // Procesar cola cuando cambian las acciones pendientes y estamos online
   useEffect(() => {
-    if (!navigator.onLine || pendingActions.length === 0 || isProcessingRef.current) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    if (pendingActions.length === 0 || isProcessingRef.current) return;
 
     // Procesar después de un pequeño delay para evitar procesar múltiples veces
     const timeoutId = setTimeout(() => {
@@ -150,7 +165,33 @@ export function OfflineSyncManager() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [pendingActions.length, processQueue]); // Incluir processQueue en dependencias
+  }, [pendingActions.length, processQueue]);
 
   return null; // Componente invisible
+}
+
+/**
+ * Hook helper to prefetch data when online
+ * This keeps the local stores updated for offline usage
+ */
+function usePrefetchData(isOnline: boolean) {
+  const setProducts = useInventoryStore((state) => state.setProducts);
+  const setUsers = useUsersStore((state) => state.setUsers);
+
+  // Always subscribe to queries, but we'll only update store if we get data
+  // Convex query caching handles the "don't fetch if not needed" part efficiently
+  const products = useQuery(api.products.listWithInventory);
+  const users = useQuery(api.users.get);
+
+  useEffect(() => {
+    if (!isOnline) return;
+
+    if (products) {
+      setProducts(products as any);
+    }
+
+    if (users) {
+      setUsers(users as any);
+    }
+  }, [products, users, isOnline, setProducts, setUsers]);
 }

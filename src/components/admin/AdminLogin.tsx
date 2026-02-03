@@ -46,7 +46,7 @@ export function AdminLogin() {
               priority
             />
           </div>
-          
+
           <div className="w-full max-w-md bg-white rounded-lg shadow-sm border border-gray-200 p-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">
               Acceso de Administrador
@@ -54,7 +54,7 @@ export function AdminLogin() {
             <p className="text-sm text-gray-500 mb-6 text-center">
               Ingresa la contraseña para acceder al panel de administración
             </p>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
@@ -71,13 +71,13 @@ export function AdminLogin() {
                   disabled={isLoading}
                 />
               </div>
-              
+
               {error && (
                 <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
                   {error}
                 </div>
               )}
-              
+
               <Button
                 type="submit"
                 variant="primary"

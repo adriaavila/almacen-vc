@@ -160,4 +160,16 @@ export default defineSchema({
     estado: v.union(v.literal("Interno"), v.literal("Casas"), v.literal("Mantenimiento"), v.literal("Desconocido")),
     isArchived: v.boolean(),
   }).index("by_nombre", ["nombre"]),
+
+  notification_settings: defineTable({
+    name: v.string(),          // Recipient name
+    chatId: v.string(),        // Telegram Chat ID
+    isAdmin: v.boolean(),      // Can receive admin-level alerts
+    enabled: v.boolean(),      // Master toggle
+    preferences: v.object({
+      lowStock: v.boolean(),
+      weeklyReport: v.boolean(),
+      newOrders: v.boolean(),
+    }),
+  }).index("by_chatId", ["chatId"]),
 });

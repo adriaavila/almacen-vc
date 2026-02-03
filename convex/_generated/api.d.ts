@@ -10,9 +10,11 @@
 
 import type * as activos from "../activos.js";
 import type * as analytics from "../analytics.js";
+import type * as crons from "../crons.js";
 import type * as inventory from "../inventory.js";
 import type * as migration from "../migration.js";
 import type * as movements from "../movements.js";
+import type * as notifications from "../notifications.js";
 import type * as orderItems from "../orderItems.js";
 import type * as orders from "../orders.js";
 import type * as products from "../products.js";
@@ -32,9 +34,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   activos: typeof activos;
   analytics: typeof analytics;
+  crons: typeof crons;
   inventory: typeof inventory;
   migration: typeof migration;
   movements: typeof movements;
+  notifications: typeof notifications;
   orderItems: typeof orderItems;
   orders: typeof orders;
   products: typeof products;

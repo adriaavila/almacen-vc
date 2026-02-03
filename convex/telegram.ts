@@ -1,7 +1,62 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+
+/**
+ * Helper to send a message to a list of Chat IDs
+ */
+async function sendTelegramMessage(token: string, chatId: string, text: string) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error sending Telegram to ${chatId}: ${response.status} - ${errorText}`);
+    }
+  } catch (error) {
+    console.error(`Error sending Telegram to ${chatId}:`, error);
+  }
+}
+
+/**
+ * Get recipients based on a preference key (or 'always' for general messages)
+ */
+async function getRecipients(ctx: any, preferenceKey?: "lowStock" | "weeklyReport" | "newOrders") {
+  // 1. Get recipients from DB
+  const settings = await ctx.runQuery((internal as any).notifications.list);
+  const token = process.env.TELEGRAM_TOKEN;
+
+  if (!token) {
+    console.error("TELEGRAM_TOKEN not configured.");
+    return { token: null, recipients: [] };
+  }
+
+  // 2. Filter recipients
+  let targets: string[] = [];
+
+  if (settings.length > 0) {
+    targets = settings
+      .filter((s: any) => s.enabled && (!preferenceKey || s.preferences[preferenceKey]))
+      .map((s: any) => s.chatId);
+  }
+
+  // 3. Fallback to ADMIN_CHAT_ID if DB is empty or no targets found (and it's critical?)
+  // Let's fallback only if DB is empty to ensure at least someone gets it.
+  if (settings.length === 0 && process.env.ADMIN_CHAT_ID) {
+    targets.push(process.env.ADMIN_CHAT_ID);
+  }
+
+  return { token, targets };
+}
 
 /**
  * Envía una notificación de Telegram cuando se crea un nuevo pedido
@@ -19,25 +74,10 @@ export const sendNotification = internalAction({
     ),
   },
   handler: async (ctx, args) => {
-    const token = process.env.TELEGRAM_TOKEN;
-    const chatId = process.env.ADMIN_CHAT_ID;
-
-    // Validar que las variables de entorno estén configuradas
-    if (!token || !chatId) {
-      console.error(
-        "TELEGRAM_TOKEN o ADMIN_CHAT_ID no están configuradas. No se puede enviar notificación."
-      );
-      return;
-    }
-
-    // Calcular el número de orden real basado en el orden cronológico
-    // Contar pedidos anteriores (createdAt <) y sumar 1 para el pedido actual
+    // Calcular número de orden
     const allOrders = await ctx.runQuery(internal.orders.internalList);
-    const orderNumber = allOrders.filter(
-      (o) => o.createdAt < args.createdAt
-    ).length + 1;
+    const orderNumber = allOrders.filter((o) => o.createdAt < args.createdAt).length + 1;
 
-    // Construir el mensaje HTML
     const itemsText = args.items
       .map((item) => `${item.quantity} ${item.name}`)
       .join("\n");
@@ -49,30 +89,67 @@ Productos:
 
 ${itemsText}`;
 
-    try {
-      // Enviar mensaje a Telegram API
-      const url = `https://api.telegram.org/bot${token}/sendMessage`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: "HTML",
-        }),
-      });
+    // Send to recipients with 'newOrders' preference (assuming we add that or default to all active)
+    // Using 'newOrders' as key
+    const { token, targets } = await getRecipients(ctx, "newOrders");
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `Error al enviar notificación de Telegram: ${response.status} - ${errorText}`
-        );
-      }
-    } catch (error) {
-      // Loggear el error pero no lanzar excepción para no afectar el flujo principal
-      console.error("Error al enviar notificación de Telegram:", error);
-    }
+    if (!token || targets.length === 0) return;
+
+    await Promise.all(targets.map((chatId) => sendTelegramMessage(token, chatId, message)));
   },
 });
+
+/**
+ * Sends a generic message (treated as High Priority / System Message)
+ */
+export const sendMessage = internalAction({
+  args: {
+    message: v.string(),
+    type: v.optional(v.union(v.literal("lowStock"), v.literal("weeklyReport"), v.literal("general"))),
+  },
+  handler: async (ctx, args) => {
+    const type = args.type || "general";
+    const preferenceKey = type === "lowStock" ? "lowStock" : type === "weeklyReport" ? "weeklyReport" : undefined;
+
+    const { token, targets } = await getRecipients(ctx, preferenceKey as any);
+
+    if (!token || targets.length === 0) return;
+
+    await Promise.all(targets.map((chatId) => sendTelegramMessage(token, chatId, args.message)));
+  },
+});
+
+/**
+ * Generates and sends a weekly report of items with low stock
+ */
+export const sendWeeklyLowStockReport = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const lowStockItems = await ctx.runQuery((internal as any).inventory.getLowStock, {});
+
+    if (lowStockItems.length === 0) {
+      return;
+    }
+
+    const lines = lowStockItems.map((item: any) => {
+      const productName = item.product?.name || "Producto desconocido";
+      const unit = item.product?.baseUnit || "u";
+      return `- ${productName}: ${item.stockActual} ${unit} (Min: ${item.stockMinimo})`;
+    });
+
+    const message = `📋 <b>REPORTE SEMANAL DE REPOSICIÓN</b>
+
+Se detectaron los siguientes productos con stock bajo o nulo:
+
+${lines.join("\n")}
+
+<i>Por favor verificar inventario.</i>`;
+
+    // Send directly
+    const { token, targets } = await getRecipients(ctx, "weeklyReport");
+
+    if (!token || targets.length === 0) return;
+
+    await Promise.all(targets.map((chatId) => sendTelegramMessage(token, chatId, message)));
+  },
+}); 

@@ -5,11 +5,25 @@ const pwaConfig = withPWA({
   dest: "public",
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
-  reloadOnOnline: true,
+  reloadOnOnline: false,
+  // disable: process.env.NODE_ENV === "development",
   disable: process.env.NODE_ENV === "development",
   workboxOptions: {
     disableDevLogs: true,
     runtimeCaching: [
+      // Cache de navegación (NetworkFirst para obtener datos frescos, fallback a cache)
+      {
+        urlPattern: ({ request }) => request.mode === 'navigate',
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'pages',
+          expiration: {
+            maxEntries: 50,
+            maxAgeSeconds: 24 * 60 * 60, // 24 horas
+          },
+          networkTimeoutSeconds: 3, // Si la red tarda >3s, usa cache
+        },
+      },
       // CacheFirst para fuentes de Google
       {
         urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -73,6 +87,9 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-label',
       '@radix-ui/react-select',
       'recharts',
+      'zustand',
+      '@tanstack/react-table',
+      'react-hook-form',
     ],
   },
   // PWA plugin uses webpack, so we need to configure turbopack

@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // ============================================================
@@ -9,7 +10,7 @@ import { v } from "convex/values";
 export const list = query({
   handler: async (ctx) => {
     const inventory = await ctx.db.query("inventory").collect();
-    
+
     // Populate product info
     const inventoryWithProducts = await Promise.all(
       inventory.map(async (inv) => {
@@ -235,6 +236,24 @@ export const updateStock = mutation({
       });
     }
 
+    // Check for low stock alert (Transition: prev > min -> new <= min)
+    const stockMinimo = inventory?.stockMinimo || 0;
+
+    // Alert logic:
+    // Ensure we capture the case where we *just* crossed the threshold.
+    if (prevStock > stockMinimo && args.newStock <= stockMinimo) {
+      const productName = product?.name || "Producto";
+      const unit = product?.baseUnit || "u";
+
+      const message = `⚠️ <b>STOCK BAJO</b>
+${productName}
+Solo quedan: <b>${args.newStock} ${unit}</b>
+(Min: ${stockMinimo})`;
+
+      // Schedule notification
+      await ctx.scheduler.runAfter(0, internal.telegram.sendMessage, { message, type: "lowStock" });
+    }
+
     return {
       productId: args.productId,
       location: args.location,
@@ -443,7 +462,7 @@ export const setAllCafetinStockToOne = mutation({
 
     for (const inv of cafetinInventory) {
       const prevStock = inv.stockActual;
-      
+
       // Only update if stock is not already 1
       if (prevStock !== 1) {
         // Update inventory

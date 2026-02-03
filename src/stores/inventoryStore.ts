@@ -20,74 +20,74 @@ export type InventoryProduct = {
 };
 
 // Tipos para acciones pendientes
-export type PendingAction = 
+export type PendingAction =
   | {
-      id: string; // UUID único
-      type: 'updateStock';
-      mutation: 'api.inventory.updateStock';
-      args: {
-        productId: Id<"products">;
-        location: "almacen" | "cafetin";
-        newStock: number;
-        user: string;
-        reason?: string;
-      };
-      timestamp: number;
-      optimisticUpdate: {
-        productId: Id<"products">;
-        location: "almacen" | "cafetin";
-        newStock: number;
-      };
-    }
-  | {
-      id: string;
-      type: 'transfer';
-      mutation: 'api.inventory.transfer';
-      args: {
-        productId: Id<"products">;
-        from: "almacen" | "cafetin";
-        to: "almacen" | "cafetin";
-        quantity: number;
-        user: string;
-      };
-      timestamp: number;
-      optimisticUpdate: {
-        productId: Id<"products">;
-        from: "almacen" | "cafetin";
-        to: "almacen" | "cafetin";
-        quantity: number;
-      };
-    }
-  | {
-      id: string;
-      type: 'setMinStock';
-      mutation: 'api.inventory.setMinStock';
-      args: {
-        productId: Id<"products">;
-        location: "almacen" | "cafetin";
-        stockMinimo: number;
-      };
-      timestamp: number;
-    }
-  | {
-      id: string;
-      type: 'createOrder';
-      mutation: 'api.orders.create';
-      args: {
-        area: "Cocina" | "Cafetin" | "Limpieza";
-        items: Array<{ productId: Id<"products">; cantidad: number }>;
-      };
-      timestamp: number;
-    }
-  | {
-      id: string;
-      type: 'deliverOrder';
-      mutation: 'api.orders.deliver';
-      args: {
-        id: Id<"orders">;
-      };
-      timestamp: number;
+    id: string; // UUID único
+    type: 'updateStock';
+    mutation: 'api.inventory.updateStock';
+    args: {
+      productId: Id<"products">;
+      location: "almacen" | "cafetin";
+      newStock: number;
+      user: string;
+      reason?: string;
     };
+    timestamp: number;
+    optimisticUpdate: {
+      productId: Id<"products">;
+      location: "almacen" | "cafetin";
+      newStock: number;
+    };
+  }
+  | {
+    id: string;
+    type: 'transfer';
+    mutation: 'api.inventory.transfer';
+    args: {
+      productId: Id<"products">;
+      from: "almacen" | "cafetin";
+      to: "almacen" | "cafetin";
+      quantity: number;
+      user: string;
+    };
+    timestamp: number;
+    optimisticUpdate: {
+      productId: Id<"products">;
+      from: "almacen" | "cafetin";
+      to: "almacen" | "cafetin";
+      quantity: number;
+    };
+  }
+  | {
+    id: string;
+    type: 'setMinStock';
+    mutation: 'api.inventory.setMinStock';
+    args: {
+      productId: Id<"products">;
+      location: "almacen" | "cafetin";
+      stockMinimo: number;
+    };
+    timestamp: number;
+  }
+  | {
+    id: string;
+    type: 'createOrder';
+    mutation: 'api.orders.create';
+    args: {
+      area: "Cocina" | "Cafetin" | "Limpieza";
+      items: Array<{ productId: Id<"products">; cantidad: number }>;
+    };
+    timestamp: number;
+  }
+  | {
+    id: string;
+    type: 'deliverOrder';
+    mutation: 'api.orders.deliver';
+    args: {
+      id: Id<"orders">;
+    };
+    timestamp: number;
+  };
 
 interface InventoryState {
   products: InventoryProduct[];
@@ -117,11 +117,11 @@ export const useInventoryStore = create<InventoryState>()(
   persist(
     (set, get) => ({
       products: [],
-      setProducts: (products) => set({ 
-        products: products.map(p => ({ 
-          ...p, 
-          lastSyncedAt: Date.now() 
-        })) 
+      setProducts: (products) => set({
+        products: products.map(p => ({
+          ...p,
+          lastSyncedAt: Date.now()
+        }))
       }),
       clearProducts: () => set({ products: [] }),
       getProducts: () => get().products,
@@ -150,7 +150,7 @@ export const useInventoryStore = create<InventoryState>()(
         set((state) => ({
           products: state.products.map((p) => {
             if (p._id !== update.productId) return p;
-            
+
             const updated = { ...p };
             if (update.stockAlmacen !== undefined) {
               updated.stockAlmacen = update.stockAlmacen;
@@ -162,8 +162,8 @@ export const useInventoryStore = create<InventoryState>()(
               updated.totalStock = update.totalStock;
             } else {
               // Recalcular totalStock
-              updated.totalStock = 
-                (update.stockAlmacen ?? updated.stockAlmacen) + 
+              updated.totalStock =
+                (update.stockAlmacen ?? updated.stockAlmacen) +
                 (update.stockCafetin ?? updated.stockCafetin);
             }
             if (update.status !== undefined) {
@@ -180,3 +180,10 @@ export const useInventoryStore = create<InventoryState>()(
     }
   )
 );
+
+// Optimized selectors for granular subscriptions (reduces re-renders)
+export const selectProducts = (state: InventoryState) => state.products;
+export const selectPendingActions = (state: InventoryState) => state.pendingActions;
+export const selectPendingActionsCount = (state: InventoryState) => state.pendingActions.length;
+export const selectHasPendingActions = (state: InventoryState) => state.pendingActions.length > 0;
+

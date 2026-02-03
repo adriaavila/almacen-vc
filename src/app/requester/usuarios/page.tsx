@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Pencil as PencilIcon, Archive as ArchiveIcon, Plus } from "lucide-react";
+import { formatDate } from '@/lib/formatters';
 
 type User = {
   _id: Id<"users">;
@@ -103,13 +104,13 @@ export default function UsuariosPage() {
     }
   };
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
+  const handleEditClick = useCallback((user: User) => {
+    handleOpenModal(user);
+  }, []);
+
+  const handleArchiveClick = useCallback((userId: Id<"users">) => {
+    handleArchive(userId);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -182,14 +183,14 @@ export default function UsuariosPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleOpenModal(user)}
+                            onClick={() => handleEditClick(user)}
                             className="text-emerald-600 hover:text-emerald-900 p-1 rounded-full hover:bg-emerald-50 transition-colors"
                             title="Editar"
                           >
                             <PencilIcon size={18} />
                           </button>
                           <button
-                            onClick={() => handleArchive(user._id)}
+                            onClick={() => handleArchiveClick(user._id)}
                             className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-colors"
                             title="Archivar"
                           >

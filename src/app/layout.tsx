@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ConvexProvider } from "@/lib/convex/provider";
 import { OfflineSyncManager } from "@/components/offline/OfflineSyncManager";
+import { OfflineBanner } from "@/components/offline/OfflineBanner";
 import { poppins, workSans } from "@/lib/fonts";
 
 export const metadata: Metadata = {
@@ -37,10 +38,6 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${poppins.variable} ${workSans.variable}`}>
       <head>
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <meta name="theme-color" content="#10b981" />
       </head>
       <body className="font-sans antialiased">
@@ -48,6 +45,7 @@ export default function RootLayout({
           Saltar al contenido principal
         </a>
         <ConvexProvider>
+          <OfflineBanner />
           <OfflineSyncManager />
           {children}
         </ConvexProvider>
