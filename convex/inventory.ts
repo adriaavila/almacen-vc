@@ -1,6 +1,36 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+
+// ============================================================
+// INTERNAL QUERIES (for use in httpActions)
+// ============================================================
+
+// Internal: Get all products (for webhook)
+export const internalListProducts = internalQuery({
+  handler: async (ctx) => {
+    return await ctx.db.query("products").collect();
+  },
+});
+
+// Internal: Get all inventory with products (for webhook)
+export const internalListInventoryWithProducts = internalQuery({
+  handler: async (ctx) => {
+    const inventory = await ctx.db.query("inventory").collect();
+
+    const inventoryWithProducts = await Promise.all(
+      inventory.map(async (inv) => {
+        const product = await ctx.db.get(inv.productId);
+        return {
+          ...inv,
+          product: product || undefined,
+        };
+      })
+    );
+
+    return inventoryWithProducts;
+  },
+});
 
 // ============================================================
 // QUERIES

@@ -6,7 +6,49 @@ import { v } from "convex/values";
  */
 export const list = query({
     handler: async (ctx) => {
-        return await ctx.db.query("notification_settings").collect();
+        const recipients = await ctx.db.query("notification_settings").collect();
+
+        // Add System Recipients (Env Vars)
+        const systemRecipients = [];
+        const adminChatId = process.env.ADMIN_CHAT_ID;
+        const warehouseManagerChatId = process.env.WAREHOUSE_MANAGER_CHAT_ID;
+
+        // Helper to check if chatId exists in DB
+        const existsInDb = (chatId: string) => recipients.some((r) => r.chatId === chatId);
+
+        if (adminChatId && !existsInDb(adminChatId)) {
+            systemRecipients.push({
+                _id: "system_admin",
+                name: "Administrador (Sistema)",
+                chatId: adminChatId,
+                isAdmin: true,
+                enabled: true,
+                isSystem: true,
+                preferences: {
+                    lowStock: true,
+                    weeklyReport: true,
+                    newOrders: true,
+                },
+            });
+        }
+
+        if (warehouseManagerChatId && !existsInDb(warehouseManagerChatId)) {
+            systemRecipients.push({
+                _id: "system_manager",
+                name: "Encargado de Almacén (Sistema)",
+                chatId: warehouseManagerChatId,
+                isAdmin: false,
+                enabled: true,
+                isSystem: true,
+                preferences: {
+                    lowStock: true,
+                    weeklyReport: true,
+                    newOrders: true,
+                },
+            });
+        }
+
+        return [...recipients, ...systemRecipients];
     },
 });
 

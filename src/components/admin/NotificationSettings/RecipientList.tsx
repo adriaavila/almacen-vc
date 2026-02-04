@@ -54,6 +54,7 @@ export default function RecipientList() {
                             <th className="px-6 py-4">Nombre</th>
                             <th className="px-6 py-4">Chat ID</th>
                             <th className="px-6 py-4 text-center">Stock Bajo</th>
+                            <th className="px-6 py-4 text-center">Pedidos</th>
                             <th className="px-6 py-4 text-center">Reporte Semanal</th>
                             <th className="px-6 py-4 text-center">Estado</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
@@ -62,15 +63,23 @@ export default function RecipientList() {
                     <tbody className="divide-y divide-gray-100">
                         {recipients.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                     No hay destinatarios configurados.
                                 </td>
                             </tr>
                         ) : (
+
                             recipients.map((recipient: any) => (
-                                <tr key={recipient._id} className="hover:bg-gray-50 transition-colors">
+                                <tr key={recipient._id} className={`hover:bg-gray-50 transition-colors ${recipient.isSystem ? "bg-gray-50/50" : ""}`}>
                                     <td className="px-6 py-4">
-                                        <div className="font-medium text-gray-900">{recipient.name}</div>
+                                        <div className="font-medium text-gray-900 flex items-center gap-2">
+                                            {recipient.name}
+                                            {recipient.isSystem && (
+                                                <span className="inline-flex px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] border border-blue-100 rounded-full font-semibold uppercase tracking-wide">
+                                                    Sistema
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 font-mono text-xs text-gray-500">{recipient.chatId}</td>
 
@@ -78,6 +87,13 @@ export default function RecipientList() {
                                     <td className="px-6 py-4 text-center">
                                         {recipient.preferences.lowStock ? (
                                             <span className="inline-flex px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Sí</span>
+                                        ) : (
+                                            <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">No</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        {recipient.preferences.newOrders ? (
+                                            <span className="inline-flex px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Sí</span>
                                         ) : (
                                             <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">No</span>
                                         )}
@@ -91,35 +107,43 @@ export default function RecipientList() {
                                     </td>
 
                                     <td className="px-6 py-4 text-center">
-                                        <button
-                                            onClick={() => toggleRecipient({ id: recipient._id })}
-                                            className={`p-1.5 rounded-full transition-colors ${recipient.enabled
-                                                ? "bg-green-100 text-green-600 hover:bg-green-200"
-                                                : "bg-red-100 text-red-600 hover:bg-red-200"
-                                                }`}
-                                            title={recipient.enabled ? "Desactivar" : "Activar"}
-                                        >
-                                            {recipient.enabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
-                                        </button>
+                                        {recipient.isSystem ? (
+                                            <span className="text-gray-400" title="No se puede desactivar un destinatario del sistema">
+                                                <Bell className="w-4 h-4 opacity-50" />
+                                            </span>
+                                        ) : (
+                                            <button
+                                                onClick={() => toggleRecipient({ id: recipient._id })}
+                                                className={`p-1.5 rounded-full transition-colors ${recipient.enabled
+                                                    ? "bg-green-100 text-green-600 hover:bg-green-200"
+                                                    : "bg-red-100 text-red-600 hover:bg-red-200"
+                                                    }`}
+                                                title={recipient.enabled ? "Desactivar" : "Activar"}
+                                            >
+                                                {recipient.enabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                                            </button>
+                                        )}
                                     </td>
 
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                onClick={() => handleEdit(recipient)}
-                                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                title="Editar"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(recipient._id)}
-                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                        {!recipient.isSystem && (
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleEdit(recipient)}
+                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(recipient._id)}
+                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))

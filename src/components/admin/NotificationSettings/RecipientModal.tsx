@@ -160,6 +160,24 @@ export default function RecipientModal({ isOpen, onClose, recipient }: Recipient
                         <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
                             <input
                                 type="checkbox"
+                                checked={formData.preferences.newOrders}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        preferences: { ...formData.preferences, newOrders: e.target.checked },
+                                    })
+                                }
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <div>
+                                <span className="block text-sm font-medium text-gray-900">Nuevos Pedidos</span>
+                                <span className="block text-xs text-gray-500">Notificación inmediata al crear pedido</span>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                            <input
+                                type="checkbox"
                                 checked={formData.preferences.weeklyReport}
                                 onChange={(e) =>
                                     setFormData({

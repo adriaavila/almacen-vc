@@ -37,10 +37,10 @@ async function getRecipients(ctx: any, preferenceKey?: "lowStock" | "weeklyRepor
 
   if (!token) {
     console.error("TELEGRAM_TOKEN not configured.");
-    return { token: null, recipients: [] };
+    return { token: null, targets: [] };
   }
 
-  // 2. Filter recipients
+  // 2. Filter recipients from DB
   let targets: string[] = [];
 
   if (settings.length > 0) {
@@ -49,11 +49,22 @@ async function getRecipients(ctx: any, preferenceKey?: "lowStock" | "weeklyRepor
       .map((s: any) => s.chatId);
   }
 
-  // 3. Fallback to ADMIN_CHAT_ID if DB is empty or no targets found (and it's critical?)
-  // Let's fallback only if DB is empty to ensure at least someone gets it.
-  if (settings.length === 0 && process.env.ADMIN_CHAT_ID) {
-    targets.push(process.env.ADMIN_CHAT_ID);
+  // 3. Add Fixed Recipients (Env Vars)
+  // The user requested that ADMIN_CHAT_ID and WAREHOUSE_MANAGER_CHAT_ID always receive 'Nuevo Pedido' and 'Stock Bajo'.
+  // We'll add them to the targets list if the env vars are present.
+  const adminChatId = process.env.ADMIN_CHAT_ID;
+  const warehouseManagerChatId = process.env.WAREHOUSE_MANAGER_CHAT_ID;
+
+  if (adminChatId) {
+    targets.push(adminChatId);
   }
+
+  if (warehouseManagerChatId) {
+    targets.push(warehouseManagerChatId);
+  }
+
+  // 4. Deduplicate targets
+  targets = Array.from(new Set(targets));
 
   return { token, targets };
 }
