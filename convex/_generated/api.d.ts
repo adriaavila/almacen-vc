@@ -18,6 +18,7 @@ import type * as movements from "../movements.js";
 import type * as notifications from "../notifications.js";
 import type * as orderItems from "../orderItems.js";
 import type * as orders from "../orders.js";
+import type * as procurement from "../procurement.js";
 import type * as products from "../products.js";
 import type * as repuestos from "../repuestos.js";
 import type * as seed from "../seed.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   orderItems: typeof orderItems;
   orders: typeof orders;
+  procurement: typeof procurement;
   products: typeof products;
   repuestos: typeof repuestos;
   seed: typeof seed;

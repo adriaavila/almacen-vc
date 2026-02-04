@@ -172,4 +172,30 @@ export default defineSchema({
       newOrders: v.boolean(),
     }),
   }).index("by_chatId", ["chatId"]),
+
+  // ============================================================
+  // PROCUREMENT SYSTEM (External Supplier Orders)
+  // ============================================================
+
+  // Supplier Orders - Orders to external providers
+  supplier_orders: defineTable({
+    providerName: v.optional(v.string()),
+    status: v.union(v.literal("pendiente"), v.literal("recibido"), v.literal("cancelado")),
+    totalItems: v.number(),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    receivedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_date", ["createdAt"]),
+
+  // Supplier Order Items - Individual items within a supplier order
+  supplier_order_items: defineTable({
+    supplierOrderId: v.id("supplier_orders"),
+    productId: v.id("products"),
+    cantidadSolicitada: v.number(), // Purchase Units (Cajas, Sacos)
+    cantidadRecibida: v.optional(v.number()),
+    costoUnitario: v.optional(v.number()),
+  })
+    .index("by_order", ["supplierOrderId"]),
 });
