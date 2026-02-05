@@ -246,7 +246,7 @@ export const listGroupedByOrder = query({
   },
   handler: async (ctx, args) => {
     const limit = args.limit || 100;
-    
+
     // Get all movements
     const allMovements = await ctx.db
       .query("movements")
@@ -254,13 +254,16 @@ export const listGroupedByOrder = query({
       .order("desc")
       .collect();
 
-    // Separate movements with and without orderId
+    // Separate movements by group type
     const movementsWithOrders: Array<typeof allMovements[0] & { orderId: Id<"orders"> }> = [];
+    const movementsWithSupplierOrders: Array<typeof allMovements[0] & { supplierOrderId: Id<"supplier_orders"> }> = [];
     const movementsWithoutOrders: typeof allMovements = [];
 
     for (const mov of allMovements) {
       if (mov.orderId) {
         movementsWithOrders.push(mov as typeof mov & { orderId: Id<"orders"> });
+      } else if (mov.supplierOrderId) {
+        movementsWithSupplierOrders.push(mov as typeof mov & { supplierOrderId: Id<"supplier_orders"> });
       } else {
         movementsWithoutOrders.push(mov);
       }
@@ -275,11 +278,20 @@ export const listGroupedByOrder = query({
       groupedByOrderId.get(mov.orderId)!.push(mov);
     }
 
+    // Group movements by supplierOrderId
+    const groupedBySupplierOrderId = new Map<Id<"supplier_orders">, typeof movementsWithSupplierOrders>();
+    for (const mov of movementsWithSupplierOrders) {
+      if (!groupedBySupplierOrderId.has(mov.supplierOrderId)) {
+        groupedBySupplierOrderId.set(mov.supplierOrderId, []);
+      }
+      groupedBySupplierOrderId.get(mov.supplierOrderId)!.push(mov);
+    }
+
     // Get order info and populate products for each group
-    const groups = await Promise.all(
+    const orderGroups = await Promise.all(
       Array.from(groupedByOrderId.entries()).map(async ([orderId, movements]) => {
         const order = await ctx.db.get(orderId);
-        
+
         // Populate product info for movements
         const movementsWithProducts = await Promise.all(
           movements.map(async (mov) => {
@@ -296,19 +308,55 @@ export const listGroupedByOrder = query({
 
         return {
           orderId,
+          supplierOrderId: null,
           order: order || null,
+          supplierOrder: null,
           movements: movementsWithProducts,
           timestamp: order?.createdAt || 0,
-          area: order?.area || "",
+          area: order?.area || "Desconocido",
         };
       })
     );
 
-    // Sort groups by order timestamp (most recent first)
-    groups.sort((a, b) => b.timestamp - a.timestamp);
+    // Get supplier order info and populate products for each group
+    const supplierOrderGroups = await Promise.all(
+      Array.from(groupedBySupplierOrderId.entries()).map(async ([supplierOrderId, movements]) => {
+        const order = await ctx.db.get(supplierOrderId);
+
+        // Populate product info for movements
+        const movementsWithProducts = await Promise.all(
+          movements.map(async (mov) => {
+            const product = await ctx.db.get(mov.productId);
+            return {
+              ...mov,
+              product: product || undefined,
+            };
+          })
+        );
+
+        // Sort movements by timestamp descending
+        movementsWithProducts.sort((a, b) => b.timestamp - a.timestamp);
+
+        return {
+          orderId: null,
+          supplierOrderId,
+          order: null,
+          supplierOrder: order || null,
+          movements: movementsWithProducts,
+          timestamp: order?.createdAt || 0,
+          area: order?.providerName || "Abastecimiento",
+        };
+      })
+    );
+
+    // Combine all groups
+    const allGroups = [...orderGroups, ...supplierOrderGroups];
+
+    // Sort groups by timestamp (most recent first)
+    allGroups.sort((a, b) => b.timestamp - a.timestamp);
 
     // Limit groups
-    const limitedGroups = groups.slice(0, limit);
+    const limitedGroups = allGroups.slice(0, limit);
 
     // Populate products for movements without orders
     const otherMovementsWithProducts = await Promise.all(

@@ -13,8 +13,8 @@ interface CreateProductModalProps {
   onProductCreated: (productId: Id<'products'>, product: any) => void;
 }
 
-const BASE_UNITS = ['unidad', 'litro', 'lt', 'mililitro', 'ml', 'kilogramo', 'kg', 'gramo', 'gr', 'metro', 'm', 'pieza'];
-const PURCHASE_UNITS = ['caja', 'fardo', 'saco', 'paquete', 'unidad'];
+const BASE_UNITS = ['Unidad', 'Litro', 'Kg', 'Gr', 'Pieza'];
+const PURCHASE_UNITS = ['Caja', 'Fardo', 'Saco', 'Paquete', 'Unidad', 'Kg'];
 
 export function CreateProductModal({ isOpen, onClose, onProductCreated }: CreateProductModalProps) {
   const createProduct = useMutation(api.products.create);

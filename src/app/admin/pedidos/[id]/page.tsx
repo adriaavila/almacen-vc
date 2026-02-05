@@ -10,6 +10,7 @@ import { Toast } from '@/components/ui/Toast';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/Badge';
+import { Plus, Minus, Trash2 } from 'lucide-react';
 
 export default function OrderDetailPage() {
   const router = useRouter();
@@ -50,14 +51,20 @@ export default function OrderDetailPage() {
     setIsEditing(true);
   };
 
-  const handleQuantityChange = (orderItemId: string, value: string) => {
-    const qty = parseInt(value);
-    if (!isNaN(qty) && qty >= 0) {
-      setEditedQuantities(prev => ({
-        ...prev,
-        [orderItemId]: qty
-      }));
-    }
+  const handleIncrement = (item: any) => {
+    const currentQty = editedQuantities[item.orderItemId] ?? item.cantidad;
+    setEditedQuantities(prev => ({
+      ...prev,
+      [item.orderItemId]: currentQty + 1
+    }));
+  };
+
+  const handleDecrement = (item: any) => {
+    const currentQty = editedQuantities[item.orderItemId] ?? item.cantidad;
+    setEditedQuantities(prev => ({
+      ...prev,
+      [item.orderItemId]: Math.max(0, currentQty - 1)
+    }));
   };
 
   const handleSaveQuantities = async () => {
@@ -65,7 +72,7 @@ export default function OrderDetailPage() {
     setIsDelivering(true); // Reuse loading state
     try {
       const itemsToUpdate = Object.entries(editedQuantities).map(([id, qty]) => ({
-        orderItemId: id as any,
+        orderItemId: id as any, // Cast to any or appropriate ID type if known
         cantidad: qty
       }));
 
@@ -234,36 +241,74 @@ export default function OrderDetailPage() {
             </div>
 
             {order.items && order.items.length > 0 ? (
-              <div className="space-y-2">
-                {order.items.map((item: any) => (
-                  <div
-                    key={item._id}
-                    className="bg-gray-50 rounded-md border border-gray-200 p-4"
-                  >
-                    <div className="mb-1">
-                      <span className="text-base font-semibold text-gray-900">{item.nombre}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-500">{item.categoria}</span>
-                      {isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={editedQuantities[item.orderItemId] ?? item.cantidad}
-                            onChange={(e) => handleQuantityChange(item.orderItemId, e.target.value)}
-                          />
-                          <span className="text-sm font-medium text-gray-900">{item.unidad}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm font-medium text-gray-900">
-                          {item.cantidad} {item.unidad}
-                        </span>
+              <div className="space-y-3">
+                {order.items.map((item: any) => {
+                  const currentQty = isEditing
+                    ? (editedQuantities[item.orderItemId] ?? item.cantidad)
+                    : item.cantidad;
+                  const isDeleted = isEditing && currentQty === 0;
+
+                  return (
+                    <div
+                      key={item._id}
+                      className={`
+                      relative overflow-hidden rounded-lg border transition-all duration-200
+                      ${isDeleted
+                          ? 'bg-red-50 border-red-100'
+                          : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'}
+                      p-4
+                    `}
+                    >
+                      {isDeleted && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-400" />
                       )}
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className={`flex-1 ${isDeleted ? 'opacity-50' : ''}`}>
+                          <div className="mb-1">
+                            <span className="text-base font-semibold text-gray-900">{item.nombre}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">{item.categoria}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <div className={`flex items-center bg-gray-50 rounded-lg border border-gray-200 ${isDeleted ? 'opacity-50' : ''}`}>
+                                <button
+                                  onClick={() => handleDecrement(item)}
+                                  className="p-2 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-l-lg transition-colors disabled:opacity-30"
+                                  disabled={currentQty <= 0}
+                                >
+                                  <Minus size={16} strokeWidth={2.5} />
+                                </button>
+                                <div className="w-12 text-center text-sm font-semibold text-gray-900">
+                                  {currentQty}
+                                </div>
+                                <button
+                                  onClick={() => handleIncrement(item)}
+                                  className="p-2 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-r-lg transition-colors"
+                                >
+                                  <Plus size={16} strokeWidth={2.5} />
+                                </button>
+                              </div>
+                              <span className="text-sm font-medium text-gray-500 w-8 text-center">{item.unidad}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
+                              <span className="text-sm font-bold text-gray-900">
+                                {item.cantidad}
+                              </span>
+                              <span className="text-xs font-medium text-gray-500">
+                                {item.unidad}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="bg-gray-50 rounded-md border border-gray-200 p-4 text-center">
@@ -273,7 +318,7 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        {/* Delivery Feedback (Mejora #5) */}
+        {/* Delivery Feedback */}
         {isDelivered && deliveryResult && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
             <div className="mb-4">

@@ -2,6 +2,11 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
+const capitalize = (s: string) => {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 // ============================================================
 // QUERIES
 // ============================================================
@@ -125,6 +130,7 @@ export const listWithInventory = query({
         ...product,
         totalStock,
         stockAlmacen: productInventory.find((i) => i.location === "almacen")?.stockActual || 0,
+        stockMinimoAlmacen: productInventory.find((i) => i.location === "almacen")?.stockMinimo || 0,
         stockCafetin: productInventory.find((i) => i.location === "cafetin")?.stockActual || 0,
         status: (totalStock <= minStock ? "bajo_stock" : "ok") as "ok" | "bajo_stock",
       };
@@ -167,8 +173,8 @@ export const create = mutation({
       brand: args.brand,
       category: args.category,
       subCategory: args.subCategory,
-      baseUnit: args.baseUnit,
-      purchaseUnit: args.purchaseUnit,
+      baseUnit: capitalize(args.baseUnit),
+      purchaseUnit: capitalize(args.purchaseUnit),
       conversionFactor: args.conversionFactor,
       active: args.active ?? true,
     });
@@ -216,8 +222,8 @@ export const bulkImportCafetin = mutation({
           brand: productData.brand || "",
           category: productData.category,
           subCategory: productData.subCategory || undefined,
-          baseUnit: productData.baseUnit,
-          purchaseUnit: productData.baseUnit, // Default to same as baseUnit
+          baseUnit: capitalize(productData.baseUnit),
+          purchaseUnit: capitalize(productData.baseUnit), // Default to same as baseUnit
           conversionFactor: 1, // Default to 1
           active: true,
         });
@@ -333,7 +339,7 @@ export const bulkImport = mutation({
           continue;
         }
 
-        const purchaseUnit = productData.purchaseUnit || productData.baseUnit;
+        const purchaseUnit = productData.purchaseUnit ? capitalize(productData.purchaseUnit) : capitalize(productData.baseUnit);
         const conversionFactor = productData.conversionFactor ?? 1;
         const active = productData.active ?? true;
 
@@ -347,7 +353,7 @@ export const bulkImport = mutation({
             // Type assertion is safe here because we've already validated the format
             const productId = productData.id as Id<"products">;
             existing = await ctx.db.get(productId);
-            
+
             if (!existing) {
               results.errors.push({
                 row: i + 1,
@@ -378,7 +384,7 @@ export const bulkImport = mutation({
         if (existing) {
           // Update existing product
           const updates: Partial<typeof existing> = {};
-          
+
           // Allow name updates if ID was provided (ID-based update)
           if (productData.id && productData.name !== existing.name) {
             // Check if new name conflicts with another product
@@ -386,7 +392,7 @@ export const bulkImport = mutation({
               .query("products")
               .withIndex("by_name", (q) => q.eq("name", productData.name))
               .first();
-            
+
             if (nameConflict && nameConflict._id !== existing._id) {
               results.errors.push({
                 row: i + 1,
@@ -397,11 +403,11 @@ export const bulkImport = mutation({
             }
             updates.name = productData.name;
           }
-          
+
           if (productData.brand !== undefined) updates.brand = productData.brand || "";
           if (productData.category !== undefined) updates.category = productData.category;
           if (productData.subCategory !== undefined) updates.subCategory = productData.subCategory || undefined;
-          if (productData.baseUnit !== undefined) updates.baseUnit = productData.baseUnit;
+          if (productData.baseUnit !== undefined) updates.baseUnit = capitalize(productData.baseUnit);
           if (productData.purchaseUnit !== undefined) updates.purchaseUnit = purchaseUnit;
           if (productData.conversionFactor !== undefined) updates.conversionFactor = conversionFactor;
           if (productData.active !== undefined) updates.active = active;
@@ -416,7 +422,7 @@ export const bulkImport = mutation({
             brand: productData.brand || "",
             category: productData.category,
             subCategory: productData.subCategory || undefined,
-            baseUnit: productData.baseUnit,
+            baseUnit: capitalize(productData.baseUnit),
             purchaseUnit: purchaseUnit,
             conversionFactor: conversionFactor,
             active: active,
@@ -536,7 +542,11 @@ export const update = mutation({
     const cleanUpdates: Partial<typeof product> = {};
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) {
-        (cleanUpdates as Record<string, unknown>)[key] = value;
+        if (key === "baseUnit" || key === "purchaseUnit") {
+          (cleanUpdates as Record<string, unknown>)[key] = capitalize(value as string);
+        } else {
+          (cleanUpdates as Record<string, unknown>)[key] = value;
+        }
       }
     }
 
@@ -627,11 +637,45 @@ export const updateUnitConversion = mutation({
     }
 
     await ctx.db.patch(args.id, {
-      baseUnit: args.baseUnit,
-      purchaseUnit: args.purchaseUnit,
+      baseUnit: capitalize(args.baseUnit),
+      purchaseUnit: capitalize(args.purchaseUnit),
       conversionFactor: args.conversionFactor,
     });
 
     return { id: args.id };
   },
 });
+
+// Migration to fix capitalization of existing products
+export const fixProductUnitsCapitalization = mutation({
+  handler: async (ctx) => {
+    const products = await ctx.db.query("products").collect();
+    let updatedCount = 0;
+
+    for (const product of products) {
+      let needsUpdate = false;
+      const updates: any = {};
+
+      if (product.baseUnit && product.baseUnit !== capitalize(product.baseUnit)) {
+        updates.baseUnit = capitalize(product.baseUnit);
+        needsUpdate = true;
+      }
+
+      if (product.purchaseUnit && product.purchaseUnit !== capitalize(product.purchaseUnit)) {
+        updates.purchaseUnit = capitalize(product.purchaseUnit);
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        await ctx.db.patch(product._id, updates);
+        updatedCount++;
+      }
+    }
+
+    return {
+      total: products.length,
+      updated: updatedCount,
+    };
+  },
+});
+

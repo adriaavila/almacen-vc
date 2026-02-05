@@ -13,43 +13,42 @@ import { MovementType, Movement } from '@/types';
 
 type MovementTypeFilter = 'all' | MovementType;
 
-// Component to display a group of movements for an order
-function OrderGroup({ 
-  orderId, 
-  order, 
-  movements,
+// Component to display a group of movements
+function MovementGroup({
+  group,
   getMovementInfo,
   formatDate,
-  formatShortDate,
-}: { 
-  orderId: Id<'orders'>;
-  order: { area: string; createdAt: number; status: string } | null;
-  movements: Movement[];
+}: {
+  group: {
+    orderId: Id<'orders'> | null;
+    supplierOrderId: Id<'supplier_orders'> | null;
+    timestamp: number;
+    area: string;
+    movements: Movement[];
+  };
   getMovementInfo: (type: MovementType) => { label: string; bgColor: string; textColor: string; borderColor: string };
   formatDate: (timestamp: number) => string;
-  formatShortDate: (timestamp: number) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  if (!order) return null;
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 overflow-hidden">
-      {/* Order Header */}
+      {/* Group Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full px-6 py-4 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between"
       >
         <div className="flex items-center gap-4">
           <div className="text-sm font-medium text-gray-900">
-            Pedido {order.area}
+            {group.supplierOrderId ? 'Pedido Abastecimiento' : `Pedido ${group.area}`}
+            {group.supplierOrderId && <span className="ml-2 text-gray-500 font-normal">({group.area})</span>}
           </div>
           <div className="text-xs text-gray-500">
-            {formatDate(order.createdAt)}
+            {formatDate(group.timestamp)}
           </div>
           <div className="text-xs">
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {movements.length} movimiento{movements.length !== 1 ? 's' : ''}
+              {group.movements.length} movimiento{group.movements.length !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
@@ -88,9 +87,9 @@ function OrderGroup({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {movements.map((movement) => {
+                {group.movements.map((movement) => {
                   const info = getMovementInfo(movement.type);
-                  const isPositive = movement.type === 'COMPRA' || 
+                  const isPositive = movement.type === 'COMPRA' ||
                     (movement.type === 'AJUSTE' && movement.nextStock > movement.prevStock);
                   return (
                     <tr
@@ -118,9 +117,8 @@ function OrderGroup({
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm">
                         <span
-                          className={`font-medium ${
-                            isPositive ? 'text-emerald-700' : 'text-red-700'
-                          }`}
+                          className={`font-medium ${isPositive ? 'text-emerald-700' : 'text-red-700'
+                            }`}
                         >
                           {isPositive ? '+' : '-'}
                           {movement.quantity}
@@ -143,9 +141,9 @@ function OrderGroup({
 
           {/* Mobile Cards */}
           <div className="md:hidden">
-            {movements.map((movement) => {
+            {group.movements.map((movement) => {
               const info = getMovementInfo(movement.type);
-              const isPositive = movement.type === 'COMPRA' || 
+              const isPositive = movement.type === 'COMPRA' ||
                 (movement.type === 'AJUSTE' && movement.nextStock > movement.prevStock);
               return (
                 <div
@@ -181,9 +179,8 @@ function OrderGroup({
                     </p>
                     <div className="text-right flex items-baseline gap-1">
                       <p
-                        className={`text-base font-bold ${
-                          isPositive ? 'text-emerald-700' : 'text-red-700'
-                        }`}
+                        className={`text-base font-bold ${isPositive ? 'text-emerald-700' : 'text-red-700'
+                          }`}
                       >
                         {isPositive ? '+' : '-'}
                         {movement.quantity}
@@ -205,7 +202,7 @@ function OrderGroup({
 
 export default function MovementsPage() {
   const [groupByOrder, setGroupByOrder] = useState(true);
-  
+
   const movements = useQuery(api.movements.list, {
     limit: 100,
   });
@@ -320,7 +317,7 @@ export default function MovementsPage() {
   // Render movement row (for flat view)
   const renderMovementRow = (movement: Movement) => {
     const info = getMovementInfo(movement.type);
-    const isPositive = movement.type === 'COMPRA' || 
+    const isPositive = movement.type === 'COMPRA' ||
       (movement.type === 'AJUSTE' && movement.nextStock > movement.prevStock);
     return (
       <tr
@@ -351,9 +348,8 @@ export default function MovementsPage() {
         </td>
         <td className="px-4 py-2 whitespace-nowrap text-sm">
           <span
-            className={`font-medium ${
-              isPositive ? 'text-emerald-700' : 'text-red-700'
-            }`}
+            className={`font-medium ${isPositive ? 'text-emerald-700' : 'text-red-700'
+              }`}
           >
             {isPositive ? '+' : '-'}
             {movement.quantity}
@@ -374,7 +370,7 @@ export default function MovementsPage() {
   // Render movement card (for flat view mobile)
   const renderMovementCard = (movement: Movement) => {
     const info = getMovementInfo(movement.type);
-    const isPositive = movement.type === 'COMPRA' || 
+    const isPositive = movement.type === 'COMPRA' ||
       (movement.type === 'AJUSTE' && movement.nextStock > movement.prevStock);
     return (
       <div
@@ -413,9 +409,8 @@ export default function MovementsPage() {
           </p>
           <div className="text-right flex items-baseline gap-1">
             <p
-              className={`text-base font-bold ${
-                isPositive ? 'text-emerald-700' : 'text-red-700'
-              }`}
+              className={`text-base font-bold ${isPositive ? 'text-emerald-700' : 'text-red-700'
+                }`}
             >
               {isPositive ? '+' : '-'}
               {movement.quantity}
@@ -433,7 +428,7 @@ export default function MovementsPage() {
   if (movements === undefined || (groupByOrder && groupedData === undefined)) {
     return (
       <PageContainer>
-        <AdminHeader 
+        <AdminHeader
           title="Movimientos"
           subtitle="Historial de movimientos de stock"
         />
@@ -444,25 +439,16 @@ export default function MovementsPage() {
     );
   }
 
-  const totalMovements = groupByOrder 
+  const totalMovements = groupByOrder
     ? filteredGroupedData.groups.reduce((sum, g) => sum + g.movements.length, 0) + filteredGroupedData.otherMovements.length
     : filteredMovements.length;
 
   return (
     <PageContainer>
-      <AdminHeader 
+      <AdminHeader
         title="Movimientos"
         subtitle="Historial de movimientos de stock"
       />
-
-      {/* Registrar Ingreso Button */}
-      <div className="mb-6 flex justify-center">
-        <Link href="/admin/movements/new">
-          <Button variant="primary" className="h-12">
-            Registrar Ingreso
-          </Button>
-        </Link>
-      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -558,14 +544,11 @@ export default function MovementsPage() {
         <div>
           {/* Order Groups */}
           {filteredGroupedData.groups.map((group) => (
-            <OrderGroup
-              key={group.orderId}
-              orderId={group.orderId}
-              order={group.order}
-              movements={group.movements}
+            <MovementGroup
+              key={group.orderId || group.supplierOrderId}
+              group={group}
               getMovementInfo={getMovementInfo}
               formatDate={formatDate}
-              formatShortDate={formatShortDate}
             />
           ))}
 

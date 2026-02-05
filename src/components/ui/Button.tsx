@@ -8,32 +8,39 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({
   variant = 'primary',
+  size = 'md',
   children,
   className = '',
   disabled,
   loading = false,
   ...props
-}: ButtonProps) {
+}: ButtonProps & { size?: 'sm' | 'md' | 'lg' | 'icon' }) {
   const baseClasses = `
     rounded-md font-medium
     flex items-center justify-center text-center
-    min-h-[44px] min-w-[44px] px-6 py-2.5
     transition-all duration-200 ease-in-out
     disabled:opacity-50 disabled:cursor-not-allowed
     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2
     active:scale-[0.98]
     cursor-pointer
   `.trim().replace(/\s+/g, ' ');
-  
+
+  const sizeClasses = {
+    sm: 'h-8 px-3 text-sm min-w-[32px]',
+    md: 'h-11 px-6 text-base min-w-[44px]',
+    lg: 'h-12 px-8 text-lg min-w-[48px]',
+    icon: 'h-10 w-10 p-0',
+  };
+
   const variantClasses = {
     primary: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md',
     secondary: 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow-md',
     destructive: 'bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow-md',
   };
-  
+
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
       disabled={disabled || loading}
       {...props}
     >

@@ -176,6 +176,14 @@ export const receiveOrder = mutation({
                 cantidadRecibida: v.number(), // Quantity ACTUALLY received in Purchase Units
             })
         ),
+        extraItems: v.optional(
+            v.array(
+                v.object({
+                    productId: v.id("products"),
+                    cantidadRecibida: v.number(),
+                })
+            )
+        ),
     },
     handler: async (ctx, args) => {
         // Validate order exists and is pending
@@ -193,65 +201,93 @@ export const receiveOrder = mutation({
             receivedAt: Date.now(),
         });
 
-        // Process each item
+        // 1. Process EXISTING items
         for (const item of args.items) {
             // Update the order item with received quantity
             await ctx.db.patch(item.itemId, {
                 cantidadRecibida: item.cantidadRecibida,
             });
 
-            // Get product for conversion factor
-            const product = await ctx.db.get(item.productId);
-            if (!product) continue;
+            await processInventoryUpdate(ctx, item.productId, item.cantidadRecibida, args.supplierOrderId);
+        }
 
-            // CONVERT: Purchase Units → Base Units
-            // e.g., 2 Cajas * 24 units/caja = 48 units
-            const quantityToAdd = item.cantidadRecibida * product.conversionFactor;
-
-            // Find current inventory at ALMACEN
-            const currentInv = await ctx.db
-                .query("inventory")
-                .withIndex("by_product_location", (q) =>
-                    q.eq("productId", item.productId).eq("location", "almacen")
-                )
-                .first();
-
-            const prevStock = currentInv?.stockActual ?? 0;
-            const nextStock = prevStock + quantityToAdd;
-
-            // Update or create inventory record
-            if (currentInv) {
-                await ctx.db.patch(currentInv._id, {
-                    stockActual: nextStock,
-                    updatedAt: Date.now(),
-                });
-            } else {
-                await ctx.db.insert("inventory", {
+        // 2. Process EXTRA items
+        if (args.extraItems && args.extraItems.length > 0) {
+            for (const item of args.extraItems) {
+                // Create new order item record
+                await ctx.db.insert("supplier_order_items", {
+                    supplierOrderId: args.supplierOrderId,
                     productId: item.productId,
-                    location: "almacen",
-                    stockActual: nextStock,
-                    stockMinimo: 10, // Default minimum
-                    updatedAt: Date.now(),
+                    cantidadSolicitada: 0, // Not originally requested
+                    cantidadRecibida: item.cantidadRecibida,
                 });
-            }
 
-            // Record movement for traceability
-            await ctx.db.insert("movements", {
-                productId: item.productId,
-                type: "COMPRA",
-                from: "PROVEEDOR",
-                to: "ALMACEN",
-                quantity: quantityToAdd,
-                prevStock,
-                nextStock,
-                user: "Admin", // TODO: Get from auth context
-                timestamp: Date.now(),
-            });
+                await processInventoryUpdate(ctx, item.productId, item.cantidadRecibida, args.supplierOrderId);
+            }
         }
 
         return { success: true, orderId: args.supplierOrderId };
     },
 });
+
+// Helper to update inventory and record movement
+async function processInventoryUpdate(
+    ctx: any,
+    productId: any,
+    cantidadRecibida: number,
+    supplierOrderId: any
+) {
+    if (cantidadRecibida <= 0) return;
+
+    // Get product for conversion factor
+    const product = await ctx.db.get(productId);
+    if (!product) return;
+
+    // CONVERT: Purchase Units → Base Units
+    // e.g., 2 Cajas * 24 units/caja = 48 units
+    const quantityToAdd = cantidadRecibida * product.conversionFactor;
+
+    // Find current inventory at ALMACEN
+    const currentInv = await ctx.db
+        .query("inventory")
+        .withIndex("by_product_location", (q: any) =>
+            q.eq("productId", productId).eq("location", "almacen")
+        )
+        .first();
+
+    const prevStock = currentInv?.stockActual ?? 0;
+    const nextStock = prevStock + quantityToAdd;
+
+    // Update or create inventory record
+    if (currentInv) {
+        await ctx.db.patch(currentInv._id, {
+            stockActual: nextStock,
+            updatedAt: Date.now(),
+        });
+    } else {
+        await ctx.db.insert("inventory", {
+            productId: productId,
+            location: "almacen",
+            stockActual: nextStock,
+            stockMinimo: 10, // Default minimum
+            updatedAt: Date.now(),
+        });
+    }
+
+    // Record movement for traceability
+    await ctx.db.insert("movements", {
+        productId: productId,
+        type: "COMPRA",
+        from: "PROVEEDOR",
+        to: "ALMACEN",
+        quantity: quantityToAdd,
+        prevStock,
+        nextStock,
+        user: "Admin", // TODO: Get from auth context
+        timestamp: Date.now(),
+        supplierOrderId: supplierOrderId,
+    });
+}
 
 // Cancel a pending supplier order
 export const cancelOrder = mutation({

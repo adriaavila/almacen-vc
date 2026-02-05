@@ -147,12 +147,14 @@ export default defineSchema({
     user: v.string(),              // Quién lo hizo
     timestamp: v.number(),
     orderId: v.optional(v.id("orders")), // Relación con pedido (si el movimiento viene de entregar un pedido)
+    supplierOrderId: v.optional(v.id("supplier_orders")), // Relación con pedido de abastecimiento
     legacyMovementId: v.optional(v.string()), // ID from old stock_movements table (migration tracking)
   })
     .index("by_product", ["productId"])
     .index("by_type", ["type"])
     .index("by_timestamp", ["timestamp"])
-    .index("by_orderId", ["orderId"]),
+    .index("by_orderId", ["orderId"])
+    .index("by_supplierOrderId", ["supplierOrderId"]),
 
   users: defineTable({
     nombre: v.string(),

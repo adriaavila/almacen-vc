@@ -58,6 +58,7 @@ function StockPageContent() {
   const [adjustValue, setAdjustValue] = useState<string>('0');
   const [editingProduct, setEditingProduct] = useState<ConvexProduct | null>(null);
   const [editValue, setEditValue] = useState<string>('');
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'info';
@@ -425,25 +426,20 @@ function StockPageContent() {
             <button
               type="button"
               onClick={() => setEditMode(!editMode)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border ${editMode
+              title={editMode ? "Salir de Modo Edición" : "Entrar en Modo Edición"}
+              className={`p-2 rounded-md transition-colors border ${editMode
                 ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
                 : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                 }`}
             >
               {editMode ? (
-                <>
-                  <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Modo Edición
-                </>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               ) : (
-                <>
-                  <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Editar
-                </>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
               )}
             </button>
 
@@ -453,48 +449,140 @@ function StockPageContent() {
                 type="button"
                 variant="primary"
                 onClick={() => setIsCreateProductOpen(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 h-auto"
+                title="Crear Nuevo Producto"
               >
-                <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Crear Producto
               </Button>
             )}
           </div>
 
-          {/* Status Segmented Control */}
-          <div className="flex items-center gap-0 bg-white border border-gray-300 rounded-lg p-1">
-            <button
-              type="button"
-              onClick={() => setSelectedStatus('all')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedStatus === 'all'
-                ? 'bg-gray-900 text-white'
-                : 'bg-transparent text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-              Todas
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStatus('bajo_stock')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedStatus === 'bajo_stock'
-                ? 'bg-gray-900 text-white'
-                : 'bg-transparent text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-              Bajo Stock
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStatus('out_of_stock')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedStatus === 'out_of_stock'
-                ? 'bg-gray-900 text-white'
-                : 'bg-transparent text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-              Sin Stock
-            </button>
+          {/* Status and Sort Group - Mobile optimized */}
+          <div className="flex flex-row items-center gap-2">
+            {/* Status Segmented Control */}
+            <div className="flex items-center gap-0 bg-white border border-gray-300 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setSelectedStatus('all')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'all'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                  }`}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStatus('bajo_stock')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'bajo_stock'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                  }`}
+              >
+                Bajo Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStatus('out_of_stock')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'out_of_stock'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                  }`}
+              >
+                Sin Stock
+              </button>
+            </div>
+
+            {/* Sort Button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                className={`p-2 rounded-md border transition-colors ${isSortMenuOpen || sortOrder !== 'name-asc'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                title="Ordenar productos"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                </svg>
+              </button>
+
+              {/* Sort Dropdown */}
+              {isSortMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsSortMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-100 py-1 z-40">
+                    <button
+                      onClick={() => {
+                        setSortOrder('name-asc');
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'name-asc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      Nombre (A-Z)
+                      {sortOrder === 'name-asc' && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSortOrder('name-desc');
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'name-desc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      Nombre (Z-A)
+                      {sortOrder === 'name-desc' && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSortOrder('stock-asc');
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'stock-asc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      Stock (Menor a Mayor)
+                      {sortOrder === 'stock-asc' && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSortOrder('stock-desc');
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'stock-desc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      Stock (Mayor a Menor)
+                      {sortOrder === 'stock-desc' && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 

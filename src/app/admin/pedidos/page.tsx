@@ -98,15 +98,17 @@ function OrderCard({
   };
 
   return (
-    <div className="bg-white rounded-md shadow-sm border-l-4 border-l-amber-500 border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border-l-4 border-l-amber-500 border border-t-gray-200 border-r-gray-200 border-b-gray-200 overflow-hidden transition-all duration-200">
       <div className="p-4 hover:bg-gray-50 transition-colors">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="mb-1">
-              <span className="text-lg font-semibold text-gray-900">{order.area}</span>
+              <span className="text-lg font-bold text-gray-900">{order.area}</span>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-gray-500">{formatDate(order.createdAt)}</span>
+              <span className="text-sm text-gray-500 flex items-center gap-1">
+                📅 {formatDate(order.createdAt)}
+              </span>
               <Badge variant={order.status}>
                 {order.status === 'pendiente' ? 'Pendiente' : 'Entregado'}
               </Badge>
@@ -117,54 +119,61 @@ function OrderCard({
               variant="primary"
               onClick={() => onDeliver(order._id)}
               disabled={deliveringId === order._id || isEditing}
+              className="shadow-sm"
+              size="sm"
             >
               {deliveringId === order._id ? 'Entregando...' : 'Entregar'}
             </Button>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-sm text-emerald-600 hover:text-emerald-900 font-medium transition-colors"
+              className="text-sm text-gray-500 hover:text-gray-900 font-medium transition-colors p-1"
             >
-              {isExpanded ? 'Ocultar detalle' : 'Ver detalle'}
+              {isExpanded ? 'Ocultar' : 'Ver detalle'}
             </button>
           </div>
         </div>
       </div>
 
       {isExpanded && (
-        <div className="border-t border-gray-200 bg-gray-50 p-4">
+        <div className="border-t border-gray-100 bg-gray-50/50 p-4">
           {orderDetails === undefined ? (
-            <div className="text-sm text-gray-500 py-2">Cargando detalles...</div>
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-pulse text-sm text-gray-400">Cargando detalles...</div>
+            </div>
           ) : orderDetails === null ? (
-            <div className="text-sm text-red-600 py-2">Error al cargar detalles del pedido</div>
+            <div className="text-sm text-red-600 py-2 bg-red-50 px-3 rounded">Error al cargar detalles del pedido</div>
           ) : (
             <div>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-semibold text-gray-900">Ítems del Pedido</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                  {isEditing ? 'Editando Cantidades' : 'Ítems del Pedido'}
+                </h3>
+
                 {!isEditing ? (
                   <button
                     onClick={startEditing}
-                    className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
-                    title="Editar cantidades"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors border border-emerald-200 font-medium"
                   >
-                    <Pencil size={18} />
+                    <Pencil size={14} />
+                    Editar
                   </button>
                 ) : (
                   <div className="flex gap-2">
                     <button
                       onClick={cancelEditing}
                       disabled={isSaving}
-                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                      title="Cancelar"
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 bg-white hover:bg-gray-100 rounded-full transition-colors border border-gray-200 font-medium shadow-sm"
                     >
-                      <X size={18} />
+                      <X size={14} />
+                      Cancelar
                     </button>
                     <button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
-                      title="Guardar"
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm text-white bg-emerald-600 hover:bg-emerald-700 rounded-full transition-colors font-medium shadow-sm"
                     >
-                      <Check size={18} />
+                      <Check size={14} />
+                      Guardar
                     </button>
                   </div>
                 )}
@@ -181,46 +190,83 @@ function OrderCard({
                     return (
                       <div
                         key={item._id}
-                        className={`bg-white rounded-md border border-gray-200 p-3 ${isDeleted ? 'opacity-50 line-through' : ''}`}
+                        className={`
+                          relative overflow-hidden rounded-lg border transition-all duration-200
+                          ${isDeleted
+                            ? 'bg-red-50 border-red-100'
+                            : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'}
+                          ${isEditing ? 'p-3' : 'p-3'}
+                        `}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="mb-1">
-                              <span className="text-base font-semibold text-gray-900">{item.nombre}</span>
+                        {/* Deleted Overlay Strip */}
+                        {isDeleted && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-400" />
+                        )}
+
+                        <div className="flex items-center justify-between gap-3">
+                          <div className={`flex-1 min-w-0 ${isDeleted ? 'opacity-50' : ''}`}>
+                            <div className="font-medium text-gray-900 truncate">
+                              {item.nombre}
                             </div>
-                            <span className="text-xs text-gray-500">{item.categoria}</span>
+                            <div className="text-xs text-gray-500">
+                              {item.categoria}
+                            </div>
                           </div>
 
                           {isEditing ? (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleDecrement(item.orderItemId)}
-                                className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
-                                disabled={currentQty <= 0}
-                              >
-                                <Minus size={16} />
-                              </button>
-                              <span className="w-12 text-center font-medium text-gray-900">
-                                {currentQty} {item.unidad}
+                            <div className="flex items-center gap-3">
+                              {/* Quantity Stepper */}
+                              <div className={`flex items-center bg-gray-50 rounded-lg border border-gray-200 ${isDeleted ? 'opacity-50' : ''}`}>
+                                <button
+                                  onClick={() => handleDecrement(item.orderItemId)}
+                                  className="p-2 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-l-lg transition-colors disabled:opacity-30"
+                                  disabled={currentQty <= 0}
+                                >
+                                  <Minus size={14} strokeWidth={2.5} />
+                                </button>
+                                <div className="w-10 text-center text-sm font-semibold text-gray-900">
+                                  {currentQty}
+                                </div>
+                                <button
+                                  onClick={() => handleIncrement(item.orderItemId)}
+                                  className="p-2 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-r-lg transition-colors"
+                                >
+                                  <Plus size={14} strokeWidth={2.5} />
+                                </button>
+                              </div>
+
+                              <span className="text-xs font-medium text-gray-400 w-8 text-center">
+                                {item.unidad}
                               </span>
-                              <button
-                                onClick={() => handleIncrement(item.orderItemId)}
-                                className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
-                              >
-                                <Plus size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(item.orderItemId)}
-                                className="p-1 rounded-full bg-red-50 hover:bg-red-100 text-red-500 ml-2"
-                                title="Eliminar item"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+
+                              {/* Restore / Delete Toggle */}
+                              {isDeleted ? (
+                                <button
+                                  onClick={() => handleIncrement(item.orderItemId)} // Increment to 1 to restore
+                                  className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                                  title="Restaurar"
+                                >
+                                  <Check size={16} />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleDelete(item.orderItemId)}
+                                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Eliminar del pedido"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
                             </div>
                           ) : (
-                            <span className="text-sm font-medium text-gray-900">
-                              {item.cantidad} {item.unidad}
-                            </span>
+                            <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
+                              <span className="text-sm font-bold text-gray-900">
+                                {item.cantidad}
+                              </span>
+                              <span className="text-xs font-medium text-gray-500">
+                                {item.unidad}
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -228,8 +274,8 @@ function OrderCard({
                   })}
                 </div>
               ) : (
-                <div className="bg-white rounded-md border border-gray-200 p-3 text-center">
-                  <p className="text-sm text-gray-500">No hay ítems en este pedido</p>
+                <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                  No hay ítems en este pedido
                 </div>
               )}
             </div>
