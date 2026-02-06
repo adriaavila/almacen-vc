@@ -7,11 +7,18 @@ interface RequesterHeaderProps {
   subtitle?: string;
   actions?: React.ReactNode;
   rightActions?: React.ReactNode;
+  className?: string; // Add className prop
 }
 
-export function RequesterHeader({ title, subtitle, actions, rightActions }: RequesterHeaderProps) {
+export function RequesterHeader({ title, subtitle, actions, rightActions, className = '' }: RequesterHeaderProps) {
+  // Use className to allow overriding defaults (mb-4 etc) or appending to them.
+  // We'll keep default MB/PB unless overridden if that's desired, or just append.
+  // To allow full override of margin/padding, users should pass 'mb-0 pb-0' etc.
+  // But strictly appending is safer. Let's make the default spacing conditional or just easy to override with !important or assume user handles it.
+  // Actually, simpler: Apply defaults ONLY if not overridden? No, typically standard is `className combined`.
+  // Let's stick to appending.
   return (
-    <div className="mb-1 sm:mb-2 md:mb-4 lg:mb-6 pb-1 sm:pb-2 md:pb-3 lg:pb-4 border-b border-gray-200">
+    <div className={`mb-1 sm:mb-2 md:mb-4 lg:mb-6 pb-1 sm:pb-2 md:pb-3 lg:pb-4 border-b border-gray-200 ${className}`}>
       <div className="flex items-center justify-between gap-2 sm:gap-3 md:gap-4">
         <div className="flex items-center justify-start gap-1 sm:gap-2 w-[100px]">
           {actions}

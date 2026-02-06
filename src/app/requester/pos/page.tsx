@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
-import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
 import { SlotButton } from '@/components/ui/SlotButton';
@@ -270,6 +269,7 @@ export default function POSPage() {
 
         const result = await createOrder({
           area: 'Cafetin',
+          patientId: pacienteIdToUse ? (pacienteIdToUse as Id<"users">) : undefined,
           items: slot.items.map(item => ({
             productId: item.productId,
             cantidad: item.cantidad,
@@ -317,26 +317,27 @@ export default function POSPage() {
   if (products === undefined) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <PageContainer>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12 text-gray-500">
             <p>Cargando productos...</p>
           </div>
-        </PageContainer>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      <PageContainer className="flex-1 flex flex-col overflow-hidden max-w-full space-y-1! sm:space-y-1.5! md:space-y-2! py-1.5! sm:py-2! md:py-2.5!">
+    <div className="h-full bg-gray-50 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden w-full px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 space-y-1 sm:space-y-1.5 md:space-y-2">
         <RequesterHeader
           title="POS"
           subtitle="Cafetin - Venta al público"
+          className="!mb-1 !pb-1 sm:!mb-1 sm:!pb-1 md:!mb-1 md:!pb-1 lg:!mb-1 lg:!pb-1"
         />
 
         {/* Zona A: Panel de Control Multitarea */}
         <div className="shrink-0">
-          <div className="bg-white rounded-md shadow-sm border border-gray-200 p-1.5 sm:p-2 md:p-2.5">
+          <div className="bg-white rounded-md shadow-sm border border-gray-200 p-1 sm:p-1.5 md:p-2">
             <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 lg:gap-5">
               {slots.map((slot) => (
                 <SlotButton
@@ -356,7 +357,7 @@ export default function POSPage() {
         </div>
 
         {/* Zona B: Productos por subcategoría — scroll horizontal (columnas), scroll vertical (por columna) */}
-        <div className="flex-1 overflow-hidden min-h-0">
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
           <div className="bg-white rounded-md shadow-sm border border-gray-200 px-1 sm:px-1.5 md:px-2 pt-0.5 pb-0.5 sm:pt-0.5 sm:pb-0.5 h-full flex flex-col">
             <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 mb-0.5 sm:mb-1 px-1 text-center shrink-0">Productos</h2>
 
@@ -374,7 +375,7 @@ export default function POSPage() {
                     key={subCategory}
                     className="shrink-0 flex flex-col w-[140px] sm:w-[160px] md:w-[180px] lg:w-[200px] min-h-0"
                   >
-                    <h3 className="text-xs sm:text-sm font-bold text-gray-900 mb-1 sm:mb-1.5 shrink-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-gray-900 mb-1 sm:mb-1.5 shrink-0 sticky top-0 bg-white z-10">
                       {subCategory}
                     </h3>
                     <div className="flex-1 overflow-y-auto min-h-0 space-y-1 sm:space-y-1.5 pr-0.5">
@@ -429,7 +430,7 @@ export default function POSPage() {
             {isRegistering ? 'Registrando...' : 'Registrar'}
           </Button>
         </div>
-      </PageContainer>
+      </div>
     </div>
   );
 }

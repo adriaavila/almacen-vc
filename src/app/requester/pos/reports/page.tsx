@@ -6,7 +6,7 @@ import { api } from 'convex/_generated/api';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 
-// Inline SVG Chevron Icons (to avoid external dependency)
+// Inline Icons
 function ChevronLeftIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -19,6 +19,22 @@ function ChevronRightIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+    );
+}
+
+function ClipboardIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+        </svg>
+    );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
     );
 }
@@ -59,6 +75,7 @@ function getWeekBoundaries(date: Date): { start: number; end: number; label: str
 export default function POSReportsPage() {
     // Week navigation state
     const [weekOffset, setWeekOffset] = useState(0);
+    const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
 
     // Calculate current week boundaries
     const weekBoundaries = useMemo(() => {
@@ -75,6 +92,24 @@ export default function POSReportsPage() {
 
     const isLoading = report === undefined;
     const isEmpty = report?.users.length === 0;
+
+    // Handle Copy to Clipboard
+    const handleCopy = (user: any) => {
+        // Format: Product Name \t Quantity \t Unit
+        const text = user.products
+            .map((p: any) => `${p.productName}\t${p.quantity}\t${p.unit}`)
+            .join('\n');
+
+        // Add header optionally? No, raw data is better for immediate paste
+        // Maybe prefix with user name?
+        // Let's keep it simple: Name + newline + data
+        const fullText = `Usuario: ${user.userName}\n\nProducto\tCantidad\tUnidad\n${text}`;
+
+        navigator.clipboard.writeText(fullText).then(() => {
+            setCopiedUserId(user.userId);
+            setTimeout(() => setCopiedUserId(null), 2000);
+        });
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -132,56 +167,90 @@ export default function POSReportsPage() {
                 )}
 
                 {/* Content Area */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="space-y-4">
                     {isLoading ? (
-                        <div className="p-8 text-center text-gray-500">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center text-gray-500">
                             <p>Cargando reporte...</p>
                         </div>
                     ) : isEmpty ? (
-                        <div className="p-8 text-center text-gray-500">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center text-gray-500">
                             <p className="text-lg font-medium">Sin datos</p>
                             <p className="text-sm mt-1">No hay consumos POS registrados para esta semana</p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-gray-200">
-                            {report.users.map((user) => (
-                                <div key={user.userId} className="p-4">
-                                    {/* User Header */}
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="font-semibold text-gray-900">{user.userName}</h3>
-                                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                        report.users.map((user) => (
+                            <div key={user.userId} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                {/* User Header */}
+                                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-gray-900">{user.userName}</h3>
+                                        <span className="text-xs font-medium text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
                                             {user.totalQuantity} items
                                         </span>
                                     </div>
-
-                                    {/* Products Table */}
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="text-left text-gray-500 text-xs uppercase tracking-wider">
-                                                    <th className="pb-2">Producto</th>
-                                                    <th className="pb-2 text-right">Cantidad</th>
-                                                    <th className="pb-2 text-right">Unidad</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100">
-                                                {user.products.map((product, idx) => (
-                                                    <tr key={idx}>
-                                                        <td className="py-1.5 text-gray-900">{product.productName}</td>
-                                                        <td className="py-1.5 text-right font-medium text-gray-900">
-                                                            {product.quantity}
-                                                        </td>
-                                                        <td className="py-1.5 text-right text-gray-500">
-                                                            {product.unit}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    <button
+                                        onClick={() => handleCopy(user)}
+                                        className="text-gray-500 hover:text-blue-600 transition-colors p-1.5 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200 group flex items-center gap-1.5"
+                                        title="Copiar datos al portapapeles"
+                                    >
+                                        <span className="text-xs font-medium hidden sm:inline group-hover:block">
+                                            {copiedUserId === user.userId ? 'Copiado' : 'Copiar'}
+                                        </span>
+                                        {copiedUserId === user.userId ? (
+                                            <CheckIcon className="w-4 h-4 text-green-600" />
+                                        ) : (
+                                            <ClipboardIcon className="w-4 h-4" />
+                                        )}
+                                    </button>
                                 </div>
-                            ))}
-                        </div>
+
+                                {/* Products Table */}
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50/50">
+                                            <tr>
+                                                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Producto
+                                                </th>
+                                                <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                                                    Cant.
+                                                </th>
+                                                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                                                    Unidad
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-100">
+                                            {user.products.map((product, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                                                        {product.productName}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-sm text-gray-900 text-right font-medium whitespace-nowrap">
+                                                        {product.quantity}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-sm text-gray-500 whitespace-nowrap">
+                                                        {product.unit}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        {/* Total Row (Optional) */}
+                                        <tfoot className="bg-gray-50 border-t border-gray-200">
+                                            <tr>
+                                                <td className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">
+                                                    Total
+                                                </td>
+                                                <td className="px-4 py-2 text-sm font-bold text-gray-900 text-right">
+                                                    {user.totalQuantity}
+                                                </td>
+                                                <td className="px-4 py-2"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        ))
                     )}
                 </div>
             </PageContainer>

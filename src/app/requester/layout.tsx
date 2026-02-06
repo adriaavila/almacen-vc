@@ -82,9 +82,9 @@ export default function RequesterLayout({
   // If Cafetin, show sidebar layout; otherwise show navbar layout
   if (isCafetin) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
         <RequesterSidebar isOpen={isSidebarOpen} onClose={handleClose} />
-        <main className="flex-1 lg:ml-64 w-full">
+        <main className="flex-1 lg:ml-64 w-full h-full overflow-y-auto">
           {/* Mobile menu button - only shown when sidebar is closed */}
           {isMobile && !sidebarOpen && (
             <button
@@ -110,9 +110,13 @@ export default function RequesterLayout({
 
   // For non-Cafetin areas, show navbar layout
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      {children}
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+      <div className="shrink-0">
+        <Navbar />
+      </div>
+      <main className="flex-1 overflow-y-auto w-full h-full">
+        {children}
+      </main>
     </div>
   );
 }

@@ -188,12 +188,18 @@ export const create = mutation({
     }
 
     // Programar notificación de Telegram después de crear el pedido
-    await ctx.scheduler.runAfter(0, internal.telegram.sendNotification, {
-      orderId,
-      area: args.area,
-      createdAt,
-      items: notificationItems,
-    });
+    // Solo enviar si NO es una venta POS del Cafetin (Cafetin + PatientId)
+    // Las ventas directas POS no requieren alerta al almacén
+    const isPOSSale = args.area === "Cafetin" && args.patientId !== undefined;
+
+    if (!isPOSSale) {
+      await ctx.scheduler.runAfter(0, internal.telegram.sendNotification, {
+        orderId,
+        area: args.area,
+        createdAt,
+        items: notificationItems,
+      });
+    }
 
     return orderId;
   },
@@ -282,7 +288,7 @@ export const deliver = mutation({
     }> = [];
     const movementIds: Array<string> = [];
 
-    // Process each order item (destination per product: Cafetin + availableForSale -> cafetin; else CONSUMO)
+    // Process each order item
     for (const oi of orderItems) {
       // Use only productId - skip if not available
       if (!oi.productId) {
@@ -290,20 +296,36 @@ export const deliver = mutation({
       }
 
       const productId = oi.productId;
-      const product = await ctx.db.get(productId);
-      const effectiveDestination: "cafetin" | null =
-        order.area === "Cafetin" && product?.availableForSale !== false ? "cafetin" : null;
 
-      await processProductDelivery(
-        ctx,
-        productId,
-        oi.cantidad,
-        effectiveDestination,
-        args.id,
-        deliveredItems,
-        lowStockItems,
-        movementIds
-      );
+      // Check if this is a POS Sale (has patientId)
+      if (order.patientId) {
+        // POS Sale: Consume from Cafetin stock directly
+        await processPOSSale(
+          ctx,
+          productId,
+          oi.cantidad,
+          args.id,
+          deliveredItems,
+          lowStockItems,
+          movementIds
+        );
+      } else {
+        // Regular Order: Replenish from Almacen
+        const product = await ctx.db.get(productId);
+        const effectiveDestination: "cafetin" | null =
+          order.area === "Cafetin" && product?.availableForSale !== false ? "cafetin" : null;
+
+        await processProductDelivery(
+          ctx,
+          productId,
+          oi.cantidad,
+          effectiveDestination,
+          args.id,
+          deliveredItems,
+          lowStockItems,
+          movementIds
+        );
+      }
     }
 
     // Update order status
@@ -326,6 +348,95 @@ function isCafetinCategory(category: string): boolean {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
   return normalized === "cafetin";
+}
+
+// Helper function to process POS Sale (Direct consumption from Cafetin)
+async function processPOSSale(
+  ctx: MutationCtx,
+  productId: Id<"products">,
+  cantidad: number,
+  orderId: Id<"orders">,
+  deliveredItems: Array<{
+    itemId: string;
+    cantidad: number;
+    newStock: number;
+  }>,
+  lowStockItems: Array<{
+    itemId: string;
+    nombre: string;
+    stock_actual: number;
+    stock_minimo: number;
+  }>,
+  movementIds: Array<string>
+) {
+  const product = await ctx.db.get(productId);
+  if (!product) {
+    throw new Error(`Producto con ID ${productId} no encontrado`);
+  }
+
+  // Get Cafetin inventory
+  const cafetinInventory = await ctx.db
+    .query("inventory")
+    .withIndex("by_product_location", (q) =>
+      q.eq("productId", productId).eq("location", "cafetin")
+    )
+    .first();
+
+  // Check stock (POS sales are immediate, so we strictly check availability)
+  const currentStock = cafetinInventory?.stockActual ?? 0;
+
+  // NOTE: We could allow negative stock if physical recount will happen later, 
+  // but usually POS should block if empty. For now, strictly enforce stock.
+  if (currentStock < cantidad) {
+    throw new Error(
+      `Stock insuficiente en Cafetín para ${product.name}. Disponible: ${currentStock} ${product.baseUnit ?? 'unidades'}`
+    );
+  }
+
+  const now = Date.now();
+  const newStock = currentStock - cantidad;
+
+  // Update Cafetin inventory
+  if (cafetinInventory) {
+    await ctx.db.patch(cafetinInventory._id, {
+      stockActual: newStock,
+      updatedAt: now,
+    });
+  } else {
+    // Should not happen if stock > 0 check passed (unless race condition or 0 stock allowed)
+    // Create entry with negative stock if we decide to allow it later
+    await ctx.db.insert("inventory", {
+      productId,
+      location: "cafetin",
+      stockActual: newStock,
+      stockMinimo: 0,
+      updatedAt: now,
+    });
+  }
+
+  // Register Consumption Movement
+  const movementId = await ctx.db.insert("movements", {
+    productId,
+    type: "CONSUMO",
+    from: "CAFETIN",
+    to: "CONSUMO", // Or "USER" if we want to be specific, but CONSUMO is standard for report
+    quantity: cantidad,
+    prevStock: currentStock,
+    nextStock: newStock,
+    user: "system", // Could track staff user if available from context
+    timestamp: now,
+    orderId,
+  });
+  movementIds.push(movementId);
+
+  deliveredItems.push({
+    itemId: productId,
+    cantidad,
+    newStock,
+  });
+
+  // Check for low stock in Cafetin? (Different threshold or logic might apply)
+  // For now, ignoring low stock alerts for Cafetin POS sales to avoid spamming Kitchen staff
 }
 
 // Helper function to process product delivery with transfer
