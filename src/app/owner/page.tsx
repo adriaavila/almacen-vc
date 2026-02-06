@@ -13,11 +13,15 @@ import { StockMovementChart } from '@/components/owner/StockMovementChart';
 import { InventoryHealthChart } from '@/components/owner/InventoryHealthChart';
 import { TopItemsTable } from '@/components/owner/TopItemsTable';
 import { PendingOrdersAging } from '@/components/owner/PendingOrdersAging';
+import { StockRunwayTable } from '@/components/owner/StockRunwayTable';
 import { exportToCSV, formatDateRangeForFilename, formatDateRange } from '@/lib/export';
+
+type Location = 'almacen' | 'cafetin';
 
 export default function OwnerDashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange>('30d');
-  
+  const [location, setLocation] = useState<Location>('almacen');
+
   const { startDate, endDate } = useMemo(
     () => getDateRangeTimestamps(dateRange),
     [dateRange]
@@ -66,49 +70,67 @@ export default function OwnerDashboardPage() {
       },
     };
 
-    const filename = `monitoreo-ejecutivo_${formatDateRangeForFilename(startDate, endDate)}.csv`;
+    const filename = `stock-runway_${formatDateRangeForFilename(startDate, endDate)}.csv`;
     exportToCSV(exportData, filename);
   }, [allOrders, orderStats, consumption, mostRequestedItems, startDate, endDate]);
 
   return (
-    <PageContainer className="py-8">
+    <PageContainer className="py-6 sm:py-8">
       {/* Header Section */}
       <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 text-left sm:text-center">
-              Monitoreo Ejecutivo
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">
+              Stock Runway
             </h1>
-            <p className="text-gray-600">
-              Análisis y métricas de inventario, pedidos y consumo
+            <p className="text-gray-500 mt-1">
+              Análisis de cobertura y velocidad de consumo
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              onClick={handleExport}
-              className="w-full sm:w-auto flex items-center justify-center space-x-2"
+          <Button
+            variant="secondary"
+            onClick={handleExport}
+            className="flex items-center justify-center gap-2 rounded-xl"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              <span>Exportar CSV</span>
-            </Button>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            <span>Exportar</span>
+          </Button>
         </div>
+      </div>
+
+      {/* Stock Runway Section - Main Focus */}
+      <div className="mb-12">
+        <StockRunwayTable location={location} onLocationChange={setLocation} />
+      </div>
+
+      {/* Additional Analytics - Collapsible Section */}
+      <details className="group mb-12">
+        <summary className="cursor-pointer flex items-center gap-2 text-lg font-semibold text-gray-700 mb-6 hover:text-teal-600 transition-colors">
+          <svg
+            className="w-5 h-5 transition-transform group-open:rotate-90"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Métricas Adicionales
+        </summary>
 
         {/* Date Range Filter */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 shadow-md border border-gray-200/50">
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 shadow-md border border-gray-200/50 mb-6">
           <div className="mb-2 sm:mb-3">
             <label className="text-xs sm:text-sm font-medium text-gray-700">
               Período de análisis:
@@ -116,26 +138,26 @@ export default function OwnerDashboardPage() {
           </div>
           <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
-      </div>
 
-      {/* Stats Grid */}
-      <div className="mb-12">
-        <DashboardStats startDate={startDate} endDate={endDate} />
-      </div>
+        {/* Stats Grid */}
+        <div className="mb-8">
+          <DashboardStats startDate={startDate} endDate={endDate} />
+        </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
-        <OrderTrendsChart startDate={startDate} endDate={endDate} />
-        <ConsumptionByAreaChart startDate={startDate} endDate={endDate} />
-        <StockMovementChart startDate={startDate} endDate={endDate} />
-        <InventoryHealthChart />
-      </div>
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <OrderTrendsChart startDate={startDate} endDate={endDate} />
+          <ConsumptionByAreaChart startDate={startDate} endDate={endDate} />
+          <StockMovementChart startDate={startDate} endDate={endDate} />
+          <InventoryHealthChart />
+        </div>
 
-      {/* Tables Section */}
-      <div className="space-y-6 mb-12">
-        <TopItemsTable startDate={startDate} endDate={endDate} limit={10} />
-        <PendingOrdersAging />
-      </div>
+        {/* Tables Section */}
+        <div className="space-y-6">
+          <TopItemsTable startDate={startDate} endDate={endDate} limit={10} />
+          <PendingOrdersAging />
+        </div>
+      </details>
     </PageContainer>
   );
 }

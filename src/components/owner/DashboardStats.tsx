@@ -23,7 +23,7 @@ export function DashboardStats({ startDate, endDate }: DashboardStatsProps) {
 
     return {
       totalItems: inventoryHealth.total,
-      lowStockPercentage: inventoryHealth.total > 0 
+      lowStockPercentage: inventoryHealth.total > 0
         ? Math.round((inventoryHealth.lowStock / inventoryHealth.total) * 100)
         : 0,
       totalOrders: orderStats.total,
@@ -35,11 +35,11 @@ export function DashboardStats({ startDate, endDate }: DashboardStatsProps) {
 
   if (!stats) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
         {[...Array(6)].map((_, i) => (
           <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-20 bg-gray-200 rounded"></div>
+            <CardContent className="p-3 sm:p-4 md:p-6">
+              <div className="h-14 sm:h-16 md:h-20 bg-gray-200 rounded"></div>
             </CardContent>
           </Card>
         ))}
@@ -126,24 +126,24 @@ export function DashboardStats({ startDate, endDate }: DashboardStatsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
       {statCards.map((stat, index) => (
         <Card
           key={stat.title}
           className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] overflow-hidden group animate-fade-in-up"
           style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
         >
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                <p className={`text-3xl font-bold mb-1 ${stat.textColor || 'text-gray-900'}`}>
+          <CardContent className="p-3 sm:p-4 md:p-6">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-0.5 sm:mb-1 truncate">{stat.title}</p>
+                <p className={`text-xl sm:text-2xl md:text-3xl font-bold mb-0.5 sm:mb-1 ${stat.textColor || 'text-gray-900'}`}>
                   {stat.value}
                 </p>
-                <p className="text-xs text-gray-500">{stat.subtitle}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">{stat.subtitle}</p>
               </div>
-              <div className={`${stat.bgColor} p-3 rounded-xl`}>
-                <div className={`bg-gradient-to-br ${stat.gradient} bg-clip-text text-transparent`}>
+              <div className={`${stat.bgColor} p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0`}>
+                <div className={`bg-gradient-to-br ${stat.gradient} bg-clip-text text-transparent [&_svg]:w-4 [&_svg]:h-4 sm:[&_svg]:w-5 sm:[&_svg]:h-5 md:[&_svg]:w-6 md:[&_svg]:h-6`}>
                   {stat.icon}
                 </div>
               </div>

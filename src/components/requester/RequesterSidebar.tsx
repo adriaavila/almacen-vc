@@ -23,13 +23,13 @@ export function RequesterSidebar({ isOpen, onClose }: RequesterSidebarProps) {
         document.body.style.overflow = '';
       }
     };
-    
+
     // Check on mount and when sidebar state changes
     checkScreenSize();
-    
+
     // Also check on resize
     window.addEventListener('resize', checkScreenSize);
-    
+
     return () => {
       document.body.style.overflow = '';
       window.removeEventListener('resize', checkScreenSize);
@@ -62,6 +62,15 @@ export function RequesterSidebar({ isOpen, onClose }: RequesterSidebarProps) {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/requester/pos/reports',
+      label: 'Reportes',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       ),
     },
@@ -116,9 +125,8 @@ export function RequesterSidebar({ isOpen, onClose }: RequesterSidebarProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {/* Elegant Header with Logo and Area Badge */}
         <div className="p-5 border-b border-gray-200 bg-gradient-to-br from-emerald-50 to-white">
@@ -169,11 +177,10 @@ export function RequesterSidebar({ isOpen, onClose }: RequesterSidebarProps) {
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  active
+                className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${active
                     ? 'bg-emerald-100 text-emerald-700 border-l-4 border-emerald-600'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <span className={active ? 'text-emerald-600' : 'text-gray-500'}>
                   {item.icon}

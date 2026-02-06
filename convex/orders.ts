@@ -122,6 +122,7 @@ export const getLastByArea = query({
 export const create = mutation({
   args: {
     area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
+    patientId: v.optional(v.id("users")), // For Cafetin billing
     items: v.array(
       v.object({
         productId: v.id("products"), // Requerido - solo usar productId
@@ -143,6 +144,7 @@ export const create = mutation({
       area: args.area,
       status: "pendiente",
       createdAt,
+      patientId: args.patientId,
     });
 
     // Array para construir los items de la notificación

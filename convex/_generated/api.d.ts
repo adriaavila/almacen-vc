@@ -10,6 +10,8 @@
 
 import type * as activos from "../activos.js";
 import type * as analytics from "../analytics.js";
+import type * as billing from "../billing.js";
+import type * as cleanup from "../cleanup.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
@@ -36,6 +38,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   activos: typeof activos;
   analytics: typeof analytics;
+  billing: typeof billing;
+  cleanup: typeof cleanup;
   crons: typeof crons;
   http: typeof http;
   inventory: typeof inventory;

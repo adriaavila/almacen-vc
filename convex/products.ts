@@ -80,6 +80,42 @@ export const getCategories = query({
   },
 });
 
+// Get all unique subcategories (optionally filtered by category)
+export const getSubCategories = query({
+  args: { category: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    let products;
+    if (args.category) {
+      products = await ctx.db
+        .query("products")
+        .withIndex("by_category", (q) => q.eq("category", args.category!))
+        .collect();
+    } else {
+      products = await ctx.db.query("products").collect();
+    }
+
+    const subCategories = new Set(
+      products
+        .map((p) => p.subCategory)
+        .filter((sc): sc is string => !!sc && sc.trim() !== '')
+    );
+    return Array.from(subCategories).sort();
+  },
+});
+
+// Get all unique units
+export const getUniqueUnits = query({
+  handler: async (ctx) => {
+    const products = await ctx.db.query("products").collect();
+    const units = new Set(
+      products
+        .map((p) => p.baseUnit)
+        .filter((u) => !!u && u.trim() !== '')
+    );
+    return Array.from(units).sort();
+  },
+});
+
 // Get product with inventory info
 export const getWithInventory = query({
   args: { id: v.id("products") },

@@ -6,11 +6,13 @@ export default defineSchema({
     area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
     status: v.union(v.literal("pendiente"), v.literal("entregado")),
     createdAt: v.number(), // Timestamp
+    patientId: v.optional(v.id("users")), // For Cafetin billing
   })
     .index("by_status", ["status"])
     .index("by_area", ["area"])
     .index("by_area_status", ["area", "status"])
-    .index("by_status_createdAt", ["status", "createdAt"]),
+    .index("by_status_createdAt", ["status", "createdAt"])
+    .index("by_patientId", ["patientId"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),

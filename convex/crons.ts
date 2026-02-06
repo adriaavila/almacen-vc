@@ -12,4 +12,13 @@ crons.weekly(
     internal.telegram.sendWeeklyLowStockReport,
 );
 
+// Weekly Cafetin Billing Export to n8n
+// Sundays at 4:00 PM VET (Venezuela Time is UTC-4)
+// Cron uses UTC. 4:00 PM VET + 4 hours = 8:00 PM (20:00) UTC.
+crons.weekly(
+    "Weekly Cafetin Billing Export",
+    { hourUTC: 20, minuteUTC: 0, dayOfWeek: "sunday" },
+    internal.billing.sendWeeklyData,
+);
+
 export default crons;

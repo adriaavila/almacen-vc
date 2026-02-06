@@ -12,7 +12,7 @@ import { Toast } from '@/components/ui/Toast';
 import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
 import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { EditProductModal } from '@/components/ui/EditProductModal';
+import { CafetinProductModal } from '@/components/ui/CafetinProductModal';
 import { normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useInventorySync } from '@/lib/hooks/useInventorySync';
@@ -822,7 +822,7 @@ function StockPageContent() {
       )}
 
       {/* Edit Product Modal */}
-      <EditProductModal
+      <CafetinProductModal
         key={editingProductId ?? (isCreateProductOpen ? 'create' : 'closed')}
         isOpen={editingProductId !== null || isCreateProductOpen}
         onClose={() => {
@@ -830,10 +830,16 @@ function StockPageContent() {
           setIsCreateProductOpen(false);
         }}
         productId={isCreateProductOpen ? null : editingProductId}
-        location="cafetin"
+        onProductCreated={() => {
+          setToast({
+            message: 'Producto creado correctamente',
+            type: 'success',
+            isOpen: true,
+          });
+        }}
         onProductUpdated={() => {
           setToast({
-            message: isCreateProductOpen ? 'Producto creado correctamente' : 'Producto actualizado correctamente',
+            message: 'Producto actualizado correctamente',
             type: 'success',
             isOpen: true,
           });
