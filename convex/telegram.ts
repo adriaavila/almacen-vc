@@ -136,7 +136,9 @@ export const sendMessage = internalAction({
 export const sendWeeklyLowStockReport = internalAction({
   args: {},
   handler: async (ctx) => {
-    const lowStockItems = await ctx.runQuery((internal as any).inventory.getLowStock, {});
+    const lowStockItems = await ctx.runQuery((internal as any).inventory.getLowStock, {
+      location: "almacen",
+    });
 
     if (lowStockItems.length === 0) {
       return;
