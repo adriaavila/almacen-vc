@@ -1,189 +1,233 @@
-import { internalAction, internalQuery } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { ActionCtx } from "./_generated/server";
 
 // ============================================================
-// WEEKLY BILLING - Exports Cafetín consumption data to n8n
+// DAILY RAW BILLING - Sends cafetín consumption data to n8n
 // ============================================================
 
 /**
- * Internal query to get weekly Cafetin orders with their items.
- * Fetches orders with status "entregado" from the Cafetin area
- * within the specified date range.
+ * Mutation: Record a cafetín sale item.
+ * Called from POS when a sale is registered. Each item in the order
+ * gets its own record with denormalized patient/product names.
  */
-export const getWeeklyOrders = internalQuery({
-    args: { startDate: v.number(), endDate: v.number() },
-    handler: async (ctx, { startDate, endDate }) => {
-        // Get all orders from Cafetin with status entregado
-        const orders = await ctx.db
-            .query("orders")
-            .withIndex("by_area_status", (q) =>
-                q.eq("area", "Cafetin").eq("status", "entregado")
-            )
-            .collect();
-
-        // Filter by date range
-        const filteredOrders = orders.filter(
-            (o) => o.createdAt >= startDate && o.createdAt <= endDate
-        );
-
-        // Get order items and patient info for each order
-        const ordersWithDetails = await Promise.all(
-            filteredOrders.map(async (order) => {
-                // Get patient info if patientId exists
-                let patientName = "Sin asignar";
-                if (order.patientId) {
-                    const patient = await ctx.db.get(order.patientId);
-                    if (patient) {
-                        patientName = patient.nombre;
-                    }
-                }
-
-                // Get order items
-                const orderItems = await ctx.db
-                    .query("orderItems")
-                    .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
-                    .collect();
-
-                // Get product names for each item
-                const items = await Promise.all(
-                    orderItems.map(async (oi) => {
-                        if (!oi.productId) return null;
-                        const product = await ctx.db.get(oi.productId);
-                        if (!product) return null;
-                        return {
-                            name: product.name,
-                            qty: oi.cantidad,
-                        };
-                    })
-                );
-
-                return {
-                    patientId: order.patientId,
-                    patientName,
-                    items: items.filter((i) => i !== null),
-                };
-            })
-        );
-
-        return ordersWithDetails;
+export const recordSale = mutation({
+    args: {
+        paciente: v.string(),
+        producto: v.string(),
+        cantidad: v.number(),
+        orderId: v.optional(v.id("orders")),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.insert("cafetin_sales", {
+            paciente: args.paciente.trim(),
+            producto: args.producto.trim(),
+            cantidad: Number(args.cantidad),
+            fecha: Date.now(),
+            orderId: args.orderId,
+            sentToN8n: false,
+        });
     },
 });
 
 /**
- * Internal action that runs weekly to export Cafetín consumption data.
- * - Calculates date range (last 7 days)
- * - Queries Cafetin orders with status "entregado"
- * - Groups items by patient and aggregates quantities
- * - Sends payload to n8n webhook for Google Sheets generation
+ * Internal query: Get all unsent cafetín sales.
  */
-export const sendWeeklyData = internalAction({
+export const getUnsentSales = internalQuery({
     handler: async (ctx) => {
-        // Calculate date range (last 7 days)
-        const now = Date.now();
-        const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+        return await ctx.db
+            .query("cafetin_sales")
+            .withIndex("by_sentToN8n", (q) => q.eq("sentToN8n", false))
+            .collect();
+    },
+});
 
-        // Get weekly orders using internal query
-        const ordersData = await ctx.runQuery(internal.billing.getWeeklyOrders, {
-            startDate: sevenDaysAgo,
-            endDate: now,
+/**
+ * Query: Get daily report for a specific date (timestamp).
+ * Returns all cafetín sales for that day.
+ */
+export const getDailyReport = query({
+    args: { date: v.number() }, // Start of day timestamp
+    handler: async (ctx, { date }) => {
+        // Calculate start and end of the requested day
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Fetch sales within the date range
+        const sales = await ctx.db
+            .query("cafetin_sales")
+            .withIndex("by_fecha", (q) =>
+                q.gte("fecha", startOfDay.getTime()).lte("fecha", endOfDay.getTime())
+            )
+            .collect();
+
+        // Sort by time descending (newest first)
+        return sales.sort((a, b) => b.fecha - a.fecha);
+    },
+});
+
+/**
+ * Query: Get sales report for a specific date range.
+ * Returns all cafetín sales between startDate and endDate.
+ */
+export const getSalesByDateRange = query({
+    args: { startDate: v.number(), endDate: v.number() },
+    handler: async (ctx, { startDate, endDate }) => {
+        const sales = await ctx.db
+            .query("cafetin_sales")
+            .withIndex("by_fecha", (q) =>
+                q.gte("fecha", startDate).lte("fecha", endDate)
+            )
+            .collect();
+
+        // Sort by time descending (newest first)
+        return sales.sort((a, b) => b.fecha - a.fecha);
+    },
+});
+
+/**
+ * Internal mutation: Mark sales as sent after successful n8n POST.
+ */
+export const markSalesAsSent = internalMutation({
+    args: { saleIds: v.array(v.id("cafetin_sales")) },
+    handler: async (ctx, { saleIds }) => {
+        for (const id of saleIds) {
+            await ctx.db.patch(id, { sentToN8n: true });
+        }
+    },
+});
+
+/**
+ * Core logic: Send unsent sales to n8n webhook.
+ * Used by both the daily cron and the manual trigger.
+ */
+interface ISale {
+    _id: string;
+    paciente: string;
+    producto: string;
+    cantidad: number;
+    fecha: number;
+    sentToN8n: boolean;
+}
+
+interface SendResult {
+    success: boolean;
+    message?: string;
+    error?: string;
+    sent: number;
+}
+
+/**
+ * Core logic: Send unsent sales to n8n webhook.
+ * Used by both the daily cron and the manual trigger.
+ */
+async function sendRawToN8n(ctx: ActionCtx): Promise<SendResult> {
+    // Get unsent sales
+    const sales = await ctx.runQuery(internal.billing.getUnsentSales) as ISale[];
+
+    if (sales.length === 0) {
+        console.log("[Billing] No unsent cafetín sales found.");
+        return { success: true, message: "No hay consumos pendientes", sent: 0 };
+    }
+
+    // Validate records
+    const validSales = sales.filter(
+        (s) => s.paciente && s.paciente.trim() !== "" &&
+            s.producto && s.producto.trim() !== "" &&
+            typeof s.cantidad === "number" && s.cantidad > 0
+    );
+
+    if (validSales.length === 0) {
+        console.log("[Billing] All records failed validation.");
+        return { success: true, message: "No hay consumos válidos pendientes", sent: 0 };
+    }
+
+    // Build RAW payload
+    const now = new Date();
+    const fechaReporte = now.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    const payload = {
+        fecha_reporte: fechaReporte,
+        generated_at: now.toISOString(),
+        consumos: validSales.map((s) => ({
+            fecha: new Date(s.fecha).toISOString(),
+            paciente: s.paciente,
+            cantidad: Number(s.cantidad),
+            producto: s.producto,
+        })),
+    };
+
+    // Send to n8n webhook
+    const webhookUrl = process.env.N8N_WEBHOOK_URL ?? "https://n8n.servicioscreativos.online/webhook/cierre-cafetin";
+
+    const attemptSend = async (): Promise<Response> => {
+        return await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
         });
+    };
 
-        // If no orders, log and exit
-        if (ordersData.length === 0) {
-            console.log("[Billing] No Cafetin orders found for this week.");
-            return { success: true, message: "No orders to process" };
+    try {
+        let response = await attemptSend();
+
+        // Retry once on 5xx
+        if (response.status >= 500) {
+            console.log(`[Billing] Server error ${response.status}, retrying once...`);
+            await new Promise((r) => setTimeout(r, 2000));
+            response = await attemptSend();
         }
 
-        // Group by patientId and aggregate product quantities
-        const patientMap: Map<
-            string,
-            {
-                patientName: string;
-                products: Map<string, number>; // productName -> totalQty
-            }
-        > = new Map();
-
-        for (const order of ordersData) {
-            const key = order.patientId ?? "unassigned";
-
-            if (!patientMap.has(key)) {
-                patientMap.set(key, {
-                    patientName: order.patientName,
-                    products: new Map(),
-                });
-            }
-
-            const patientData = patientMap.get(key)!;
-
-            for (const item of order.items) {
-                const currentQty = patientData.products.get(item.name) ?? 0;
-                patientData.products.set(item.name, currentQty + item.qty);
-            }
-        }
-
-        // Format week label
-        const startDate = new Date(sevenDaysAgo);
-        const endDate = new Date(now);
-        const formatDate = (d: Date) =>
-            `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
-        const weekLabel = `Semana del ${formatDate(startDate)} al ${formatDate(endDate)}`;
-
-        // Build payload
-        const payload = Array.from(patientMap.entries()).map(
-            ([_key, patientData]) => ({
-                patientName: patientData.patientName,
-                weekLabel,
-                items: Array.from(patientData.products.entries()).map(
-                    ([name, qty]) => ({
-                        name,
-                        qty,
-                    })
-                ),
-            })
-        );
-
-        // Send to n8n webhook
-        const webhookUrl = process.env.N8N_WEBHOOK_URL;
-        if (!webhookUrl) {
-            console.error("[Billing] N8N_WEBHOOK_URL environment variable not set!");
-            return { success: false, error: "N8N_WEBHOOK_URL not configured" };
-        }
-
-        try {
-            const response = await fetch(webhookUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(
-                    `[Billing] n8n webhook failed: ${response.status} - ${errorText}`
-                );
-                return {
-                    success: false,
-                    error: `Webhook failed: ${response.status}`,
-                };
-            }
-
-            console.log(
-                `[Billing] Successfully sent ${payload.length} patient records to n8n`
-            );
-            return {
-                success: true,
-                message: `Sent ${payload.length} patient records`,
-                patientsProcessed: payload.length,
-            };
-        } catch (error) {
-            console.error("[Billing] Error sending to n8n:", error);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[Billing] n8n webhook failed: ${response.status} - ${errorText}`);
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Unknown error",
+                error: `Error del servidor: ${response.status}`,
+                sent: 0,
             };
         }
+
+        // Mark all valid sales as sent
+        // Cast IDs to proper Convex ID type
+        await ctx.runMutation(internal.billing.markSalesAsSent, {
+            saleIds: validSales.map((s) => s._id as any),
+        });
+
+        console.log(`[Billing] Successfully sent ${validSales.length} RAW records to n8n`);
+        return {
+            success: true,
+            message: `Enviados ${validSales.length} consumos`,
+            sent: validSales.length,
+        };
+    } catch (error) {
+        console.error("[Billing] Error sending to n8n:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Error de conexión",
+            sent: 0,
+        };
+    }
+}
+
+/**
+ * Internal action: Daily cron handler.
+ * Sends all unsent cafetín sales to n8n as RAW data.
+ */
+export const sendDailyRawData = internalAction({
+    handler: async (ctx) => {
+        return await sendRawToN8n(ctx);
+    },
+});
+
+/**
+ * Public action: Manual trigger from "Cerrar día" button.
+ */
+export const triggerDailySend = action({
+    handler: async (ctx) => {
+        return await sendRawToN8n(ctx);
     },
 });

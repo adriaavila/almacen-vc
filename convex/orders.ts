@@ -129,6 +129,7 @@ export const create = mutation({
         cantidad: v.number(),
       })
     ),
+    type: v.optional(v.union(v.literal("order"), v.literal("pos"))), // Distinguish between POS sales and regular orders
   },
   handler: async (ctx, args) => {
     // Filter out items with cantidad 0
@@ -188,11 +189,11 @@ export const create = mutation({
     }
 
     // Programar notificación de Telegram después de crear el pedido
-    // Solo enviar si NO es una venta POS del Cafetin (Cafetin + PatientId)
-    // Las ventas directas POS no requieren alerta al almacén
-    const isPOSSale = args.area === "Cafetin" && args.patientId !== undefined;
+    // Solo enviar si es un PEDIDO regular (type="order" o undefined), NO para ventas POS
+    // Las ventas POS no requieren alerta al almacén
+    const isPOS = args.type === "pos";
 
-    if (!isPOSSale) {
+    if (!isPOS) {
       await ctx.scheduler.runAfter(0, internal.telegram.sendNotification, {
         orderId,
         area: args.area,
@@ -287,6 +288,12 @@ export const deliver = mutation({
       stock_minimo: number;
     }> = [];
     const movementIds: Array<string> = [];
+    // Cashed patient name for POS sales
+    let patientName = "";
+    if (order.patientId) {
+      const patient = await ctx.db.get(order.patientId);
+      patientName = patient?.nombre || "Sin Asignar";
+    }
 
     // Process each order item
     for (const oi of orderItems) {
@@ -307,7 +314,8 @@ export const deliver = mutation({
           args.id,
           deliveredItems,
           lowStockItems,
-          movementIds
+          movementIds,
+          patientName
         );
       } else {
         // Regular Order: Replenish from Almacen
@@ -367,7 +375,8 @@ async function processPOSSale(
     stock_actual: number;
     stock_minimo: number;
   }>,
-  movementIds: Array<string>
+  movementIds: Array<string>,
+  patientName: string
 ) {
   const product = await ctx.db.get(productId);
   if (!product) {
@@ -387,7 +396,10 @@ async function processPOSSale(
 
   // NOTE: We could allow negative stock if physical recount will happen later, 
   // but usually POS should block if empty. For now, strictly enforce stock.
-  if (currentStock < cantidad) {
+  // EXCEPTION: "Taza café" does not track stock/income, so we allow negative stock.
+  const isExemptProduct = product.name === "Taza café";
+
+  if (!isExemptProduct && currentStock < cantidad) {
     throw new Error(
       `Stock insuficiente en Cafetín para ${product.name}. Disponible: ${currentStock} ${product.baseUnit ?? 'unidades'}`
     );
@@ -428,6 +440,16 @@ async function processPOSSale(
     orderId,
   });
   movementIds.push(movementId);
+
+  // Register in Cafetin Sales for Daily RAW Export
+  await ctx.db.insert("cafetin_sales", {
+    paciente: patientName,
+    producto: product.name,
+    cantidad: cantidad,
+    fecha: now,
+    orderId: orderId,
+    sentToN8n: false,
+  });
 
   deliveredItems.push({
     itemId: productId,

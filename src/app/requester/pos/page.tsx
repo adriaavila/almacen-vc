@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { api } from 'convex/_generated/api';
+import { useAction } from 'convex/react';
 import { Id } from 'convex/_generated/dataModel';
 import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
@@ -274,6 +275,7 @@ export default function POSPage() {
             productId: item.productId,
             cantidad: item.cantidad,
           })),
+          type: 'pos',
         });
         orderResults.push(result);
       }
@@ -314,6 +316,31 @@ export default function POSPage() {
     }
   };
 
+  // Handle daily close trigger
+  const triggerDailySend = useAction(api.billing.triggerDailySend);
+  const [isSendingDaily, setIsSendingDaily] = useState(false);
+
+  const handleDailyClose = async () => {
+    if (!confirm("¿Estás seguro de cerrar el día? Esto enviará el reporte diario a n8n.")) {
+      return;
+    }
+
+    setIsSendingDaily(true);
+    try {
+      const result = await triggerDailySend();
+      if (result.success) {
+        alert(result.message || "Reporte enviado exitosamente");
+      } else {
+        alert("Error: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error sending daily report:", error);
+      alert("Error al enviar el reporte diario");
+    } finally {
+      setIsSendingDaily(false);
+    }
+  };
+
   if (products === undefined) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -329,11 +356,22 @@ export default function POSPage() {
   return (
     <div className="h-full bg-gray-50 flex flex-col overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden w-full px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 space-y-1 sm:space-y-1.5 md:space-y-2">
-        <RequesterHeader
-          title="POS"
-          subtitle="Cafetin - Venta al público"
-          className="!mb-1 !pb-1 sm:!mb-1 sm:!pb-1 md:!mb-1 md:!pb-1 lg:!mb-1 lg:!pb-1"
-        />
+        <div className="flex justify-between items-start mb-1 pb-1 sm:mb-1 sm:pb-1 md:mb-1 md:pb-1 lg:mb-1 lg:pb-1">
+          <RequesterHeader
+            title="POS"
+            subtitle="Cafetin - Venta al público"
+            className="!mb-0 !pb-0"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleDailyClose}
+            disabled={isSendingDaily}
+            className="text-xs px-2 py-1 h-8"
+          >
+            {isSendingDaily ? "Enviando..." : "Cerrar día"}
+          </Button>
+        </div>
 
         {/* Zona A: Panel de Control Multitarea */}
         <div className="shrink-0">

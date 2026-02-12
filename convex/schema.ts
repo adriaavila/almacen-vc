@@ -202,4 +202,19 @@ export default defineSchema({
     costoUnitario: v.optional(v.number()),
   })
     .index("by_order", ["supplierOrderId"]),
+
+  // ============================================================
+  // CAFETIN SALES (Per-item records for n8n RAW export)
+  // ============================================================
+  cafetin_sales: defineTable({
+    paciente: v.string(),           // Patient name (denormalized for RAW export)
+    producto: v.string(),           // Product name (denormalized for RAW export)
+    cantidad: v.number(),           // Quantity consumed (always a number)
+    fecha: v.number(),              // Timestamp of the sale
+    orderId: v.optional(v.id("orders")), // Reference to the original order
+    sentToN8n: v.boolean(),         // Whether this record has been sent to n8n
+  })
+    .index("by_sentToN8n", ["sentToN8n"])
+    .index("by_fecha", ["fecha"])
+    .index("by_sentToN8n_fecha", ["sentToN8n", "fecha"]),
 });
