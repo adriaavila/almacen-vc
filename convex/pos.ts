@@ -2,6 +2,41 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
+ * Count POS sales created today (since midnight local time).
+ * Used to generate sequential order numbers in the POS UI.
+ */
+export const todayPosSalesCount = query({
+    args: {},
+    handler: async (ctx) => {
+        // Get start of today (UTC-4, Venezuela time)
+        const now = new Date();
+        const offsetMs = -4 * 60 * 60 * 1000; // UTC-4
+        const localNow = new Date(now.getTime() + offsetMs);
+        const startOfDay = new Date(
+            localNow.getFullYear(),
+            localNow.getMonth(),
+            localNow.getDate()
+        );
+        // Convert back to UTC timestamp
+        const startTimestamp = startOfDay.getTime() - offsetMs;
+
+        // Count orders created today in Cafetin area (POS sales have patientId)
+        const todayOrders = await ctx.db
+            .query("orders")
+            .filter((q) =>
+                q.and(
+                    q.eq(q.field("area"), "Cafetin"),
+                    q.gte(q.field("createdAt"), startTimestamp)
+                )
+            )
+            .collect();
+
+        // Only count those with a patientId (POS sales always have one)
+        return todayOrders.filter((o) => o.patientId !== undefined).length;
+    },
+});
+
+/**
  * Lightweight query for POS.
  * Returns only essential product fields to reduce payload size.
  * Joins with inventory to get cafetín stock.

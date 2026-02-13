@@ -78,6 +78,7 @@ export const getOrderStats = query({
         Cocina: orders.filter((o) => o.area === "Cocina").length,
         Cafetin: orders.filter((o) => o.area === "Cafetin").length,
         Limpieza: orders.filter((o) => o.area === "Limpieza").length,
+        Camila: orders.filter((o) => o.area === "Camila").length,
       },
     };
 
@@ -134,16 +135,18 @@ export const getOrdersByArea = query({
 
     // Get order items to calculate consumption
     // Use ASCII-safe keys for Convex compatibility
-    const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza"> = {
+    const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza" | "Camila"> = {
       Cocina: "Cocina",
       "Cafetin": "Cafetin",
       Limpieza: "Limpieza",
+      Camila: "Camila",
     };
 
     const ordersByArea = {
       Cocina: { count: 0, totalQuantity: 0 },
       Cafetin: { count: 0, totalQuantity: 0 },
       Limpieza: { count: 0, totalQuantity: 0 },
+      Camila: { count: 0, totalQuantity: 0 },
     };
 
     for (const order of orders) {
@@ -480,16 +483,18 @@ export const getConsumptionByArea = query({
     );
 
     // Use ASCII-safe keys for Convex compatibility
-    const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza"> = {
+    const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza" | "Camila"> = {
       Cocina: "Cocina",
       "Cafetin": "Cafetin",
       Limpieza: "Limpieza",
+      Camila: "Camila",
     };
 
     const consumption = {
       Cocina: 0,
       Cafetin: 0,
       Limpieza: 0,
+      Camila: 0,
     };
 
     for (const order of orders) {
@@ -523,15 +528,16 @@ export const getAreaConsumptionTrends = query({
     const groupBy = args.groupBy || "day";
 
     // Use ASCII-safe keys for Convex compatibility
-    const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza"> = {
+    const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza" | "Camila"> = {
       Cocina: "Cocina",
       "Cafetin": "Cafetin",
       Limpieza: "Limpieza",
+      Camila: "Camila",
     };
 
     const trends = new Map<
       string,
-      { Cocina: number; Cafetin: number; Limpieza: number }
+      { Cocina: number; Cafetin: number; Limpieza: number; Camila: number }
     >();
 
     for (const order of orders) {
@@ -555,7 +561,7 @@ export const getAreaConsumptionTrends = query({
       const totalQty = orderItems.reduce((sum, oi) => sum + oi.cantidad, 0);
 
       const areaKey = areaKeyMap[order.area];
-      const existing = trends.get(key) || { Cocina: 0, Cafetin: 0, Limpieza: 0 };
+      const existing = trends.get(key) || { Cocina: 0, Cafetin: 0, Limpieza: 0, Camila: 0 };
       existing[areaKey] += totalQty;
       trends.set(key, existing);
     }
@@ -595,8 +601,8 @@ export const getInventoryRunway = query({
       if (location === "cafetin") {
         return order.area === "Cafetin";
       } else {
-        // almacen supplies Cocina and Limpieza
-        return order.area === "Cocina" || order.area === "Limpieza";
+        // almacen supplies Cocina, Limpieza and Camila
+        return order.area === "Cocina" || order.area === "Limpieza" || order.area === "Camila";
       }
     });
 

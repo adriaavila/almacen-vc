@@ -75,7 +75,7 @@ async function getRecipients(ctx: any, preferenceKey?: "lowStock" | "weeklyRepor
 export const sendNotification = internalAction({
   args: {
     orderId: v.id("orders"),
-    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Camila")),
     createdAt: v.number(),
     items: v.array(
       v.object({

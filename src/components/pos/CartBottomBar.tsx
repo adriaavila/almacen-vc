@@ -2,11 +2,11 @@
 
 interface CartBottomBarProps {
     itemCount: number;
-    slotNumber: number;
+    orderNumber: number;
     onViewTicket: () => void;
 }
 
-export function CartBottomBar({ itemCount, slotNumber, onViewTicket }: CartBottomBarProps) {
+export function CartBottomBar({ itemCount, orderNumber, onViewTicket }: CartBottomBarProps) {
     if (itemCount === 0) return null;
 
     return (
@@ -29,7 +29,7 @@ export function CartBottomBar({ itemCount, slotNumber, onViewTicket }: CartBotto
 
                 {/* Order label */}
                 <span className="text-sm font-medium text-gray-300">
-                    Orden #{slotNumber}
+                    Orden #{orderNumber}
                 </span>
 
                 {/* CTA */}

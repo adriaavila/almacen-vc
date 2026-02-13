@@ -134,10 +134,7 @@ export default function ReportsPage() {
                 <div className="flex flex-col gap-2 border-b border-gray-200 pb-2">
                     {/* Top Row: Title + Toggle compacted */}
                     <div className="relative flex items-center justify-center min-h-[44px]">
-                        <div className="text-center">
-                            <h1 className="text-lg font-bold text-gray-900 leading-tight">Reportes</h1>
-                            <p className="text-xs text-gray-500">Cierre de Cafetín</p>
-                        </div>
+
                         <div className="absolute right-0 top-1/2 -translate-y-1/2 flex bg-gray-100 rounded p-1 gap-1 shrink-0">
                             <button
                                 onClick={() => setViewMode('daily')}
@@ -217,56 +214,58 @@ export default function ReportsPage() {
                         <div className="flex-1 overflow-auto bg-gray-50 p-2 sm:p-4 space-y-4">
                             {viewMode === 'daily' ? (
                                 <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                                                    Hora
-                                                </th>
-                                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Paciente
-                                                </th>
-                                                <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                                                    Cant.
-                                                </th>
-                                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Producto
-                                                </th>
-                                                <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                                                    Estado
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {salesReport.map((sale) => (
-                                                <tr key={sale._id} className="hover:bg-gray-50">
-                                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
-                                                        {new Date(sale.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                        {sale.paciente}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 font-bold text-right">
-                                                        {sale.cantidad}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                                        {sale.producto}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-center">
-                                                        {sale.sentToN8n ? (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
-                                                                Enviado
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">
-                                                                Pendiente
-                                                            </span>
-                                                        )}
-                                                    </td>
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                                                        Hora
+                                                    </th>
+                                                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Paciente
+                                                    </th>
+                                                    <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                                                        Cant.
+                                                    </th>
+                                                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Producto
+                                                    </th>
+                                                    <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                                                        Estado
+                                                    </th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {salesReport.map((sale) => (
+                                                    <tr key={sale._id} className="hover:bg-gray-50">
+                                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                                            {new Date(sale.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                        <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                            {sale.paciente}
+                                                        </td>
+                                                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 font-bold text-right">
+                                                            {sale.cantidad}
+                                                        </td>
+                                                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                                            {sale.producto}
+                                                        </td>
+                                                        <td className="px-3 py-2 whitespace-nowrap text-center">
+                                                            {sale.sentToN8n ? (
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
+                                                                    Enviado
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">
+                                                                    Pendiente
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
@@ -282,45 +281,47 @@ export default function ReportsPage() {
                                                     {copiedIndex === idx ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
                                                 </button>
                                             </div>
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                                <thead className="bg-white">
-                                                    <tr>
-                                                        <th scope="col" className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16 bg-gray-50/50">
-                                                            Cant.
-                                                        </th>
-                                                        <th scope="col" className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50/50">
-                                                            Producto
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-100">
-                                                    {/* Parse the product string back to rows for display */}
-                                                    {item.products.split(', ').map((prodStr, i) => {
-                                                        const match = prodStr.match(/(.*) \((\d+)\)/);
-                                                        if (match) {
-                                                            return (
-                                                                <tr key={i}>
-                                                                    <td className="px-3 py-1.5 text-sm font-bold text-gray-900 text-right w-16">
-                                                                        {match[2]}
-                                                                    </td>
-                                                                    <td className="px-3 py-1.5 text-sm text-gray-600">
-                                                                        {match[1]}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })}
-                                                    <tr className="bg-gray-50/30 border-t border-gray-200">
-                                                        <td className="px-3 py-1.5 text-sm font-black text-gray-900 text-right w-16">
-                                                            {item.totalQty}
-                                                        </td>
-                                                        <td className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Total Items
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                    <thead className="bg-white">
+                                                        <tr>
+                                                            <th scope="col" className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16 bg-gray-50/50">
+                                                                Cant.
+                                                            </th>
+                                                            <th scope="col" className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50/50">
+                                                                Producto
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {/* Parse the product string back to rows for display */}
+                                                        {item.products.split(', ').map((prodStr, i) => {
+                                                            const match = prodStr.match(/(.*) \((\d+)\)/);
+                                                            if (match) {
+                                                                return (
+                                                                    <tr key={i}>
+                                                                        <td className="px-3 py-1.5 text-sm font-bold text-gray-900 text-right w-16">
+                                                                            {match[2]}
+                                                                        </td>
+                                                                        <td className="px-3 py-1.5 text-sm text-gray-600">
+                                                                            {match[1]}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })}
+                                                        <tr className="bg-gray-50/30 border-t border-gray-200">
+                                                            <td className="px-3 py-1.5 text-sm font-black text-gray-900 text-right w-16">
+                                                                {item.totalQty}
+                                                            </td>
+                                                            <td className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Total Items
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

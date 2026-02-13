@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Id } from 'convex/_generated/dataModel';
+import { useQuery } from 'convex/react';
+import { api } from 'convex/_generated/api';
 import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
 import { SyncStatus } from '@/components/ui/SyncStatus';
 import { SlotButton } from '@/components/ui/SlotButton';
@@ -43,6 +45,7 @@ export default function POSPage() {
   const products = usePosInventory();
   const createOrder = useOfflineMutation('createOrder');
   const users = useUsersData();
+  const serverPosSalesCount = useQuery(api.pos.todayPosSalesCount);
 
   // Map users to pacientes
   const pacientes = useMemo(() => {
@@ -56,6 +59,17 @@ export default function POSPage() {
   const [ghostAddFeedback, setGhostAddFeedback] = useState<Record<number, boolean>>({});
   const [isRegistering, setIsRegistering] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [localSalesOffset, setLocalSalesOffset] = useState(0);
+
+  // Global POS order number (server count + local optimistic offset)
+  const posSalesCount = (serverPosSalesCount ?? 0) + localSalesOffset;
+
+  // Reset local offset when server catches up
+  useEffect(() => {
+    if (serverPosSalesCount !== undefined) {
+      setLocalSalesOffset(0);
+    }
+  }, [serverPosSalesCount]);
 
   // Search & category filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -293,41 +307,42 @@ export default function POSPage() {
   }, [activeSlotId]);
 
   const handleRegisterSale = async () => {
-    const slotsWithItems = slots.filter(s => s.items.length > 0);
-    if (slotsWithItems.length === 0) return;
+    // Only register the ACTIVE slot
+    if (activeSlot.items.length === 0) return;
 
     setIsRegistering(true);
 
     try {
-      for (const slot of slotsWithItems) {
-        let pacienteIdToUse = slot.pacienteId;
-        if (slot.id === activeSlotId && !pacienteIdToUse && currentSliderPacienteId) {
-          pacienteIdToUse = currentSliderPacienteId;
-        }
-
-        await createOrder({
-          area: 'Cafetin',
-          patientId: pacienteIdToUse ? (pacienteIdToUse as Id<"users">) : undefined,
-          items: slot.items.map(item => ({
-            productId: item.productId,
-            cantidad: item.cantidad,
-          })),
-          type: 'pos',
-        });
+      let pacienteIdToUse = activeSlot.pacienteId;
+      if (!pacienteIdToUse && currentSliderPacienteId) {
+        pacienteIdToUse = currentSliderPacienteId;
       }
 
-      // Clear processed slots
+      await createOrder({
+        area: 'Cafetin',
+        patientId: pacienteIdToUse ? (pacienteIdToUse as Id<"users">) : undefined,
+        items: activeSlot.items.map(item => ({
+          productId: item.productId,
+          cantidad: item.cantidad,
+        })),
+        type: 'pos',
+      });
+
+      // Clear ONLY the active slot, leave others untouched
       setSlots(prev => prev.map(slot => {
-        if (slot.items.length > 0) {
+        if (slot.id === activeSlotId) {
           return { ...slot, items: [], pacienteId: null };
         }
         return slot;
       }));
 
-      console.log('Ventas registradas (optimistic)');
+      // Increment local counter optimistically
+      setLocalSalesOffset(prev => prev + 1);
+
+      console.log(`Venta registrada para slot ${activeSlotId} (optimistic)`);
     } catch (error) {
-      console.error('Error al registrar ventas:', error);
-      alert('Error al registrar ventas. Intente de nuevo.');
+      console.error('Error al registrar venta:', error);
+      alert('Error al registrar venta. Intente de nuevo.');
     } finally {
       setIsRegistering(false);
     }
@@ -496,7 +511,7 @@ export default function POSPage() {
       {/* Bottom cart bar */}
       <CartBottomBar
         itemCount={activeSlotItemCount}
-        slotNumber={activeSlotId}
+        orderNumber={posSalesCount + 1}
         onViewTicket={() => setTicketOpen(true)}
       />
 
@@ -505,6 +520,7 @@ export default function POSPage() {
         open={ticketOpen}
         onClose={() => setTicketOpen(false)}
         slot={activeSlot}
+        orderNumber={posSalesCount + 1}
         pacientes={pacientes}
         activeSlotPacienteId={activeSlot.pacienteId || currentSliderPacienteId}
         onPacienteChange={handlePacienteChange}

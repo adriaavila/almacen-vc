@@ -34,53 +34,61 @@ export default function Home() {
           <p className="text-base text-gray-600 mb-8 text-center max-w-md">
             Operaciones Internas Vistacampo
           </p>
-          
+
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-4">
               <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label text-center">
                 Áreas Operativas
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Button 
-                  variant="primary" 
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <Button
+                  variant="primary"
                   className="w-full py-3 text-base"
                   onClick={() => handleAreaClick('Cafetin')}
                 >
                   Cafetin
                 </Button>
-                
-                <Button 
-                  variant="primary" 
+
+                <Button
+                  variant="primary"
                   className="w-full py-3 text-base"
                   onClick={() => handleAreaClick('Cocina')}
                 >
                   Cocina
                 </Button>
-                
-                <Button 
-                  variant="primary" 
+
+                <Button
+                  variant="primary"
                   className="w-full py-3 text-base"
                   onClick={() => handleAreaClick('Limpieza')}
                 >
                   Limpieza
                 </Button>
+
+                <Button
+                  variant="primary"
+                  className="w-full py-3 text-base"
+                  onClick={() => handleAreaClick('Camila')}
+                >
+                  Camila
+                </Button>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
               <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase-label text-center">
                 Administración
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
-                  variant="secondary" 
+                <Button
+                  variant="secondary"
                   className="w-full py-3 text-base"
                   onClick={() => router.push('/mantenimiento')}
                 >
                   Mantenimiento
                 </Button>
-                <Button 
-                  variant="secondary" 
+                <Button
+                  variant="secondary"
                   className="w-full py-3 text-base"
                   onClick={() => router.push('/admin/pedidos')}
                 >

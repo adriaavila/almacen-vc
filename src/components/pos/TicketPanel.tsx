@@ -15,6 +15,7 @@ interface TicketPanelProps {
     open: boolean;
     onClose: () => void;
     slot: Slot;
+    orderNumber: number;
     pacientes: Paciente[];
     activeSlotPacienteId: string | null;
     onPacienteChange: (pacienteId: string) => void;
@@ -29,6 +30,7 @@ export function TicketPanel({
     open,
     onClose,
     slot,
+    orderNumber,
     pacientes,
     activeSlotPacienteId,
     onPacienteChange,
@@ -46,7 +48,7 @@ export function TicketPanel({
                 {/* Header */}
                 <SheetHeader className="border-b border-gray-100 px-5 py-4">
                     <SheetTitle className="text-lg font-bold text-gray-900">
-                        Ticket · Orden #{slot.id}
+                        Ticket · Orden #{orderNumber}
                     </SheetTitle>
                     <p className="text-sm text-gray-500 text-center">
                         {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
