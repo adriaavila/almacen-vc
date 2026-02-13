@@ -86,15 +86,28 @@ export function OfflineSyncManager() {
               continue;
             }
             // Validate area is one of the allowed values
-            const validAreas = ["Cocina", "Cafetin", "Limpieza"] as const;
+            const validAreas = ["Cocina", "Cafetin", "Limpieza", "Camila"] as const;
             if (!validAreas.includes(action.args.area as typeof validAreas[number])) {
               console.error('OfflineSyncManager: Invalid area value:', action.args.area);
               continue;
             }
             result = await createOrder(action.args as {
-              area: "Cocina" | "Cafetin" | "Limpieza";
+              area: "Cocina" | "Cafetin" | "Limpieza" | "Camila";
               items: Array<{ productId: Id<"products">; cantidad: number }>;
+              patientId?: Id<"users">;
+              type?: "order" | "pos";
             });
+
+            // POS sales must be delivered immediately so CONSUMO movements
+            // are recorded and appear in the weekly POS report.
+            if (result && action.args.type === 'pos') {
+              try {
+                await deliverOrder({ id: result as Id<"orders"> });
+                console.log(`OfflineSyncManager: Auto-delivered POS order ${result}`);
+              } catch (deliverError) {
+                console.error(`OfflineSyncManager: Failed to auto-deliver POS order ${result}:`, deliverError);
+              }
+            }
             break;
           case 'deliverOrder':
             if (!action.args.id) {

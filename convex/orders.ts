@@ -1134,3 +1134,84 @@ export const reprocessAllDeliveredOrders = mutation({
     };
   },
 });
+
+// ============================================================
+// ONE-TIME FIX: Deliver all pending POS orders
+// POS orders were being created but never delivered, so CONSUMO 
+// movements were not generated and they didn't appear in reports.
+// ============================================================
+export const deliverPendingPOSOrders = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Get all pending orders for Cafetin area that have a patientId (POS sales)
+    const pendingOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_area_status", (q) =>
+        q.eq("area", "Cafetin").eq("status", "pendiente")
+      )
+      .collect();
+
+    // Filter to only POS sales (those with patientId)
+    const posOrders = pendingOrders.filter((o) => o.patientId !== undefined);
+
+    const results: Array<{ orderId: string; success: boolean; error?: string }> = [];
+
+    for (const order of posOrders) {
+      try {
+        // Get orderItems for this order
+        const orderItems = await ctx.db
+          .query("orderItems")
+          .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        if (orderItems.length === 0) {
+          results.push({ orderId: order._id, success: false, error: "No items" });
+          continue;
+        }
+
+        const deliveredItems: Array<{ itemId: string; cantidad: number; newStock: number }> = [];
+        const lowStockItems: Array<{ itemId: string; nombre: string; stock_actual: number; stock_minimo: number }> = [];
+        const movementIds: Array<string> = [];
+
+        let patientName = "";
+        if (order.patientId) {
+          const patient = await ctx.db.get(order.patientId);
+          patientName = patient?.nombre || "Sin Asignar";
+        }
+
+        for (const oi of orderItems) {
+          if (!oi.productId) continue;
+
+          await processPOSSale(
+            ctx,
+            oi.productId,
+            oi.cantidad,
+            order._id,
+            deliveredItems,
+            lowStockItems,
+            movementIds,
+            patientName
+          );
+        }
+
+        // Mark as delivered
+        await ctx.db.patch(order._id, { status: "entregado" });
+
+        results.push({ orderId: order._id, success: true });
+      } catch (error) {
+        results.push({
+          orderId: order._id,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return {
+      total: posOrders.length,
+      delivered: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    };
+  },
+});
