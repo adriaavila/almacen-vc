@@ -78,7 +78,16 @@ export type PendingAction =
       area: "Cocina" | "Cafetin" | "Limpieza" | "Camila";
       items: Array<{ productId: Id<"products">; cantidad: number }>;
       patientId?: Id<"users">;
-      type?: "order" | "pos";
+    };
+    timestamp: number;
+  }
+  | {
+    id: string;
+    type: 'posSale';
+    mutation: 'api.pos.registerSale';
+    args: {
+      patientId?: Id<"users">;
+      items: Array<{ productId: Id<"products">; cantidad: number }>;
     };
     timestamp: number;
   }

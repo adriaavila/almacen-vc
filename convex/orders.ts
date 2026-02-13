@@ -118,18 +118,17 @@ export const getLastByArea = query({
   },
 });
 
-// Mutation: Create a new order with items
+// Mutation: Create a new order with items (warehouse orders only — POS uses pos.registerSale)
 export const create = mutation({
   args: {
     area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Camila")),
-    patientId: v.optional(v.id("users")), // For Cafetin billing
+    patientId: v.optional(v.id("users")),
     items: v.array(
       v.object({
-        productId: v.id("products"), // Requerido - solo usar productId
+        productId: v.id("products"),
         cantidad: v.number(),
       })
     ),
-    type: v.optional(v.union(v.literal("order"), v.literal("pos"))), // Distinguish between POS sales and regular orders
   },
   handler: async (ctx, args) => {
     // Filter out items with cantidad 0
@@ -157,50 +156,31 @@ export const create = mutation({
         continue;
       }
 
-      let productId: Id<"products">;
-      let productName: string;
-
-      // Use only productId - itemId is no longer supported
-      if (!item.productId) {
-        throw new Error("Debe proporcionar productId");
-      }
-
       const product = await ctx.db.get(item.productId);
       if (!product) {
         throw new Error(`Producto con ID ${item.productId} no encontrado`);
       }
-      productId = item.productId;
-      productName = product.name;
 
       // Insert orderItem
       await ctx.db.insert("orderItems", {
         orderId,
-        productId,
+        productId: item.productId,
         cantidad: item.cantidad,
       });
 
-      // Agregar al array de notificación si tenemos el nombre del producto
-      if (productName) {
-        notificationItems.push({
-          name: productName,
-          quantity: item.cantidad,
-        });
-      }
-    }
-
-    // Programar notificación de Telegram después de crear el pedido
-    // Solo enviar si es un PEDIDO regular (type="order" o undefined), NO para ventas POS
-    // Las ventas POS no requieren alerta al almacén
-    const isPOS = args.type === "pos";
-
-    if (!isPOS) {
-      await ctx.scheduler.runAfter(0, internal.telegram.sendNotification, {
-        orderId,
-        area: args.area,
-        createdAt,
-        items: notificationItems,
+      notificationItems.push({
+        name: product.name,
+        quantity: item.cantidad,
       });
     }
+
+    // Send Telegram notification for warehouse orders
+    await ctx.scheduler.runAfter(0, internal.telegram.sendNotification, {
+      orderId,
+      area: args.area,
+      createdAt,
+      items: notificationItems,
+    });
 
     return orderId;
   },
@@ -253,7 +233,7 @@ export const updateItems = mutation({
   },
 });
 
-// Mutation: Deliver an order (atomic transaction)
+// Mutation: Deliver a warehouse order (atomic transaction)
 export const deliver = mutation({
   args: { id: v.id("orders") },
   handler: async (ctx, args) => {
@@ -288,52 +268,27 @@ export const deliver = mutation({
       stock_minimo: number;
     }> = [];
     const movementIds: Array<string> = [];
-    // Cashed patient name for POS sales
-    let patientName = "";
-    if (order.patientId) {
-      const patient = await ctx.db.get(order.patientId);
-      patientName = patient?.nombre || "Sin Asignar";
-    }
 
-    // Process each order item
+    // Process each order item (warehouse delivery only)
     for (const oi of orderItems) {
-      // Use only productId - skip if not available
       if (!oi.productId) {
         continue;
       }
 
-      const productId = oi.productId;
+      const product = await ctx.db.get(oi.productId);
+      const effectiveDestination: "cafetin" | null =
+        order.area === "Cafetin" && product?.availableForSale !== false ? "cafetin" : null;
 
-      // Check if this is a POS Sale (has patientId)
-      if (order.patientId) {
-        // POS Sale: Consume from Cafetin stock directly
-        await processPOSSale(
-          ctx,
-          productId,
-          oi.cantidad,
-          args.id,
-          deliveredItems,
-          lowStockItems,
-          movementIds,
-          patientName
-        );
-      } else {
-        // Regular Order: Replenish from Almacen
-        const product = await ctx.db.get(productId);
-        const effectiveDestination: "cafetin" | null =
-          order.area === "Cafetin" && product?.availableForSale !== false ? "cafetin" : null;
-
-        await processProductDelivery(
-          ctx,
-          productId,
-          oi.cantidad,
-          effectiveDestination,
-          args.id,
-          deliveredItems,
-          lowStockItems,
-          movementIds
-        );
-      }
+      await processProductDelivery(
+        ctx,
+        oi.productId,
+        oi.cantidad,
+        effectiveDestination,
+        args.id,
+        deliveredItems,
+        lowStockItems,
+        movementIds
+      );
     }
 
     // Update order status
@@ -356,109 +311,6 @@ function isCafetinCategory(category: string): boolean {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
   return normalized === "cafetin";
-}
-
-// Helper function to process POS Sale (Direct consumption from Cafetin)
-async function processPOSSale(
-  ctx: MutationCtx,
-  productId: Id<"products">,
-  cantidad: number,
-  orderId: Id<"orders">,
-  deliveredItems: Array<{
-    itemId: string;
-    cantidad: number;
-    newStock: number;
-  }>,
-  lowStockItems: Array<{
-    itemId: string;
-    nombre: string;
-    stock_actual: number;
-    stock_minimo: number;
-  }>,
-  movementIds: Array<string>,
-  patientName: string
-) {
-  const product = await ctx.db.get(productId);
-  if (!product) {
-    throw new Error(`Producto con ID ${productId} no encontrado`);
-  }
-
-  // Get Cafetin inventory
-  const cafetinInventory = await ctx.db
-    .query("inventory")
-    .withIndex("by_product_location", (q) =>
-      q.eq("productId", productId).eq("location", "cafetin")
-    )
-    .first();
-
-  // Check stock (POS sales are immediate, so we strictly check availability)
-  const currentStock = cafetinInventory?.stockActual ?? 0;
-
-  // NOTE: We could allow negative stock if physical recount will happen later, 
-  // but usually POS should block if empty. For now, strictly enforce stock.
-  // EXCEPTION: "Taza café" does not track stock/income, so we allow negative stock.
-  const isExemptProduct = product.name === "Taza café";
-
-  if (!isExemptProduct && currentStock < cantidad) {
-    throw new Error(
-      `Stock insuficiente en Cafetín para ${product.name}. Disponible: ${currentStock} ${product.baseUnit ?? 'unidades'}`
-    );
-  }
-
-  const now = Date.now();
-  const newStock = currentStock - cantidad;
-
-  // Update Cafetin inventory
-  if (cafetinInventory) {
-    await ctx.db.patch(cafetinInventory._id, {
-      stockActual: newStock,
-      updatedAt: now,
-    });
-  } else {
-    // Should not happen if stock > 0 check passed (unless race condition or 0 stock allowed)
-    // Create entry with negative stock if we decide to allow it later
-    await ctx.db.insert("inventory", {
-      productId,
-      location: "cafetin",
-      stockActual: newStock,
-      stockMinimo: 0,
-      updatedAt: now,
-    });
-  }
-
-  // Register Consumption Movement
-  const movementId = await ctx.db.insert("movements", {
-    productId,
-    type: "CONSUMO",
-    from: "CAFETIN",
-    to: "CONSUMO", // Or "USER" if we want to be specific, but CONSUMO is standard for report
-    quantity: cantidad,
-    prevStock: currentStock,
-    nextStock: newStock,
-    user: "system", // Could track staff user if available from context
-    timestamp: now,
-    orderId,
-  });
-  movementIds.push(movementId);
-
-  // Register in Cafetin Sales for Daily RAW Export
-  await ctx.db.insert("cafetin_sales", {
-    paciente: patientName,
-    producto: product.name,
-    cantidad: cantidad,
-    fecha: now,
-    orderId: orderId,
-    sentToN8n: false,
-  });
-
-  deliveredItems.push({
-    itemId: productId,
-    cantidad,
-    newStock,
-  });
-
-  // Check for low stock in Cafetin? (Different threshold or logic might apply)
-  // For now, ignoring low stock alerts for Cafetin POS sales to avoid spamming Kitchen staff
 }
 
 // Helper function to process product delivery with transfer
@@ -1135,83 +987,5 @@ export const reprocessAllDeliveredOrders = mutation({
   },
 });
 
-// ============================================================
-// ONE-TIME FIX: Deliver all pending POS orders
-// POS orders were being created but never delivered, so CONSUMO 
-// movements were not generated and they didn't appear in reports.
-// ============================================================
-export const deliverPendingPOSOrders = mutation({
-  args: {},
-  handler: async (ctx) => {
-    // Get all pending orders for Cafetin area that have a patientId (POS sales)
-    const pendingOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_area_status", (q) =>
-        q.eq("area", "Cafetin").eq("status", "pendiente")
-      )
-      .collect();
 
-    // Filter to only POS sales (those with patientId)
-    const posOrders = pendingOrders.filter((o) => o.patientId !== undefined);
 
-    const results: Array<{ orderId: string; success: boolean; error?: string }> = [];
-
-    for (const order of posOrders) {
-      try {
-        // Get orderItems for this order
-        const orderItems = await ctx.db
-          .query("orderItems")
-          .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
-          .collect();
-
-        if (orderItems.length === 0) {
-          results.push({ orderId: order._id, success: false, error: "No items" });
-          continue;
-        }
-
-        const deliveredItems: Array<{ itemId: string; cantidad: number; newStock: number }> = [];
-        const lowStockItems: Array<{ itemId: string; nombre: string; stock_actual: number; stock_minimo: number }> = [];
-        const movementIds: Array<string> = [];
-
-        let patientName = "";
-        if (order.patientId) {
-          const patient = await ctx.db.get(order.patientId);
-          patientName = patient?.nombre || "Sin Asignar";
-        }
-
-        for (const oi of orderItems) {
-          if (!oi.productId) continue;
-
-          await processPOSSale(
-            ctx,
-            oi.productId,
-            oi.cantidad,
-            order._id,
-            deliveredItems,
-            lowStockItems,
-            movementIds,
-            patientName
-          );
-        }
-
-        // Mark as delivered
-        await ctx.db.patch(order._id, { status: "entregado" });
-
-        results.push({ orderId: order._id, success: true });
-      } catch (error) {
-        results.push({
-          orderId: order._id,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    return {
-      total: posOrders.length,
-      delivered: results.filter((r) => r.success).length,
-      failed: results.filter((r) => !r.success).length,
-      results,
-    };
-  },
-});

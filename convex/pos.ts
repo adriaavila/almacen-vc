@@ -1,9 +1,9 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
  * Count POS sales created today (since midnight local time).
- * Used to generate sequential order numbers in the POS UI.
+ * Counts unique sale batches from cafetin_sales table.
  */
 export const todayPosSalesCount = query({
     args: {},
@@ -20,19 +20,119 @@ export const todayPosSalesCount = query({
         // Convert back to UTC timestamp
         const startTimestamp = startOfDay.getTime() - offsetMs;
 
-        // Count orders created today in Cafetin area (POS sales have patientId)
-        const todayOrders = await ctx.db
-            .query("orders")
-            .filter((q) =>
-                q.and(
-                    q.eq(q.field("area"), "Cafetin"),
-                    q.gte(q.field("createdAt"), startTimestamp)
-                )
-            )
+        // Count unique sale timestamps from cafetin_sales today
+        // Each registerSale call uses the same timestamp for all items in the batch
+        const todaySales = await ctx.db
+            .query("cafetin_sales")
+            .withIndex("by_fecha", (q) => q.gte("fecha", startTimestamp))
             .collect();
 
-        // Only count those with a patientId (POS sales always have one)
-        return todayOrders.filter((o) => o.patientId !== undefined).length;
+        // Group by fecha to count unique sale batches
+        const uniqueTimestamps = new Set(todaySales.map((s) => s.fecha));
+        return uniqueTimestamps.size;
+    },
+});
+
+/**
+ * Register a POS sale directly.
+ * Consumes cafetín stock, creates CONSUMO movements, and inserts cafetin_sales records.
+ * Does NOT create orders/orderItems — POS sales are completely separate.
+ */
+export const registerSale = mutation({
+    args: {
+        patientId: v.optional(v.id("users")),
+        items: v.array(
+            v.object({
+                productId: v.id("products"),
+                cantidad: v.number(),
+            })
+        ),
+    },
+    handler: async (ctx, args) => {
+        // Filter out items with cantidad 0
+        const validItems = args.items.filter((item) => item.cantidad > 0);
+
+        if (validItems.length === 0) {
+            throw new Error("La venta debe incluir al menos un ítem");
+        }
+
+        // Resolve patient name
+        let patientName = "Sin Asignar";
+        if (args.patientId) {
+            const patient = await ctx.db.get(args.patientId);
+            patientName = patient?.nombre || "Sin Asignar";
+        }
+
+        const now = Date.now();
+
+        // Process each item
+        for (const item of validItems) {
+            const product = await ctx.db.get(item.productId);
+            if (!product) {
+                throw new Error(`Producto con ID ${item.productId} no encontrado`);
+            }
+
+            // Get Cafetin inventory
+            const cafetinInventory = await ctx.db
+                .query("inventory")
+                .withIndex("by_product_location", (q) =>
+                    q.eq("productId", item.productId).eq("location", "cafetin")
+                )
+                .first();
+
+            const currentStock = cafetinInventory?.stockActual ?? 0;
+
+            // "Taza café" is exempt from stock checks (no tracked income)
+            const isExemptProduct = product.name === "Taza café";
+
+            if (!isExemptProduct && currentStock < item.cantidad) {
+                throw new Error(
+                    `Stock insuficiente en Cafetín para ${product.name}. Disponible: ${currentStock} ${product.baseUnit ?? "unidades"}`
+                );
+            }
+
+            const newStock = currentStock - item.cantidad;
+
+            // Update Cafetin inventory
+            if (cafetinInventory) {
+                await ctx.db.patch(cafetinInventory._id, {
+                    stockActual: newStock,
+                    updatedAt: now,
+                });
+            } else {
+                await ctx.db.insert("inventory", {
+                    productId: item.productId,
+                    location: "cafetin",
+                    stockActual: newStock,
+                    stockMinimo: 0,
+                    updatedAt: now,
+                });
+            }
+
+            // Register CONSUMO movement
+            await ctx.db.insert("movements", {
+                productId: item.productId,
+                type: "CONSUMO",
+                from: "CAFETIN",
+                to: "CONSUMO",
+                quantity: item.cantidad,
+                prevStock: currentStock,
+                nextStock: newStock,
+                user: "pos",
+                timestamp: now,
+            });
+
+            // Register in cafetin_sales for daily RAW export
+            await ctx.db.insert("cafetin_sales", {
+                paciente: patientName,
+                producto: product.name,
+                cantidad: item.cantidad,
+                fecha: now,
+                sentToN8n: false,
+            });
+        }
+
+        return { success: true };
     },
 });
 
@@ -50,9 +150,7 @@ export const listStart = query({
             .filter((q) => q.eq(q.field("active"), true))
             .collect();
 
-        // Fetch all inventory (could be optimized if we had a proper index for active products inventory)
-        // For now, fetching all inventory is okay as it's not huge yet, but ideally we'd filter or join better.
-        // In Convex, joins are manual.
+        // Fetch all inventory
         const inventory = await ctx.db.query("inventory").collect();
 
         // Map to lightweight object
@@ -71,18 +169,15 @@ export const listStart = query({
                 stockCafetin: inv ? inv.stockActual : 0,
                 availableForSale: p.availableForSale,
                 active: p.active,
-                // Helper to match existing frontend type shape (partial)
                 brand: p.brand,
                 purchaseUnit: p.purchaseUnit,
                 conversionFactor: p.conversionFactor,
-                stockAlmacen: 0, // Not needed for POS but keeps type compat for now
+                stockAlmacen: 0,
                 totalStock: inv ? inv.stockActual : 0,
                 status: (inv && inv.stockActual <= (inv.stockMinimo || 0)) ? "bajo_stock" : "ok",
             };
         });
 
-        // Filter only those that should be visible in POS (available for sale + stock > 0 usually, but logic is in frontend)
-        // We return all active ones so frontend can cache them.
         return posProducts;
     },
 });

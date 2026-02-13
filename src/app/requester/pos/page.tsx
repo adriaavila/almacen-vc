@@ -43,7 +43,7 @@ type ConvexProduct = {
 export default function POSPage() {
   // Data hooks
   const products = usePosInventory();
-  const createOrder = useOfflineMutation('createOrder');
+  const createOrder = useOfflineMutation('posSale');
   const users = useUsersData();
   const serverPosSalesCount = useQuery(api.pos.todayPosSalesCount);
 
@@ -319,13 +319,11 @@ export default function POSPage() {
       }
 
       await createOrder({
-        area: 'Cafetin',
         patientId: pacienteIdToUse ? (pacienteIdToUse as Id<"users">) : undefined,
         items: activeSlot.items.map(item => ({
           productId: item.productId,
           cantidad: item.cantidad,
         })),
-        type: 'pos',
       });
 
       // Clear ONLY the active slot, leave others untouched

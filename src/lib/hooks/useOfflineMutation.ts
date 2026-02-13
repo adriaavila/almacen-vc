@@ -29,14 +29,18 @@ type CreateOrderArgs = {
   area: "Cocina" | "Cafetin" | "Limpieza" | "Camila";
   items: Array<{ productId: Id<"products">; cantidad: number }>;
   patientId?: Id<"users">;
-  type?: "order" | "pos";
+};
+
+type PosSaleArgs = {
+  patientId?: Id<"users">;
+  items: Array<{ productId: Id<"products">; cantidad: number }>;
 };
 
 type DeliverOrderArgs = {
   id: Id<"orders">;
 };
 
-type MutationType = 'updateStock' | 'transfer' | 'setMinStock' | 'createOrder' | 'deliverOrder';
+type MutationType = 'updateStock' | 'transfer' | 'setMinStock' | 'createOrder' | 'deliverOrder' | 'posSale';
 
 /**
  * Hook que envuelve mutaciones de Convex para soportar modo offline
@@ -123,31 +127,20 @@ export function useOfflineMutation(mutationType: MutationType) {
         };
       }
     } else if (mutationType === 'createOrder') {
-      // Unique for Orders: We want to update stock immediately for "Add to Cart" / "Checkout" feel
       const orderArgs = args as CreateOrderArgs;
+      // No optimistic stock updates for warehouse orders
+    } else if (mutationType === 'posSale') {
+      // POS sale: update stock immediately for "checkout" feel
+      const saleArgs = args as PosSaleArgs;
       const products = getProducts();
 
-      for (const item of orderArgs.items) {
+      for (const item of saleArgs.items) {
         const product = products.find((p) => p._id === item.productId);
         if (product) {
-          // Improve: Handle "Almacen" orders too if needed, but POS is usually Cafetin
-          // For now assuming Cafetin based on usage in POSPage
-          // Note: The POS page passes 'area' which determines inventory source logic usually?
-          // The original code in page.tsx says area: 'Cafetin'
-          // If area is Cafetin, we deduct from Cafetin stock.
-
-          let newStockCafetin = product.stockCafetin;
-          let newStockAlmacen = product.stockAlmacen;
-
-          if (orderArgs.area === 'Cafetin') {
-            newStockCafetin = Math.max(0, product.stockCafetin - item.cantidad);
-          }
-          // If we supported Almacen orders here we'd add logic.
-
           updateProductOptimistically({
             productId: item.productId,
-            stockCafetin: newStockCafetin,
-            stockAlmacen: newStockAlmacen,
+            stockCafetin: Math.max(0, product.stockCafetin - item.cantidad),
+            stockAlmacen: product.stockAlmacen,
           });
         }
       }
@@ -158,7 +151,8 @@ export function useOfflineMutation(mutationType: MutationType) {
       type: mutationType,
       mutation: mutationType === 'createOrder' ? 'api.orders.create' :
         mutationType === 'deliverOrder' ? 'api.orders.deliver' :
-          `api.inventory.${mutationType}` as any,
+          mutationType === 'posSale' ? 'api.pos.registerSale' :
+            `api.inventory.${mutationType}` as any,
       args: args as any,
     };
 

@@ -26,6 +26,7 @@ export function OfflineSyncManager() {
   const setMinStock = useMutation(api.inventory.setMinStock);
   const createOrder = useMutation(api.orders.create);
   const deliverOrder = useMutation(api.orders.deliver);
+  const registerPosSale = useMutation(api.pos.registerSale);
 
   const processQueue = useCallback(async () => {
     // Leer pendingActions dentro del callback usando getState para evitar dependencias innecesarias
@@ -95,19 +96,17 @@ export function OfflineSyncManager() {
               area: "Cocina" | "Cafetin" | "Limpieza" | "Camila";
               items: Array<{ productId: Id<"products">; cantidad: number }>;
               patientId?: Id<"users">;
-              type?: "order" | "pos";
             });
-
-            // POS sales must be delivered immediately so CONSUMO movements
-            // are recorded and appear in the weekly POS report.
-            if (result && action.args.type === 'pos') {
-              try {
-                await deliverOrder({ id: result as Id<"orders"> });
-                console.log(`OfflineSyncManager: Auto-delivered POS order ${result}`);
-              } catch (deliverError) {
-                console.error(`OfflineSyncManager: Failed to auto-deliver POS order ${result}:`, deliverError);
-              }
+            break;
+          case 'posSale':
+            if (!Array.isArray(action.args.items)) {
+              console.error('OfflineSyncManager: Invalid posSale args:', action.args);
+              continue;
             }
+            result = await registerPosSale(action.args as {
+              patientId?: Id<"users">;
+              items: Array<{ productId: Id<"products">; cantidad: number }>;
+            });
             break;
           case 'deliverOrder':
             if (!action.args.id) {
@@ -140,7 +139,7 @@ export function OfflineSyncManager() {
     }
 
     isProcessingRef.current = false;
-  }, [updateStock, transfer, setMinStock, createOrder, deliverOrder]);
+  }, [updateStock, transfer, setMinStock, createOrder, deliverOrder, registerPosSale]);
 
   useEffect(() => {
     const handleOnline = () => {
