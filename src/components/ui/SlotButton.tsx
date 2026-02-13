@@ -60,11 +60,7 @@ export function SlotButton({
           <span className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">
             {itemCount > 0 ? itemCount : '—'}
           </span>
-          {itemCount > 0 && (
-            <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] sm:text-xs font-bold flex items-center justify-center">
-              {itemCount}
-            </span>
-          )}
+
         </button>
         {onCoffeeClick != null && (
           <div className="w-full flex justify-center pb-2 sm:pb-2.5 md:pb-3 pt-0.5">

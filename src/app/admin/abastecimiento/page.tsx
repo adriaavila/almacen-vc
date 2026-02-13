@@ -694,110 +694,182 @@ function ReceiveOrderModal({
             {!orderData ? (
                 <div className="py-8 text-center text-gray-500">Cargando...</div>
             ) : (
-                <div className="space-y-4">
-                    <p className="text-sm text-gray-600">
-                        Verifique las cantidades recibidas. Puede ajustar si llegó menos de lo solicitado o agregar productos adicionales.
-                    </p>
+                <div className="space-y-5">
+                    {/* Order Summary Header */}
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-gray-900">
+                                    Pedido del {new Date(orderData.createdAt).toLocaleDateString('es-VE', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                    })}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {orderData.items.length} {orderData.items.length === 1 ? 'producto' : 'productos'} solicitados
+                                </p>
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                            Verifique las cantidades recibidas. Ajuste si llegó menos o agregue productos extra.
+                        </p>
+                    </div>
 
                     <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                        {/* Original Items */}
-                        {orderData.items.map((item) => (
-                            <div
-                                key={item._id}
-                                className={`rounded-lg p-3 flex items-center justify-between gap-3 ${receivedQuantities[item._id] === 0 ? 'bg-red-50 border border-red-100' : 'bg-gray-50'}`}
-                            >
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-medium truncate ${receivedQuantities[item._id] === 0 ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                                        {item.product?.name || 'Producto desconocido'}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        Solicitado: {item.cantidadSolicitada} {item.product?.purchaseUnit}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="text-right">
-                                        <label className="text-xs text-gray-500 block mb-1">Recibido:</label>
-                                        <QuantityInput
-                                            value={receivedQuantities[item._id] ?? item.cantidadSolicitada}
-                                            onChange={(value) => handleQuantityChange(item._id, value)}
-                                            min={0}
-                                            unit={item.product?.purchaseUnit}
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => handleRemoveItem(item._id)}
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                        title="Marcar como no recibido"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                        {/* Section Label */}
+                        <div className="flex items-center gap-2 px-1">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Productos del Pedido</span>
+                            <div className="flex-1 h-px bg-gray-200"></div>
+                        </div>
 
-                        {/* Extra Items */}
-                        {extraItems.map((product) => (
-                            <div
-                                key={product._id}
-                                className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-center justify-between gap-3"
-                            >
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-medium text-gray-900 truncate">
-                                            {product.name}
+                        {/* Original Items - Vertical Card Layout */}
+                        {orderData.items.map((item) => {
+                            const isZero = receivedQuantities[item._id] === 0;
+                            const received = receivedQuantities[item._id] ?? item.cantidadSolicitada;
+                            const hasDiff = received !== item.cantidadSolicitada;
+
+                            return (
+                                <div
+                                    key={item._id}
+                                    className={`rounded-xl border p-4 transition-colors ${isZero
+                                        ? 'bg-red-50/60 border-red-200'
+                                        : hasDiff
+                                            ? 'bg-amber-50/40 border-amber-200'
+                                            : 'bg-white border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    {/* Product Name Row */}
+                                    <div className="flex items-start justify-between gap-2 mb-3">
+                                        <p className={`text-base font-semibold leading-snug ${isZero ? 'text-gray-400 line-through' : 'text-gray-900'
+                                            }`}>
+                                            {item.product?.name || 'Producto desconocido'}
                                         </p>
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                            Extra
-                                        </span>
+                                        <button
+                                            onClick={() => handleRemoveItem(item._id)}
+                                            className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${isZero
+                                                ? 'text-red-300'
+                                                : 'text-gray-300 hover:text-red-500 hover:bg-red-50'
+                                                }`}
+                                            title="Marcar como no recibido"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <p className="text-xs text-gray-500">
-                                        No solicitado
-                                    </p>
+
+                                    {/* Quantities Row */}
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-gray-100 rounded-lg px-3 py-1.5">
+                                                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide block leading-tight">Pedido</span>
+                                                <span className="text-sm font-bold text-gray-700">
+                                                    {item.cantidadSolicitada} <span className="text-xs font-normal text-gray-500">{item.product?.purchaseUnit}</span>
+                                                </span>
+                                            </div>
+                                            <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide block leading-tight mb-0.5">Recibido</span>
+                                            <QuantityInput
+                                                value={received}
+                                                onChange={(value) => handleQuantityChange(item._id, value)}
+                                                min={0}
+                                                unit={item.product?.purchaseUnit}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Diff indicator */}
+                                    {hasDiff && !isZero && (
+                                        <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
+                                            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                            </svg>
+                                            <span>Cantidad diferente al pedido original</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="text-right">
-                                        <label className="text-xs text-gray-500 block mb-1">Recibido:</label>
-                                        <QuantityInput
-                                            value={extraQuantities[product._id] || 0}
-                                            onChange={(value) => handleExtraQuantityChange(product._id, value)}
-                                            min={0}
-                                            unit={product.purchaseUnit}
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => handleRemoveExtraItem(product._id)}
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                        title="Eliminar"
+                            );
+                        })}
+
+                        {/* Extra Items Section */}
+                        {extraItems.length > 0 && (
+                            <>
+                                <div className="flex items-center gap-2 px-1 pt-2">
+                                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Productos Adicionales</span>
+                                    <div className="flex-1 h-px bg-emerald-200"></div>
+                                </div>
+
+                                {extraItems.map((product) => (
+                                    <div
+                                        key={product._id}
+                                        className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4"
                                     >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                                        {/* Product Name Row */}
+                                        <div className="flex items-start justify-between gap-2 mb-3">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <p className="text-base font-semibold text-gray-900 leading-snug">
+                                                    {product.name}
+                                                </p>
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 uppercase tracking-wide">
+                                                    Extra
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => handleRemoveExtraItem(product._id)}
+                                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                                                title="Eliminar"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        {/* Quantity Input */}
+                                        <div className="flex items-center justify-end">
+                                            <div>
+                                                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide block leading-tight mb-0.5">Recibido</span>
+                                                <QuantityInput
+                                                    value={extraQuantities[product._id] || 0}
+                                                    onChange={(value) => handleExtraQuantityChange(product._id, value)}
+                                                    min={0}
+                                                    unit={product.purchaseUnit}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )}
 
                         {/* Add Product Section */}
                         <div className="pt-2">
                             {!isAddingProduct ? (
                                 <button
                                     onClick={() => setIsAddingProduct(true)}
-                                    className="flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 px-2 py-1 rounded hover:bg-emerald-50 transition-colors w-full justify-center border border-dashed border-emerald-300"
+                                    className="flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 px-3 py-2.5 rounded-xl hover:bg-emerald-50 transition-colors w-full justify-center border-2 border-dashed border-emerald-300"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                     </svg>
                                     Agregar producto adicional
                                 </button>
                             ) : (
-                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+                                <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2">
                                     <div className="flex items-center justify-between mb-1">
-                                        <label className="text-xs font-semibold text-gray-700">Buscar producto</label>
+                                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Buscar producto</label>
                                         <button
                                             onClick={() => setIsAddingProduct(false)}
-                                            className="text-gray-400 hover:text-gray-600"
+                                            className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200 transition-colors"
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -810,23 +882,23 @@ function ReceiveOrderModal({
                                         placeholder="Escribe para buscar..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     />
                                     {searchQuery && (
-                                        <div className="bg-white border border-gray-100 rounded shadow-sm max-h-40 overflow-y-auto">
+                                        <div className="bg-white border border-gray-100 rounded-lg shadow-sm max-h-40 overflow-y-auto">
                                             {filteredProducts.length > 0 ? (
                                                 filteredProducts.map(product => (
                                                     <button
                                                         key={product._id}
                                                         onClick={() => handleAddProduct(product)}
-                                                        className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center justify-between group"
+                                                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-emerald-50 flex items-center justify-between group border-b border-gray-50 last:border-0"
                                                     >
-                                                        <span>{product.name}</span>
-                                                        <span className="text-xs text-gray-400 group-hover:text-emerald-600">Agregar +</span>
+                                                        <span className="font-medium text-gray-900">{product.name}</span>
+                                                        <span className="text-xs text-gray-400 group-hover:text-emerald-600 font-medium">+ Agregar</span>
                                                     </button>
                                                 ))
                                             ) : (
-                                                <div className="px-3 py-2 text-sm text-gray-500">No se encontraron productos</div>
+                                                <div className="px-3 py-3 text-sm text-gray-500 text-center">No se encontraron productos</div>
                                             )}
                                         </div>
                                     )}
@@ -835,16 +907,18 @@ function ReceiveOrderModal({
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                        <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 pt-4 border-t border-gray-200">
+                        <Button variant="secondary" onClick={onClose} disabled={isSubmitting} className="flex-1">
                             Cancelar
                         </Button>
                         <Button
                             variant="primary"
                             onClick={handleConfirm}
                             disabled={isSubmitting}
+                            className="flex-1"
                         >
-                            {isSubmitting ? 'Procesando...' : 'Confirmar Recepción'}
+                            {isSubmitting ? 'Procesando...' : '✓ Confirmar Recepción'}
                         </Button>
                     </div>
                 </div>

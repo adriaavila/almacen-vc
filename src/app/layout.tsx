@@ -40,7 +40,7 @@ export default function RootLayout({
       <head>
         <meta name="theme-color" content="#10b981" />
       </head>
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <a href="#main-content" className="skip-link">
           Saltar al contenido principal
         </a>
