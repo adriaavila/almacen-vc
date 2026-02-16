@@ -349,282 +349,289 @@ function StockPageContent() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer className="!overflow-visible">
       <RequesterHeader
         title="Stock"
         subtitle="Inventario del Cafetin"
       />
 
-      {/* Search Bar */}
-      <div className="mb-4 w-full">
-        <div className="relative w-full">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg
-              className="h-5 w-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          <input
-            type="text"
-            placeholder="Buscar productos..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full h-10 pl-10 pr-10 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm sm:text-base"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md focus:outline-none focus:text-gray-700 focus:bg-gray-100 transition-colors z-10 cursor-pointer"
-              aria-label="Limpiar búsqueda"
-            >
+      {/* Sticky Header Container */}
+      <div className="sticky top-0 z-20 bg-gray-50 pt-4 pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-6 shadow-sm border-b border-gray-100">
+        {/* Search Bar */}
+        <div className="mb-4 w-full">
+          <div className="relative w-full">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg
-                className="h-5 w-5"
+                className="h-5 w-5 text-gray-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
-                strokeWidth={2.5}
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-            </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar productos..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full h-10 pl-10 pr-10 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm sm:text-base"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md focus:outline-none focus:text-gray-700 focus:bg-gray-100 transition-colors z-10 cursor-pointer"
+                aria-label="Limpiar búsqueda"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Selectors */}
+        <div className="mb-6 w-full">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            {/* Subcategory Filter Button */}
+            <div className="flex items-center gap-2">
+              <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory}>
+                <SelectTrigger className="w-auto min-w-[180px]" disabled={subCategories.length <= 1}>
+                  <SelectValue placeholder="Subcategorías" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">Subcategorías</SelectItem>
+                  {subCategories.filter(subCat => subCat !== 'All').map(subCategory => (
+                    <SelectItem key={subCategory} value={subCategory}>{subCategory}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Edit Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setEditMode(!editMode)}
+                title={editMode ? "Salir de Modo Edición" : "Entrar en Modo Edición"}
+                className={`p-2 rounded-md transition-colors border ${editMode
+                  ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+              >
+                {editMode ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Crear Producto (Visible only in edit mode) */}
+              {editMode && (
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => setIsCreateProductOpen(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 h-auto"
+                  title="Crear Nuevo Producto"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </Button>
+              )}
+            </div>
+
+            {/* Status and Sort Group - Mobile optimized */}
+            <div className="flex flex-row items-center gap-2">
+              {/* Status Segmented Control */}
+              <div className="flex items-center gap-0 bg-white border border-gray-300 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatus('all')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'all'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  Todas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatus('bajo_stock')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'bajo_stock'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  Bajo Stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatus('out_of_stock')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'out_of_stock'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  Sin Stock
+                </button>
+              </div>
+
+              {/* Sort Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                  className={`p-2 rounded-md border transition-colors ${isSortMenuOpen || sortOrder !== 'name-asc'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  title="Ordenar productos"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                  </svg>
+                </button>
+
+                {/* Sort Dropdown */}
+                {isSortMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setIsSortMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-100 py-1 z-40">
+                      <button
+                        onClick={() => {
+                          setSortOrder('name-asc');
+                          setIsSortMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'name-asc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                          }`}
+                      >
+                        Nombre (A-Z)
+                        {sortOrder === 'name-asc' && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSortOrder('name-desc');
+                          setIsSortMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'name-desc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                          }`}
+                      >
+                        Nombre (Z-A)
+                        {sortOrder === 'name-desc' && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSortOrder('stock-asc');
+                          setIsSortMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'stock-asc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                          }`}
+                      >
+                        Stock (Menor a Mayor)
+                        {sortOrder === 'stock-asc' && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSortOrder('stock-desc');
+                          setIsSortMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'stock-desc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
+                          }`}
+                      >
+                        Stock (Mayor a Menor)
+                        {sortOrder === 'stock-desc' && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Clear Filters Button */}
+          {(debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' || sortOrder !== 'name-asc') && (
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedSubCategory('All');
+                  setSelectedStatus('all');
+                  setSortOrder('name-asc');
+                }}
+                className="text-sm text-emerald-600 hover:text-emerald-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
+              >
+                Limpiar filtros
+              </button>
+              <span className="text-sm text-gray-500">
+                ({filteredProducts.length} {filteredProducts.length === 1 ? 'producto encontrado' : 'productos encontrados'})
+              </span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Selectors */}
-      <div className="mb-6 w-full">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          {/* Subcategory Filter Button */}
-          <div className="flex items-center gap-2">
-            <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory}>
-              <SelectTrigger className="w-auto min-w-[180px]" disabled={subCategories.length <= 1}>
-                <SelectValue placeholder="Subcategorías" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">Subcategorías</SelectItem>
-                {subCategories.filter(subCat => subCat !== 'All').map(subCategory => (
-                  <SelectItem key={subCategory} value={subCategory}>{subCategory}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Edit Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setEditMode(!editMode)}
-              title={editMode ? "Salir de Modo Edición" : "Entrar en Modo Edición"}
-              className={`p-2 rounded-md transition-colors border ${editMode
-                ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                }`}
-            >
-              {editMode ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              )}
-            </button>
-
-            {/* Crear Producto (Visible only in edit mode) */}
-            {editMode && (
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => setIsCreateProductOpen(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 h-auto"
-                title="Crear Nuevo Producto"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </Button>
-            )}
-          </div>
-
-          {/* Status and Sort Group - Mobile optimized */}
-          <div className="flex flex-row items-center gap-2">
-            {/* Status Segmented Control */}
-            <div className="flex items-center gap-0 bg-white border border-gray-300 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => setSelectedStatus('all')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'all'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
-                  }`}
-              >
-                Todas
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedStatus('bajo_stock')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'bajo_stock'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
-                  }`}
-              >
-                Bajo Stock
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedStatus('out_of_stock')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'out_of_stock'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-transparent text-gray-700 hover:bg-gray-100'
-                  }`}
-              >
-                Sin Stock
-              </button>
-            </div>
-
-            {/* Sort Button */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
-                className={`p-2 rounded-md border transition-colors ${isSortMenuOpen || sortOrder !== 'name-asc'
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                title="Ordenar productos"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                </svg>
-              </button>
-
-              {/* Sort Dropdown */}
-              {isSortMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setIsSortMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-100 py-1 z-40">
-                    <button
-                      onClick={() => {
-                        setSortOrder('name-asc');
-                        setIsSortMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'name-asc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
-                        }`}
-                    >
-                      Nombre (A-Z)
-                      {sortOrder === 'name-asc' && (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSortOrder('name-desc');
-                        setIsSortMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'name-desc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
-                        }`}
-                    >
-                      Nombre (Z-A)
-                      {sortOrder === 'name-desc' && (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSortOrder('stock-asc');
-                        setIsSortMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'stock-asc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
-                        }`}
-                    >
-                      Stock (Menor a Mayor)
-                      {sortOrder === 'stock-asc' && (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSortOrder('stock-desc');
-                        setIsSortMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${sortOrder === 'stock-desc' ? 'text-emerald-600 font-medium' : 'text-gray-700'
-                        }`}
-                    >
-                      Stock (Mayor a Menor)
-                      {sortOrder === 'stock-desc' && (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Clear Filters Button */}
-        {(debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' || sortOrder !== 'name-asc') && (
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedSubCategory('All');
-                setSelectedStatus('all');
-                setSortOrder('name-asc');
-              }}
-              className="text-sm text-emerald-600 hover:text-emerald-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
-            >
-              Limpiar filtros
-            </button>
-            <span className="text-sm text-gray-500">
-              ({filteredProducts.length} {filteredProducts.length === 1 ? 'producto encontrado' : 'productos encontrados'})
-            </span>
-          </div>
-        )}
-      </div>
-
       {/* Stock List */}
-      <div className="space-y-3 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
         {filteredProducts.length === 0 ? (
           debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' ? (
-            <EmptySearchResultsState
-              onClearFilters={() => {
-                setSearchQuery('');
-                setSelectedSubCategory('All');
-                setSelectedStatus('all');
-                setSortOrder('name-asc');
-              }}
-            />
+            <div className="col-span-full">
+              <EmptySearchResultsState
+                onClearFilters={() => {
+                  setSearchQuery('');
+                  setSelectedSubCategory('All');
+                  setSelectedStatus('all');
+                  setSortOrder('name-asc');
+                }}
+              />
+            </div>
           ) : (
-            <EmptyState
-              title="No hay productos"
-              message="No se encontraron productos en el inventario del cafetin."
-            />
+            <div className="col-span-full">
+              <EmptyState
+                title="No hay productos"
+                message="No se encontraron productos en el inventario del cafetin."
+              />
+            </div>
           )
         ) : (
           filteredProducts.map((product) => {
@@ -639,14 +646,14 @@ function StockPageContent() {
                     setEditingProductId(product._id);
                   }
                 }}
-                className={`bg-white rounded-md shadow-sm border overflow-hidden w-full transition-all ${lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
+                className={`bg-white rounded-md shadow-sm border overflow-hidden w-full h-full flex flex-col transition-all ${lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
                   } ${editMode
                     ? 'cursor-pointer hover:border-emerald-500 hover:shadow-md border-gray-200'
                     : 'border-gray-200'
                   }`}
               >
-                <div className="p-2 sm:p-3 w-full">
-                  <div className="flex flex-col gap-2 w-full">
+                <div className="p-2 sm:p-3 w-full flex-1 flex flex-col">
+                  <div className="flex flex-col gap-2 w-full flex-1">
                     {/* Product Header */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -773,53 +780,55 @@ function StockPageContent() {
       </div>
 
       {/* Edit Stock Modal */}
-      {editingProduct && (
-        <Modal
-          isOpen={editingProduct !== null}
-          onClose={handleCancelDirectEdit}
-          title={`Editar stock de ${editingProduct.name}`}
-        >
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
-                Stock actual (Cafetin)
-              </label>
-              <input
-                id="stock-input"
-                type="number"
-                min="0"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSaveDirectEdit();
-                  }
-                }}
-              />
-              <p className="mt-2 text-sm text-gray-500">
-                Unidad: {editingProduct.baseUnit}
-              </p>
+      {
+        editingProduct && (
+          <Modal
+            isOpen={editingProduct !== null}
+            onClose={handleCancelDirectEdit}
+            title={`Editar stock de ${editingProduct.name}`}
+          >
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock actual (Cafetin)
+                </label>
+                <input
+                  id="stock-input"
+                  type="number"
+                  min="0"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSaveDirectEdit();
+                    }
+                  }}
+                />
+                <p className="mt-2 text-sm text-gray-500">
+                  Unidad: {editingProduct.baseUnit}
+                </p>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleCancelDirectEdit}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <Button
+                  onClick={handleSaveDirectEdit}
+                  variant="primary"
+                  className="px-4 py-2 text-sm h-auto"
+                >
+                  Guardar
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleCancelDirectEdit}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <Button
-                onClick={handleSaveDirectEdit}
-                variant="primary"
-                className="px-4 py-2 text-sm h-auto"
-              >
-                Guardar
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        )
+      }
 
       {/* Edit Product Modal */}
       <CafetinProductModal
@@ -861,7 +870,7 @@ function StockPageContent() {
         isOpen={toast.isOpen}
         onClose={() => setToast({ ...toast, isOpen: false })}
       />
-    </PageContainer>
+    </PageContainer >
   );
 }
 

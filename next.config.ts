@@ -94,7 +94,7 @@ const nextConfig: NextConfig = {
   },
   // PWA plugin uses webpack, so we need to configure turbopack
   turbopack: {
-    root: "/Users/ama/projects/almacen-vc",
+    root: "/Users/ama/projects/webapps/almacen-vc",
   },
 };
 

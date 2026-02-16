@@ -49,7 +49,7 @@ export function CafetinProductModal({
     ) as ProductWithInventory | undefined;
 
     // Data Fetching for "Real" Options
-    const existingSubCategories = useQuery(api.products.getSubCategories, { category: 'cafetin' });
+    const existingSubCategories = useQuery(api.products.getSubCategories, { category: 'Cafetin' });
     const existingUnits = useQuery(api.products.getUniqueUnits);
 
     const createProduct = useMutation(api.products.create);
@@ -88,9 +88,8 @@ export function CafetinProductModal({
 
     // Compute final lists with defaults + database values
     const subCategoryOptions = useMemo(() => {
-        const defaults = ['Bebidas', 'Snacks', 'Dulces', 'Galletas', 'Lácteos', 'Panadería', 'Helados', 'Café', 'Otros'];
         const fromDb = existingSubCategories || [];
-        return Array.from(new Set([...defaults, ...fromDb])).sort();
+        return Array.from(new Set(fromDb)).sort();
     }, [existingSubCategories]);
 
     const unitOptions = useMemo(() => {
@@ -435,8 +434,8 @@ export function CafetinProductModal({
                                         type="button"
                                         onClick={() => setBaseUnit(unit)}
                                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${baseUnit === unit
-                                                ? 'bg-gray-800 text-white shadow-md'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            ? 'bg-gray-800 text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                             }`}
                                     >
                                         {unit}
