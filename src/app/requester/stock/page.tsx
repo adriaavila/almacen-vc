@@ -13,6 +13,7 @@ import { ProductListSkeleton } from '@/components/ui/SkeletonLoader';
 import { EmptyState, EmptySearchResultsState } from '@/components/ui/EmptyState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CafetinProductModal } from '@/components/ui/CafetinProductModal';
+import { CafetinProductForm } from '@/components/ui/CafetinProductForm';
 import { normalizeSearchText } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useInventorySync } from '@/lib/hooks/useInventorySync';
@@ -35,6 +36,22 @@ type ConvexProduct = {
   stockCafetin: number;
   status: "ok" | "bajo_stock";
 };
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+    const listener = () => setMatches(media.matches);
+    media.addEventListener("change", listener);
+    return () => media.removeEventListener("change", listener);
+  }, [matches, query]);
+
+  return matches;
+}
 
 function StockPageContent() {
   // Sincronizar datos de Convex al store de Zustand
@@ -68,6 +85,8 @@ function StockPageContent() {
     type: 'info',
     isOpen: false,
   });
+
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // Read status query parameter on mount
   useEffect(() => {
@@ -611,171 +630,227 @@ function StockPageContent() {
         </div>
       </div>
 
-      {/* Stock List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
-        {filteredProducts.length === 0 ? (
-          debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' ? (
-            <div className="col-span-full">
-              <EmptySearchResultsState
-                onClearFilters={() => {
-                  setSearchQuery('');
-                  setSelectedSubCategory('All');
-                  setSelectedStatus('all');
-                  setSortOrder('name-asc');
-                }}
-              />
-            </div>
-          ) : (
-            <div className="col-span-full">
-              <EmptyState
-                title="No hay productos"
-                message="No se encontraron productos en el inventario del cafetin."
-              />
-            </div>
-          )
-        ) : (
-          filteredProducts.map((product) => {
-            const lowStock = isLowStock(product);
-            const isAdjusting = adjustingId === product._id;
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
+        {/* Product List Column */}
+        <div className={`w-full transition-all duration-300 ${isDesktop && (editingProductId || isCreateProductOpen) ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
+          <div className={`grid gap-4 w-full ${isDesktop && (editingProductId || isCreateProductOpen)
+            ? 'grid-cols-1'
+            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
+            {filteredProducts.length === 0 ? (
+              debouncedSearchQuery || selectedSubCategory !== 'All' || selectedStatus !== 'all' ? (
+                <div className="col-span-full">
+                  <EmptySearchResultsState
+                    onClearFilters={() => {
+                      setSearchQuery('');
+                      setSelectedSubCategory('All');
+                      setSelectedStatus('all');
+                      setSortOrder('name-asc');
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="col-span-full">
+                  <EmptyState
+                    title="No hay productos"
+                    message="No se encontraron productos en el inventario del cafetin."
+                  />
+                </div>
+              )
+            ) : (
+              filteredProducts.map((product) => {
+                const lowStock = isLowStock(product);
+                const isAdjusting = adjustingId === product._id;
 
-            return (
-              <div
-                key={product._id}
-                onClick={() => {
-                  if (editMode) {
-                    setEditingProductId(product._id);
-                  }
-                }}
-                className={`bg-white rounded-md shadow-sm border overflow-hidden w-full h-full flex flex-col transition-all ${lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
-                  } ${editMode
-                    ? 'cursor-pointer hover:border-emerald-500 hover:shadow-md border-gray-200'
-                    : 'border-gray-200'
-                  }`}
-              >
-                <div className="p-2 sm:p-3 w-full flex-1 flex flex-col">
-                  <div className="flex flex-col gap-2 w-full flex-1">
-                    {/* Product Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className={`text-sm sm:text-base font-semibold text-emerald-600 mb-0.5 overflow-wrap-anywhere ${editMode ? 'hover:text-emerald-800' : ''
-                          }`}>
-                          {product.name}
-                          {editMode && (
-                            <span className="ml-2 text-xs text-gray-400">
-                              (Click para editar)
-                            </span>
-                          )}
-                        </h3>
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 overflow-wrap-anywhere">
-                            {product.subCategory || product.category}
+                return (
+                  <div
+                    key={product._id}
+                    onClick={() => {
+                      if (editMode) {
+                        setEditingProductId(product._id);
+                      }
+                    }}
+                    className={`bg-white rounded-md shadow-sm border overflow-hidden w-full h-full flex flex-col transition-all ${lowStock ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'
+                      } ${editMode
+                        ? 'cursor-pointer hover:border-emerald-500 hover:shadow-md border-gray-200'
+                        : 'border-gray-200'
+                      }`}
+                  >
+                    <div className="p-2 sm:p-3 w-full flex-1 flex flex-col">
+                      <div className="flex flex-col gap-2 w-full flex-1">
+                        {/* Product Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm sm:text-base font-semibold text-emerald-600 mb-0.5 overflow-wrap-anywhere ${editMode ? 'hover:text-emerald-800' : ''
+                              }`}>
+                              {product.name}
+                              {editMode && (
+                                <span className="ml-2 text-xs text-gray-400">
+                                  (Click para editar)
+                                </span>
+                              )}
+                            </h3>
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 overflow-wrap-anywhere">
+                                {product.subCategory || product.category}
+                              </span>
+                              {product.brand && product.brand !== 'Genérica' && product.brand !== '' && (
+                                <span className="text-xs text-gray-500 overflow-wrap-anywhere">
+                                  {product.brand}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Status Badge */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`h-2 w-2 rounded-full ${lowStock ? 'bg-red-500' : 'bg-emerald-500'
+                              }`}></span>
+                            <Badge variant={lowStock ? 'bajo-minimo' : 'ok'}>
+                              {lowStock ? 'Bajo Stock' : 'OK'}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Stock Display with Controls */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs uppercase text-gray-500 font-medium whitespace-nowrap">
+                            STOCK
                           </span>
-                          {product.brand && product.brand !== 'Genérica' && product.brand !== '' && (
-                            <span className="text-xs text-gray-500 overflow-wrap-anywhere">
-                              {product.brand}
-                            </span>
+                          <span className={`text-lg sm:text-xl font-bold whitespace-nowrap ${lowStock ? 'text-red-600' : 'text-gray-900'
+                            }`}>
+                            {product.stockCafetin}
+                          </span>
+                          <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                            {product.baseUnit}
+                          </span>
+
+                          {/* Adjustment Controls */}
+                          {isAdjusting && adjustingId === product._id ? (
+                            <>
+                              <div className="flex items-center gap-2 ml-auto">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleAdjustClick(product, -1); }}
+                                  className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                  aria-label="Decrementar"
+                                >
+                                  −
+                                </button>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={adjustValue}
+                                  onChange={(e) => setAdjustValue(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-16 h-9 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleAdjustClick(product, 1); }}
+                                  className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                  aria-label="Incrementar"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="flex gap-2 w-full sm:w-auto">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleSaveAdjustment(product._id); }}
+                                  className="px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
+                                >
+                                  Guardar
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCancelAdjustment(); }}
+                                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-1 sm:gap-2 ml-auto">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleQuickAdjust(product._id, -1); }}
+                                className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                title="Reducir stock en 1"
+                                aria-label="Reducir stock en 1"
+                              >
+                                −
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleAdjustClick(product); }}
+                                className="px-2 sm:px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white whitespace-nowrap h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                title="Ajustar cantidad"
+                              >
+                                Ajustar
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleQuickAdjust(product._id, 1); }}
+                                className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                title="Aumentar stock en 1"
+                                aria-label="Aumentar stock en 1"
+                              >
+                                +
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
-                      {/* Status Badge */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className={`h-2 w-2 rounded-full ${lowStock ? 'bg-red-500' : 'bg-emerald-500'
-                          }`}></span>
-                        <Badge variant={lowStock ? 'bajo-minimo' : 'ok'}>
-                          {lowStock ? 'Bajo Stock' : 'OK'}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {/* Stock Display with Controls */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs uppercase text-gray-500 font-medium whitespace-nowrap">
-                        STOCK
-                      </span>
-                      <span className={`text-lg sm:text-xl font-bold whitespace-nowrap ${lowStock ? 'text-red-600' : 'text-gray-900'
-                        }`}>
-                        {product.stockCafetin}
-                      </span>
-                      <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                        {product.baseUnit}
-                      </span>
-
-                      {/* Adjustment Controls */}
-                      {isAdjusting && adjustingId === product._id ? (
-                        <>
-                          <div className="flex items-center gap-2 ml-auto">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleAdjustClick(product, -1); }}
-                              className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                              aria-label="Decrementar"
-                            >
-                              −
-                            </button>
-                            <input
-                              type="number"
-                              min="0"
-                              value={adjustValue}
-                              onChange={(e) => setAdjustValue(e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-16 h-9 px-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                              autoFocus
-                            />
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleAdjustClick(product, 1); }}
-                              className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                              aria-label="Incrementar"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <div className="flex gap-2 w-full sm:w-auto">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleSaveAdjustment(product._id); }}
-                              className="px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
-                            >
-                              Guardar
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleCancelAdjustment(); }}
-                              className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-md"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-1 sm:gap-2 ml-auto">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleQuickAdjust(product._id, -1); }}
-                            className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                            title="Reducir stock en 1"
-                            aria-label="Reducir stock en 1"
-                          >
-                            −
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleAdjustClick(product); }}
-                            className="px-2 sm:px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white whitespace-nowrap h-9 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                            title="Ajustar cantidad"
-                          >
-                            Ajustar
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleQuickAdjust(product._id, 1); }}
-                            className="h-9 w-9 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                            title="Aumentar stock en 1"
-                            aria-label="Aumentar stock en 1"
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
+                );
+              })
+            )}
+          </div>
+
+        </div>
+
+        {/* Desktop Side Panel */}
+        {isDesktop && (editingProductId || isCreateProductOpen) && (
+          <div className="hidden lg:block lg:col-span-8 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              {(editingProductId || isCreateProductOpen) ? (
+                <CafetinProductForm
+                  productId={isCreateProductOpen ? null : editingProductId}
+                  onSuccess={() => {
+                    setToast({
+                      message: isCreateProductOpen ? 'Producto creado correctamente' : 'Producto actualizado correctamente',
+                      type: 'success',
+                      isOpen: true,
+                    });
+                    if (isCreateProductOpen) {
+                      setIsCreateProductOpen(false);
+                    }
+                  }}
+                  onCancel={() => {
+                    setEditingProductId(null);
+                    setIsCreateProductOpen(false);
+                  }}
+                  onProductDeleted={() => {
+                    setEditingProductId(null);
+                    setToast({
+                      message: 'Producto eliminado correctamente',
+                      type: 'success',
+                      isOpen: true,
+                    });
+                  }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 text-center p-6 text-gray-500">
+                  <svg className="w-12 h-12 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                  <p className="text-lg font-medium">Selecciona un producto</p>
+                  <p className="text-sm">Haz clic en un producto para ver o editar sus detalles.</p>
+                  {editMode && (
+                    <Button variant="secondary" className="mt-4" onClick={() => setIsCreateProductOpen(true)}>
+                      Crear Nuevo Producto
+                    </Button>
+                  )}
                 </div>
-              </div>
-            );
-          })
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -833,7 +908,7 @@ function StockPageContent() {
       {/* Edit Product Modal */}
       <CafetinProductModal
         key={editingProductId ?? (isCreateProductOpen ? 'create' : 'closed')}
-        isOpen={editingProductId !== null || isCreateProductOpen}
+        isOpen={!isDesktop && (editingProductId !== null || isCreateProductOpen)}
         onClose={() => {
           setEditingProductId(null);
           setIsCreateProductOpen(false);
