@@ -340,7 +340,8 @@ export default function POSPage() {
       console.log(`Venta registrada para slot ${activeSlotId} (optimistic)`);
     } catch (error) {
       console.error('Error al registrar venta:', error);
-      alert('Error al registrar venta. Intente de nuevo.');
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al registrar venta: ${errorMessage}`);
     } finally {
       setIsRegistering(false);
     }

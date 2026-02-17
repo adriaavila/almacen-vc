@@ -82,10 +82,7 @@ export const registerSale = mutation({
 
             const currentStock = cafetinInventory?.stockActual ?? 0;
 
-            // "Taza café" is exempt from stock checks (no tracked income)
-            const isExemptProduct = product.name === "Taza café";
-
-            if (!isExemptProduct && currentStock < item.cantidad) {
+            if (currentStock < item.cantidad) {
                 throw new Error(
                     `Stock insuficiente en Cafetín para ${product.name}. Disponible: ${currentStock} ${product.baseUnit ?? "unidades"}`
                 );

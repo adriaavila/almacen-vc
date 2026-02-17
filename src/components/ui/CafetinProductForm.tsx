@@ -80,11 +80,17 @@ export function CafetinProductForm({
     // Compute final lists with defaults + database values
     const subCategoryOptions = useMemo(() => {
         const fromDb = existingSubCategories || [];
-        return Array.from(new Set(fromDb)).sort();
-    }, [existingSubCategories]);
+        // Add current subCategory to options if it's set and not custom/empty to ensure it shows in dropdown
+        // This handles cases where the product has a unique subCategory not yet returned by getSubCategories query
+        const allOptions = new Set(fromDb);
+        if (subCategory && !isCustomSubCategory) {
+            allOptions.add(subCategory);
+        }
+        return Array.from(allOptions).sort();
+    }, [existingSubCategories, subCategory, isCustomSubCategory]);
 
     const saleUnitOptions = ['Unidad', 'Barrita', 'Bolsa', 'Lata', 'Paquete', 'Taza'];
-    const purchaseUnitOptions = ['Paquete', 'Caja'];
+    const purchaseUnitOptions = ['Unidad', 'Paquete', 'Caja'];
 
     // Initialize form when product loads
     useEffect(() => {
@@ -94,12 +100,8 @@ export function CafetinProductForm({
             setName(product.name || '');
             setBrand(product.brand || '');
 
-            const currentSubCat = product.subCategory || '';
-            if (currentSubCat && !subCategoryOptions.includes(currentSubCat) && existingSubCategories) {
-                setSubCategory(currentSubCat);
-            } else {
-                setSubCategory(currentSubCat || subCategoryOptions[0]);
-            }
+            // Just use the product's value directly. The options list will include it due to the useMemo above.
+            setSubCategory(product.subCategory || '');
 
             setBaseUnit(product.baseUnit || 'Unidad');
             setPurchaseUnit(product.purchaseUnit || product.baseUnit || 'Unidad');
@@ -120,6 +122,7 @@ export function CafetinProductForm({
             // Set default for new product
             setName('');
             setBrand('');
+            // Only set default if subCategory is empty to avoid overwriting user selection
             if (!subCategory && subCategoryOptions.length > 0) {
                 setSubCategory(subCategoryOptions[0] || '');
             }
@@ -138,7 +141,7 @@ export function CafetinProductForm({
             setCustomPurchaseUnit('');
             setError(null);
         }
-    }, [product, productId, subCategoryOptions, existingSubCategories, subCategory]); // Added subCategory dependency carefully
+    }, [product, productId]); // Removed subCategoryOptions, existingSubCategories, subCategory to prevent loops
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
