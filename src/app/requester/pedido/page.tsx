@@ -235,7 +235,6 @@ function CreateOrderPageContent() {
       const result = await createOrder({
         area: selectedArea,
         items: orderItems,
-        type: 'order',
       });
 
       // Check if order was queued (offline mode)
