@@ -4,6 +4,9 @@ import { ConvexProvider } from "@/lib/convex/provider";
 import { OfflineSyncManager } from "@/components/offline/OfflineSyncManager";
 import { OfflineBanner } from "@/components/offline/OfflineBanner";
 import { poppins, workSans } from "@/lib/fonts";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { WebViewBlocker } from "@/components/pwa/WebViewBlocker";
+import { PwaLifecycle } from "@/components/pwa/PwaLifecycle";
 
 export const metadata: Metadata = {
   title: "Vistacampo",
@@ -18,7 +21,7 @@ export const metadata: Metadata = {
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
-  manifest: "/manifest.json",
+
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -47,6 +50,9 @@ export default function RootLayout({
         <ConvexProvider>
           <OfflineBanner />
           <OfflineSyncManager />
+          <InstallPrompt />
+          <WebViewBlocker />
+          <PwaLifecycle />
           {children}
         </ConvexProvider>
       </body>

@@ -53,6 +53,8 @@ export default function InventoryPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showCafetin, setShowCafetin] = useState(false); // New filter
+  const [showInactive, setShowInactive] = useState(false); // New filter
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [editMode, setEditMode] = useState(false);
   const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
@@ -83,17 +85,19 @@ export default function InventoryPage() {
   // Get unique categories from almacen products only
   const categories = useMemo(() => {
     if (!products || products.length === 0) return [];
-    // Filter only almacen products (exclude Cafetin)
-    const almacenProducts = products.filter(p =>
-      p.active &&
-      p.category !== 'Cafetin'
-    );
+    // Filter only active products (allow Cafetin to appear in dropdown)
+    const activeProducts = products.filter(p => p.active);
 
     // Get unique categories from filtered products
     const cats = Array.from(
       new Set(
-        almacenProducts
-          .map(product => product.category)
+        activeProducts
+          .map(product => {
+            const cat = product.category;
+            // Normalize cafetin to Cafetin for display/filtering
+            if (cat && cat.toLowerCase() === 'cafetin') return 'Cafetin';
+            return cat;
+          })
           .filter((cat): cat is string => !!cat && cat.trim() !== '')
       )
     ).sort();
@@ -105,15 +109,30 @@ export default function InventoryPage() {
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
 
-    // Only show active almacen products (exclude Cafetin)
-    let filtered = products.filter(p =>
-      p.active &&
-      p.category !== 'Cafetin'
-    );
+    // Base filter: Active status and Category exclusion
+    let filtered = products.filter(p => {
+      // Filter by Active status
+      if (!showInactive && !p.active) return false;
+
+      // Filter by Cafetin category
+      // Show if:
+      // 1. showCafetin is checked
+      // 2. OR category is NOT Cafetin
+      // 3. OR category IS Cafetin but has Almacen stock (mixed stock product)
+      const isCafetin = p.category.toLowerCase() === 'cafetin';
+      if (!showCafetin && isCafetin && p.stockAlmacen === 0) return false;
+
+      return true;
+    });
 
     // Filter by category
     if (selectedCategory !== 'All') {
-      filtered = filtered.filter(product => product.category === selectedCategory);
+      if (selectedCategory === 'Cafetin') {
+        // Match both Cafetin and cafetin
+        filtered = filtered.filter(product => product.category === 'Cafetin' || product.category === 'cafetin');
+      } else {
+        filtered = filtered.filter(product => product.category === selectedCategory);
+      }
     }
 
     // Filter by search query (using debounced query)
@@ -414,6 +433,28 @@ export default function InventoryPage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Advanced Filters */}
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showCafetin}
+                onChange={(e) => setShowCafetin(e.target.checked)}
+                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 bg-white shadow-sm"
+              />
+              <span className="text-sm text-gray-700">Incluir Cafetin</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 bg-white shadow-sm"
+              />
+              <span className="text-sm text-gray-700">Mostrar Inactivos</span>
+            </label>
           </div>
 
           {/* Selectors */}
@@ -778,56 +819,58 @@ export default function InventoryPage() {
             })
           )}
         </div>
-      </PageContainer>
+      </PageContainer >
 
       {/* Edit Stock Modal */}
-      {editingProduct && (
-        <Modal
-          isOpen={editingProduct !== null}
-          onClose={handleCancelDirectEdit}
-          title={`Editar stock de ${editingProduct.name}`}
-        >
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
-                Stock actual (Almacén)
-              </label>
-              <input
-                id="stock-input"
-                type="number"
-                min="0"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSaveDirectEdit();
-                  }
-                }}
-              />
-              <p className="mt-2 text-sm text-gray-500">
-                Unidad: {editingProduct.baseUnit}
-              </p>
+      {
+        editingProduct && (
+          <Modal
+            isOpen={editingProduct !== null}
+            onClose={handleCancelDirectEdit}
+            title={`Editar stock de ${editingProduct?.name}`}
+          >
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock actual (Almacén)
+                </label>
+                <input
+                  id="stock-input"
+                  type="number"
+                  min="0"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSaveDirectEdit();
+                    }
+                  }}
+                />
+                <p className="mt-2 text-sm text-gray-500">
+                  Unidad: {editingProduct?.baseUnit}
+                </p>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleCancelDirectEdit}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <Button
+                  onClick={handleSaveDirectEdit}
+                  variant="primary"
+                  className="px-4 py-2 text-sm h-auto"
+                >
+                  Guardar
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleCancelDirectEdit}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <Button
-                onClick={handleSaveDirectEdit}
-                variant="primary"
-                className="px-4 py-2 text-sm h-auto"
-              >
-                Guardar
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        )
+      }
 
       <style jsx>{`
         .scrollbar-hide {

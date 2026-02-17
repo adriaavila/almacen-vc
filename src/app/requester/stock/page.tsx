@@ -117,8 +117,27 @@ function StockPageContent() {
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
 
-    // Only show active products with cafetin stock and available for sale
-    let filtered = products.filter(p => p.active && p.stockCafetin > 0 && p.availableForSale !== false);
+    // Only show active products with cafetin stock and available for sale (unless filtering for inactive)
+    let filtered = products;
+
+    if (selectedStatus === 'inactive') {
+      // Show only inactive products (regardless of stock or availableForSale)
+      filtered = filtered.filter(p => !p.active);
+    } else {
+      // Default behavior: Active + Stock > 0 + Available for Sale
+      // But if filtering by specific status (like bajo_stock or out_of_stock), we might want to respect that within active products
+      // Original logic: p.active && p.stockCafetin > 0 && p.availableForSale !== false
+
+      // If out_of_stock is selected, we want stockCafetin === 0, so we can't filter by stockCafetin > 0 initially for that case
+      // Let's refine based on status FIRST or adjust initial filter
+
+      filtered = filtered.filter(p => p.active && p.availableForSale !== false);
+
+      // Apply stock filter unless specific status overrides it
+      if (selectedStatus !== 'out_of_stock') {
+        filtered = filtered.filter(p => p.stockCafetin > 0);
+      }
+    }
 
     // Filter by subcategory
     if (selectedSubCategory !== 'All') {
@@ -137,7 +156,7 @@ function StockPageContent() {
     }
 
     // Filter by status
-    if (selectedStatus !== 'all') {
+    if (selectedStatus !== 'all' && selectedStatus !== 'inactive') {
       if (selectedStatus === 'bajo_stock') {
         filtered = filtered.filter(product => product.status === 'bajo_stock');
       } else if (selectedStatus === 'out_of_stock') {
@@ -513,6 +532,16 @@ function StockPageContent() {
                     }`}
                 >
                   Sin Stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatus('inactive')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatus === 'inactive'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  Inactivos
                 </button>
               </div>
 

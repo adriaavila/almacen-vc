@@ -11,6 +11,16 @@ const pwaConfig = withPWA({
   workboxOptions: {
     disableDevLogs: true,
     runtimeCaching: [
+
+      // NO CACHEAR: API de Convex y Auth
+      {
+        urlPattern: /^https:\/\/.*\.convex\.cloud\/.*$/,
+        handler: 'NetworkOnly',
+      },
+      {
+        urlPattern: /\/api\/auth\/.*/i,
+        handler: 'NetworkOnly',
+      },
       // Cache de navegación (NetworkFirst para obtener datos frescos, fallback a cache)
       {
         urlPattern: ({ request }) => request.mode === 'navigate',

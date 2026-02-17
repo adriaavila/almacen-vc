@@ -26,6 +26,7 @@ type ProductWithInventory = {
     purchaseUnit: string;
     conversionFactor: number;
     active: boolean;
+    availableForSale?: boolean;
     inventory?: Array<{
         location: string;
         stockActual: number;
@@ -45,8 +46,9 @@ export function CafetinProductForm({
         productId ? { id: productId } : 'skip'
     ) as ProductWithInventory | undefined;
 
-    // Data Fetching for "Real" Options
-    const existingSubCategories = useQuery(api.products.getSubCategories, { category: 'Cafetin' });
+    // Data Fetching for "Real" Options - now dynamic based on selected category
+    const [category, setCategory] = useState('Cafetin'); // Initialize here to use in query
+    const existingSubCategories = useQuery(api.products.getSubCategories, { category: category });
 
     const createProduct = useMutation(api.products.create);
     const updateProduct = useMutation(api.products.update);
@@ -58,11 +60,13 @@ export function CafetinProductForm({
     const [name, setName] = useState('');
     const [brand, setBrand] = useState('');
     const [subCategory, setSubCategory] = useState('');
+    // category state moved up for useQuery
     const [baseUnit, setBaseUnit] = useState('Unidad');
     const [purchaseUnit, setPurchaseUnit] = useState('Unidad');
     const [conversionFactor, setConversionFactor] = useState<string>('1');
     const [stockMinimo, setStockMinimo] = useState<string>('0');
     const [active, setActive] = useState(true);
+    const [availableForSale, setAvailableForSale] = useState(true);
 
     // Custom input states
     const [isCustomSubCategory, setIsCustomSubCategory] = useState(false);
@@ -103,11 +107,20 @@ export function CafetinProductForm({
             // Just use the product's value directly. The options list will include it due to the useMemo above.
             setSubCategory(product.subCategory || '');
 
+            if (!subCategory && subCategoryOptions.length > 0) {
+                setSubCategory(subCategoryOptions[0] || '');
+            }
+
+            // Normalize category to Capitalized Cafetin
+            const productCategory = product.category || 'Cafetin';
+            setCategory(productCategory.toLowerCase() === 'cafetin' ? 'Cafetin' : productCategory);
+
             setBaseUnit(product.baseUnit || 'Unidad');
             setPurchaseUnit(product.purchaseUnit || product.baseUnit || 'Unidad');
             setConversionFactor(String(product.conversionFactor || 1));
             setStockMinimo(String(inventory?.stockMinimo || 0));
             setActive(product.active ?? true);
+            setAvailableForSale(product.availableForSale ?? true);
 
             // Reset custom states
             setIsCustomSubCategory(false);
@@ -120,17 +133,20 @@ export function CafetinProductForm({
             setError(null);
         } else if (!productId) {
             // Set default for new product
-            setName('');
             setBrand('');
             // Only set default if subCategory is empty to avoid overwriting user selection
             if (!subCategory && subCategoryOptions.length > 0) {
                 setSubCategory(subCategoryOptions[0] || '');
             }
+            // Default to Capitalized Cafetin
+            setCategory('Cafetin');
+
             setBaseUnit('Unidad');
             setPurchaseUnit('Unidad');
             setConversionFactor('1');
             setStockMinimo('0');
             setActive(true);
+            setAvailableForSale(true);
 
             // Reset custom states
             setIsCustomSubCategory(false);
@@ -196,12 +212,13 @@ export function CafetinProductForm({
                     id: productId,
                     name: name.trim(),
                     brand: brand.trim() || undefined,
-                    category: 'cafetin',
+                    category: category === 'cafetin' ? 'Cafetin' : category, // Enforce capitalization
                     subCategory: finalSubCategory,
                     baseUnit: capitalizedBaseUnit,
                     purchaseUnit: capitalizedPurchaseUnit,
                     conversionFactor: numConversionFactor,
-                    active: active,
+                    active: true, // Always reactivate on save (user controls availability via availableForSale)
+                    availableForSale: availableForSale,
                 });
 
                 // Update stock minimum
@@ -217,13 +234,30 @@ export function CafetinProductForm({
                 const newProductId = await createProduct({
                     name: name.trim(),
                     brand: brand.trim() || '',
-                    category: 'cafetin',
+                    category: category === 'cafetin' ? 'Cafetin' : category, // Enforce capitalization
                     subCategory: finalSubCategory,
                     baseUnit: capitalizedBaseUnit,
                     purchaseUnit: capitalizedPurchaseUnit,
                     conversionFactor: numConversionFactor,
-                    active: active,
+                    active: true, // Always active on creation
                 });
+
+                // If we want to support availableForSale on creation, we need to update the schema/mutation or rely on default.
+                // The current create mutation in products.ts doesn't seem to accept availableForSale.
+                // Let's check products.ts again.
+                // Looking at products.ts, create mutation ONLY accepts: name, brand, category, subCategory, baseUnit, purchaseUnit, conversionFactor, active.
+                // It does NOT accept availableForSale.
+                // So for now, we can only update it after creation or we need to modify the create mutation.
+                // Given I'm editing the form now, I'll update it immediately after creation if needed, 
+                // OR I can assume default true is fine (which it is).
+                // BUT if user sets it to false during creation, we should honor it.
+
+                if (!availableForSale) {
+                    await updateProduct({
+                        id: newProductId,
+                        availableForSale: false
+                    });
+                }
 
                 // Initialize inventory
                 await initializeInventory({
@@ -316,60 +350,87 @@ export function CafetinProductForm({
                     />
                 </div>
 
-                {/* Subcategoría (Dropdown real) */}
-                <div>
-                    <label htmlFor="subCategory" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                        Subcategoría *
-                    </label>
-
-                    {!isCustomSubCategory ? (
-                        <div className="flex gap-2">
-                            <div className="relative flex-1">
-                                <select
-                                    id="subCategory"
-                                    value={subCategory}
-                                    onChange={(e) => {
-                                        if (e.target.value === 'custom_new_value') {
-                                            setIsCustomSubCategory(true);
-                                            setCustomSubCategory('');
-                                        } else {
-                                            setSubCategory(e.target.value);
-                                        }
-                                    }}
-                                    className="block w-full h-11 pl-3 pr-10 text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
-                                >
-                                    <option value="" disabled>Selecciona una categoría</option>
-                                    {subCategoryOptions.map((cat) => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                    <option value="custom_new_value" className="font-semibold text-emerald-600">+ Nueva Subcategoría...</option>
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
+                {/* Categoría y Subcategoría */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Categoría */}
+                    <div>
+                        <label htmlFor="category" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                            Categoría *
+                        </label>
+                        <div className="relative">
+                            <select
+                                id="category"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                className="block w-full h-11 pl-3 pr-10 text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+                            >
+                                <option value="Cafetin">Cafetin</option>
+                                <option value="Cocina">Cocina</option>
+                                <option value="Limpieza">Limpieza</option>
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
                             </div>
                         </div>
-                    ) : (
-                        <div className="flex gap-2 animate-in fade-in duration-200">
-                            <input
-                                type="text"
-                                value={customSubCategory}
-                                onChange={(e) => setCustomSubCategory(e.target.value)}
-                                placeholder="Escribe la nueva subcategoría..."
-                                className="block flex-1 h-11 px-3 text-base border border-emerald-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                autoFocus
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setIsCustomSubCategory(false)}
-                                className="px-4 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                            >
-                                Cancelar
-                            </button>
-                        </div>
-                    )}
+                    </div>
+
+                    {/* Subcategoría */}
+                    <div>
+                        <label htmlFor="subCategory" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                            Subcategoría *
+                        </label>
+
+                        {!isCustomSubCategory ? (
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <select
+                                        id="subCategory"
+                                        value={subCategory}
+                                        onChange={(e) => {
+                                            if (e.target.value === 'custom_new_value') {
+                                                setIsCustomSubCategory(true);
+                                                setCustomSubCategory('');
+                                            } else {
+                                                setSubCategory(e.target.value);
+                                            }
+                                        }}
+                                        className="block w-full h-11 pl-3 pr-10 text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+                                    >
+                                        <option value="" disabled>Selecciona una categoría</option>
+                                        {subCategoryOptions.map((cat) => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                        <option value="custom_new_value" className="font-semibold text-emerald-600">+ Nueva Subcategoría...</option>
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex gap-2 animate-in fade-in duration-200">
+                                <input
+                                    type="text"
+                                    value={customSubCategory}
+                                    onChange={(e) => setCustomSubCategory(e.target.value)}
+                                    placeholder="Escribe la nueva subcategoría..."
+                                    className="block flex-1 h-11 px-3 text-base border border-emerald-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCustomSubCategory(false)}
+                                    className="px-4 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Configuración de Inventario */}
@@ -574,21 +635,21 @@ export function CafetinProductForm({
                     </div>
                 </div>
 
-                {/* Estado Activo - solo para edición */}
+                {/* Disponible para Venta - para esconder del Cafetin */}
                 {!isCreating && (
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                         <div>
-                            <span className="text-sm font-semibold text-gray-700">Stock Visible</span>
-                            <p className="text-xs text-gray-500">Desactiva para ocultar del inventario</p>
+                            <span className="text-sm font-semibold text-gray-700">Disponible para Venta</span>
+                            <p className="text-xs text-gray-500">Desactiva para ocultar del inventario de Cafetin</p>
                         </div>
                         <button
                             type="button"
-                            onClick={() => setActive(!active)}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${active ? 'bg-emerald-600' : 'bg-gray-200'
+                            onClick={() => setAvailableForSale(!availableForSale)}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${availableForSale ? 'bg-emerald-600' : 'bg-gray-200'
                                 }`}
                         >
                             <span
-                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${active ? 'translate-x-5' : 'translate-x-0'
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${availableForSale ? 'translate-x-5' : 'translate-x-0'
                                     }`}
                             />
                         </button>

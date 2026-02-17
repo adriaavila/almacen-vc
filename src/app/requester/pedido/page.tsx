@@ -44,7 +44,7 @@ function getOrderUnit(
   area: Area
 ): string {
   const isLeche = product.name.toLowerCase().includes('leche');
-  if (area === "Cafetin" && (product.category === 'Cafetin' || isLeche) && product.availableForSale !== false) {
+  if (area === "Cafetin" && (product.category === 'Cafetin' || product.category === 'cafetin' || isLeche) && product.availableForSale !== false) {
     return product.purchaseUnit;
   }
   return product.baseUnit;
@@ -57,7 +57,7 @@ function toBaseUnitQuantity(
   area: Area
 ): number {
   const isLeche = product.name.toLowerCase().includes('leche');
-  if (area === "Cafetin" && (product.category === 'Cafetin' || isLeche) && product.availableForSale !== false) {
+  if (area === "Cafetin" && (product.category === 'Cafetin' || product.category === 'cafetin' || isLeche) && product.availableForSale !== false) {
     return displayQty * product.conversionFactor;
   }
   return displayQty;
@@ -280,7 +280,8 @@ function CreateOrderPageContent() {
     } else if (selectedArea === 'Cafetin') {
       // Cafetin primero, luego Cocina y Limpieza (unidad de compra en productos Cafetin; base en Cocina/Limpieza)
       filtered = filtered.filter(p =>
-        p.category === 'Cafetin' || p.category === 'Cocina' || p.category === 'Limpieza'
+        p.category === 'Cafetin' || p.category === 'cafetin' ||
+        p.category === 'Cocina' || p.category === 'Limpieza'
       );
     } else if (selectedArea === 'Cocina' || selectedArea === 'Camila') {
       // Excluir productos de Cafetin
