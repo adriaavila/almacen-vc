@@ -8,12 +8,13 @@ import { Modal } from './Modal';
 import { Button } from './Button';
 import { Toast } from './Toast';
 import { ConfirmationModal } from './ConfirmationModal';
+import { Product } from '@/types';
 
 interface CafetinProductModalProps {
     isOpen: boolean;
     onClose: () => void;
     productId: Id<'products'> | null;
-    onProductCreated?: (productId: Id<'products'>, product: any) => void;
+    onProductCreated?: (productId: Id<'products'>, product: Product) => void;
     onProductUpdated?: () => void;
     onProductDeleted?: () => void;
 }
@@ -63,6 +64,8 @@ export function CafetinProductModal({
     const [brand, setBrand] = useState('');
     const [subCategory, setSubCategory] = useState('');
     const [baseUnit, setBaseUnit] = useState('Unidad');
+    const [purchaseUnit, setPurchaseUnit] = useState('Unidad');
+    const [conversionFactor, setConversionFactor] = useState<string>('1');
     const [stockMinimo, setStockMinimo] = useState<string>('0');
     const [active, setActive] = useState(true);
 
@@ -71,6 +74,8 @@ export function CafetinProductModal({
     const [customSubCategory, setCustomSubCategory] = useState('');
     const [isCustomUnit, setIsCustomUnit] = useState(false);
     const [customUnit, setCustomUnit] = useState('');
+    const [isCustomPurchaseUnit, setIsCustomPurchaseUnit] = useState(false);
+    const [customPurchaseUnit, setCustomPurchaseUnit] = useState('');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -117,14 +122,19 @@ export function CafetinProductModal({
             }
 
             setBaseUnit(product.baseUnit || 'Unidad');
+            setPurchaseUnit(product.purchaseUnit || product.baseUnit || 'Unidad');
+            setConversionFactor(String(product.conversionFactor || 1));
             setStockMinimo(String(inventory?.stockMinimo || 0));
             setActive(product.active ?? true);
 
             // Reset custom states
             setIsCustomSubCategory(false);
+            setIsCustomSubCategory(false);
             setIsCustomUnit(false);
+            setIsCustomPurchaseUnit(false);
             setCustomSubCategory('');
             setCustomUnit('');
+            setCustomPurchaseUnit('');
 
             setError(null);
         } else if (isOpen && !productId) {
@@ -133,6 +143,7 @@ export function CafetinProductModal({
                 setSubCategory(subCategoryOptions[0]);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [product, isOpen, productId, subCategoryOptions, existingSubCategories]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -153,7 +164,19 @@ export function CafetinProductModal({
 
         const finalBaseUnit = isCustomUnit ? customUnit.trim() : baseUnit;
         if (!finalBaseUnit) {
-            setError('Selecciona o escribe una unidad');
+            setError('Selecciona o escribe una unidad base');
+            return;
+        }
+
+        const finalPurchaseUnit = isCustomPurchaseUnit ? customPurchaseUnit.trim() : purchaseUnit;
+        if (!finalPurchaseUnit) {
+            setError('Selecciona o escribe una unidad de compra');
+            return;
+        }
+
+        const numConversionFactor = parseFloat(conversionFactor);
+        if (isNaN(numConversionFactor) || numConversionFactor <= 0) {
+            setError('El factor de conversión debe ser mayor a 0');
             return;
         }
 
@@ -167,7 +190,8 @@ export function CafetinProductModal({
 
         try {
             // Use capitalizing for units to maintain consistency
-            const capitalizedUnit = finalBaseUnit.charAt(0).toUpperCase() + finalBaseUnit.slice(1);
+            const capitalizedBaseUnit = finalBaseUnit.charAt(0).toUpperCase() + finalBaseUnit.slice(1);
+            const capitalizedPurchaseUnit = finalPurchaseUnit.charAt(0).toUpperCase() + finalPurchaseUnit.slice(1);
 
             if (productId) {
                 // Update existing product
@@ -177,9 +201,9 @@ export function CafetinProductModal({
                     brand: brand.trim() || undefined,
                     category: 'cafetin',
                     subCategory: finalSubCategory,
-                    baseUnit: capitalizedUnit,
-                    purchaseUnit: capitalizedUnit,
-                    conversionFactor: 1,
+                    baseUnit: capitalizedBaseUnit,
+                    purchaseUnit: capitalizedPurchaseUnit,
+                    conversionFactor: numConversionFactor,
                     active: active,
                 });
 
@@ -206,9 +230,9 @@ export function CafetinProductModal({
                     brand: brand.trim() || '',
                     category: 'cafetin',
                     subCategory: finalSubCategory,
-                    baseUnit: capitalizedUnit,
-                    purchaseUnit: capitalizedUnit,
-                    conversionFactor: 1,
+                    baseUnit: capitalizedBaseUnit,
+                    purchaseUnit: capitalizedPurchaseUnit,
+                    conversionFactor: numConversionFactor,
                     active: active,
                 });
 
@@ -226,9 +250,9 @@ export function CafetinProductModal({
                     brand: brand.trim() || '',
                     category: 'cafetin',
                     subCategory: finalSubCategory,
-                    baseUnit: capitalizedUnit,
-                    purchaseUnit: capitalizedUnit,
-                    conversionFactor: 1,
+                    baseUnit: capitalizedBaseUnit,
+                    purchaseUnit: capitalizedPurchaseUnit,
+                    conversionFactor: numConversionFactor,
                     active: active,
                     totalStock: 0,
                     stockAlmacen: 0,
@@ -254,9 +278,10 @@ export function CafetinProductModal({
             setTimeout(() => {
                 onClose();
             }, 800);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error al guardar producto:', error);
-            setError(error.message || 'No se pudo guardar el producto. Intente de nuevo.');
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            setError(errorMessage || 'No se pudo guardar el producto. Intente de nuevo.');
             setIsSubmitting(false);
         }
     };
@@ -284,7 +309,7 @@ export function CafetinProductModal({
             setTimeout(() => {
                 onClose();
             }, 800);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error al eliminar producto:', error);
             setToast({
                 message: 'Error al eliminar el producto',
@@ -470,10 +495,107 @@ export function CafetinProductModal({
                         )}
                     </div>
 
+                    {/* Configuración de Compra e Inventario */}
+                    <div className="pt-4 border-t border-gray-100">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            Configuración de Inventario
+                        </h4>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            {/* Unidad de Compra */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                                    Unidad de Compra
+                                </label>
+                                {!isCustomPurchaseUnit ? (
+                                    <div className="relative">
+                                        <select
+                                            value={purchaseUnit}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'custom_new_value') {
+                                                    setIsCustomPurchaseUnit(true);
+                                                    setCustomPurchaseUnit('');
+                                                } else {
+                                                    setPurchaseUnit(e.target.value);
+                                                }
+                                            }}
+                                            className="block w-full h-10 pl-3 pr-8 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+                                        >
+                                            {unitOptions.map((unit) => (
+                                                <option key={unit} value={unit}>{unit}</option>
+                                            ))}
+                                            <option value="custom_new_value" className="font-semibold text-emerald-600">+ Otra...</option>
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={customPurchaseUnit}
+                                            onChange={(e) => setCustomPurchaseUnit(e.target.value)}
+                                            placeholder="Ej: Caja"
+                                            className="block flex-1 h-10 px-3 text-sm border border-emerald-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                            autoFocus
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsCustomPurchaseUnit(false)}
+                                            className="px-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Factor de Conversión */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                                    Contenido (Factor)
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="any"
+                                        value={conversionFactor}
+                                        onChange={(e) => setConversionFactor(e.target.value)}
+                                        className="block w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        <span className="text-xs text-gray-500">
+                                            {isCustomUnit ? (customUnit || 'unidades') : baseUnit}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Helper Text for Conversion */}
+                        <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 flex items-start gap-2 mb-4">
+                            <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p>
+                                <strong>Resumen:</strong> Compra en <u>{isCustomPurchaseUnit ? (customPurchaseUnit || '...') : purchaseUnit}</u> y vende en <u>{isCustomUnit ? (customUnit || '...') : baseUnit}</u>.
+                                <br />
+                                1 {isCustomPurchaseUnit ? (customPurchaseUnit || '...') : purchaseUnit} = {conversionFactor || '...'} {isCustomUnit ? (customUnit || '...') : baseUnit}.
+                            </p>
+                        </div>
+                    </div>
+
                     {/* Stock Mínimo */}
                     <div>
                         <label htmlFor="stockMinimo" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                            Stock Mínimo
+                            Stock Mínimo (Alerta)
                         </label>
                         <p className="text-xs text-gray-500 mb-2">
                             Alertar cuando el stock llegue a:
