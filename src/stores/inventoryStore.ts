@@ -39,6 +39,7 @@ export type PendingAction =
       location: "almacen" | "cafetin";
       newStock: number;
     };
+    retryCount?: number;
   }
   | {
     id: string;
@@ -58,6 +59,7 @@ export type PendingAction =
       to: "almacen" | "cafetin";
       quantity: number;
     };
+    retryCount?: number;
   }
   | {
     id: string;
@@ -69,6 +71,7 @@ export type PendingAction =
       stockMinimo: number;
     };
     timestamp: number;
+    retryCount?: number;
   }
   | {
     id: string;
@@ -80,6 +83,7 @@ export type PendingAction =
       patientId?: Id<"users">;
     };
     timestamp: number;
+    retryCount?: number;
   }
   | {
     id: string;
@@ -90,6 +94,7 @@ export type PendingAction =
       items: Array<{ productId: Id<"products">; cantidad: number }>;
     };
     timestamp: number;
+    retryCount?: number;
   }
   | {
     id: string;
@@ -99,6 +104,7 @@ export type PendingAction =
       id: Id<"orders">;
     };
     timestamp: number;
+    retryCount?: number;
   };
 
 interface InventoryState {
@@ -109,6 +115,7 @@ interface InventoryState {
   pendingActions: PendingAction[];
   addPendingAction: (action: Omit<PendingAction, 'id' | 'timestamp'>) => string; // Returns action ID
   removePendingAction: (actionId: string) => void;
+  incrementRetryCount: (actionId: string) => void;
   clearPendingActions: () => void;
   updateProductOptimistically: (update: {
     productId: Id<"products">;
@@ -144,6 +151,7 @@ export const useInventoryStore = create<InventoryState>()(
           ...action,
           id,
           timestamp: Date.now(),
+          retryCount: 0,
         } as PendingAction;
         set((state) => ({
           pendingActions: [...state.pendingActions, pendingAction],
@@ -153,6 +161,13 @@ export const useInventoryStore = create<InventoryState>()(
       removePendingAction: (actionId) => {
         set((state) => ({
           pendingActions: state.pendingActions.filter((a) => a.id !== actionId),
+        }));
+      },
+      incrementRetryCount: (actionId) => {
+        set((state) => ({
+          pendingActions: state.pendingActions.map((a) =>
+            a.id === actionId ? { ...a, retryCount: (a.retryCount || 0) + 1 } : a
+          ),
         }));
       },
       clearPendingActions: () => {

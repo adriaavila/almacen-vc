@@ -32,6 +32,7 @@ export function OfflineSyncManager() {
     // Leer pendingActions dentro del callback usando getState para evitar dependencias innecesarias
     const currentPendingActions = useInventoryStore.getState().pendingActions;
     const removePendingActionFn = useInventoryStore.getState().removePendingAction;
+    const incrementRetryCountFn = useInventoryStore.getState().incrementRetryCount;
 
     if (isProcessingRef.current || currentPendingActions.length === 0) return;
 
@@ -50,7 +51,8 @@ export function OfflineSyncManager() {
       try {
         // Validar que la acción tenga los argumentos necesarios
         if (!action.args) {
-          console.error('OfflineSyncManager: Action missing args:', action);
+          console.error('OfflineSyncManager: Action missing args, removing:', action);
+          removePendingActionFn(action.id);
           continue;
         }
 
@@ -129,12 +131,26 @@ export function OfflineSyncManager() {
         }
       } catch (error) {
         // Ignorar errores de "Network request failed" o similares que indiquen desconexión momentánea
-        // pero registrar otros errores
         const errorMessage = error instanceof Error ? error.message : String(error);
-        if (!errorMessage.includes('Network') && !errorMessage.includes('Offline')) {
-          console.error(`OfflineSyncManager: Error processing action ${action.id} (${action.type}):`, error);
+        const isNetworkError = errorMessage.includes('Network') || errorMessage.includes('Offline') || errorMessage.includes('Failed to fetch');
+
+        if (isNetworkError) {
+          // Si es error de red, mantenemos en la cola para el próximo intento (cuando vuelva internet)
+          console.log(`OfflineSyncManager: Network error for action ${action.id}, keeping in queue.`);
+        } else {
+          // Si NO es error de red (ej. validación de backend, bug), incrementamos reintentos
+          const currentRetries = action.retryCount || 0;
+
+          if (currentRetries >= 3) {
+            // Si ya falló 3 veces (4 intentos total), eliminamos para no bloquear la cola
+            console.error(`OfflineSyncManager: Action ${action.id} failed ${currentRetries + 1} times with non-network error. Removing from queue. Error:`, error);
+            removePendingActionFn(action.id);
+          } else {
+            // Incrementamos contador y dejamos en cola
+            console.warn(`OfflineSyncManager: Action ${action.id} failed (attempt ${currentRetries + 1}). Incrementing retry count. Error:`, error);
+            incrementRetryCountFn(action.id);
+          }
         }
-        // Mantener en la cola para reintentar después
       }
     }
 
