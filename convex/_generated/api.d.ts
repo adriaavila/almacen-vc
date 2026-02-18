@@ -16,6 +16,7 @@ import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
 import type * as migration from "../migration.js";
+import type * as migrations from "../migrations.js";
 import type * as movements from "../movements.js";
 import type * as notifications from "../notifications.js";
 import type * as orderItems from "../orderItems.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   inventory: typeof inventory;
   migration: typeof migration;
+  migrations: typeof migrations;
   movements: typeof movements;
   notifications: typeof notifications;
   orderItems: typeof orderItems;

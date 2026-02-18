@@ -5,6 +5,7 @@ import { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 // Query: Get all orders
+// Last sync attempt
 export const list = query({
   handler: async (ctx) => {
     return await ctx.db.query("orders").collect();
@@ -85,12 +86,17 @@ export const getPending = query({
 // Query: Get orders by area
 export const getByArea = query({
   args: {
-    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Las casas")),
+    area: v.union(
+      v.literal("Cocina"),
+      v.literal("Cafetin"),
+      v.literal("Limpieza"),
+      v.literal("Las casas")
+    ),
   },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("orders")
-      .withIndex("by_area", (q) => q.eq("area", args.area))
+      .withIndex("by_area", (q) => q.eq("area", args.area as any))
       .collect();
   },
 });

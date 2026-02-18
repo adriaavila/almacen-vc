@@ -31,7 +31,7 @@ export function logoutAdmin(): void {
 export function getUserArea(): Area | null {
   if (typeof window === 'undefined') return null;
   const area = localStorage.getItem(USER_AREA_KEY);
-  if (area && (area === 'Cocina' || area === 'Cafetin' || area === 'Limpieza')) {
+  if (area && (area === 'Cocina' || area === 'Cafetin' || area === 'Limpieza' || area === 'Las casas')) {
     return area as Area;
   }
   return null;
