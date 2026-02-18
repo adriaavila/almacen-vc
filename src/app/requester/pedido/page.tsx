@@ -19,7 +19,7 @@ import { useInventoryData } from '@/lib/hooks/useInventoryData';
 import { useOfflineMutation } from '@/lib/hooks/useOfflineMutation';
 import { Area } from '@/types';
 
-const validAreas: Area[] = ['Cocina', 'Cafetin', 'Limpieza', 'Camila'];
+const validAreas: Area[] = ['Cocina', 'Cafetin', 'Limpieza', 'Las casas'];
 
 type ConvexProduct = {
   _id: Id<"products">;
@@ -283,9 +283,9 @@ function CreateOrderPageContent() {
         p.category === 'Cafetin' || p.category === 'cafetin' ||
         p.category === 'Cocina' || p.category === 'Limpieza'
       );
-    } else if (selectedArea === 'Cocina' || selectedArea === 'Camila') {
-      // Excluir productos de Cafetin
-      filtered = filtered.filter(p => p.category !== 'Cafetin');
+    } else if (selectedArea === 'Cocina' || selectedArea === 'Las casas') {
+      // Excluir productos de Cafetin (check both case variants)
+      filtered = filtered.filter(p => p.category !== 'Cafetin' && p.category !== 'cafetin');
     }
 
     return filtered;

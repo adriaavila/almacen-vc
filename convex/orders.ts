@@ -85,7 +85,7 @@ export const getPending = query({
 // Query: Get orders by area
 export const getByArea = query({
   args: {
-    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Camila")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Las casas")),
   },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -98,7 +98,7 @@ export const getByArea = query({
 // Query: Get last delivered order by area (for suggestions)
 export const getLastByArea = query({
   args: {
-    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Camila")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Las casas")),
   },
   handler: async (ctx, args) => {
     const orders = await ctx.db
@@ -121,7 +121,7 @@ export const getLastByArea = query({
 // Mutation: Create a new order with items (warehouse orders only — POS uses pos.registerSale)
 export const create = mutation({
   args: {
-    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Camila")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Las casas")),
     patientId: v.optional(v.id("users")),
     items: v.array(
       v.object({
@@ -558,7 +558,7 @@ export const getOrderByDateRange = query({
   args: {
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    area: v.optional(v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Camila"))),
+    area: v.optional(v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Las casas"))),
     status: v.optional(v.union(v.literal("pendiente"), v.literal("entregado"))),
   },
   handler: async (ctx, args) => {

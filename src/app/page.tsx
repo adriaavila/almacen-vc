@@ -68,9 +68,9 @@ export default function Home() {
                 <Button
                   variant="primary"
                   className="w-full py-3 text-base"
-                  onClick={() => handleAreaClick('Camila')}
+                  onClick={() => handleAreaClick('Las casas')}
                 >
-                  Camila
+                  Las casas
                 </Button>
               </div>
             </div>

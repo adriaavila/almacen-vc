@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   orders: defineTable({
-    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Camila")),
+    area: v.union(v.literal("Cocina"), v.literal("Cafetin"), v.literal("Limpieza"), v.literal("Las casas")),
     status: v.union(v.literal("pendiente"), v.literal("entregado")),
     createdAt: v.number(), // Timestamp
     patientId: v.optional(v.id("users")), // For Cafetin billing

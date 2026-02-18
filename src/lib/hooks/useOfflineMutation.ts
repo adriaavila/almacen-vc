@@ -26,7 +26,7 @@ type SetMinStockArgs = {
 };
 
 type CreateOrderArgs = {
-  area: "Cocina" | "Cafetin" | "Limpieza" | "Camila";
+  area: "Cocina" | "Cafetin" | "Limpieza" | "Las casas";
   items: Array<{ productId: Id<"products">; cantidad: number }>;
   patientId?: Id<"users">;
 };

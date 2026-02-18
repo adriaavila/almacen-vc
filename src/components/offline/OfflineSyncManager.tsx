@@ -89,13 +89,13 @@ export function OfflineSyncManager() {
               continue;
             }
             // Validate area is one of the allowed values
-            const validAreas = ["Cocina", "Cafetin", "Limpieza", "Camila"] as const;
+            const validAreas = ["Cocina", "Cafetin", "Limpieza", "Las casas"] as const;
             if (!validAreas.includes(action.args.area as typeof validAreas[number])) {
               console.error('OfflineSyncManager: Invalid area value:', action.args.area);
               continue;
             }
             result = await createOrder(action.args as {
-              area: "Cocina" | "Cafetin" | "Limpieza" | "Camila";
+              area: "Cocina" | "Cafetin" | "Limpieza" | "Las casas";
               items: Array<{ productId: Id<"products">; cantidad: number }>;
               patientId?: Id<"users">;
             });
