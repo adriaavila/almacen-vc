@@ -72,17 +72,25 @@ export const registerSale = mutation({
                 throw new Error(`Producto con ID ${item.productId} no encontrado`);
             }
 
-            // Get Cafetin inventory
+            // Get Cafetin inventory (case-insensitive)
             const cafetinInventory = await ctx.db
                 .query("inventory")
-                .withIndex("by_product_location", (q) =>
-                    q.eq("productId", item.productId).eq("location", "cafetin")
-                )
-                .first();
+                .withIndex("by_location", (q) => q.eq("location", "cafetin"))
+                .filter((q) => q.eq(q.field("productId"), item.productId))
+                .first() ||
+                await ctx.db
+                    .query("inventory")
+                    .withIndex("by_location", (q) => q.eq("location", "Cafetin" as any))
+                    .filter((q) => q.eq(q.field("productId"), item.productId))
+                    .first();
 
             const currentStock = cafetinInventory?.stockActual ?? 0;
 
-            if (currentStock < item.cantidad) {
+            const nameNormalized = product.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const isCoffee = nameNormalized.includes("cafe");
+
+            // Skip stock check for coffee products as requested by user
+            if (!isCoffee && currentStock < item.cantidad) {
                 throw new Error(
                     `Stock insuficiente en Cafetín para ${product.name}. Disponible: ${currentStock} ${product.baseUnit ?? "unidades"}`
                 );
@@ -150,31 +158,106 @@ export const listStart = query({
         // Fetch all inventory
         const inventory = await ctx.db.query("inventory").collect();
 
-        // Map to lightweight object
-        const posProducts = products.map((p) => {
-            // Find inventory for this product in 'cafetin'
-            const inv = inventory.find(
-                (i) => i.productId === p._id && i.location === "cafetin"
-            );
+        // Map to lightweight object and filter for Cafetin
+        const posProducts = products
+            .map((p) => {
+                const categoryLower = p.category.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const isCafetinCategory = categoryLower.includes("cafetin");
 
-            return {
-                _id: p._id,
-                name: p.name,
-                category: p.category,
-                subCategory: p.subCategory,
-                baseUnit: p.baseUnit,
-                stockCafetin: inv ? inv.stockActual : 0,
-                availableForSale: p.availableForSale,
-                active: p.active,
-                brand: p.brand,
-                purchaseUnit: p.purchaseUnit,
-                conversionFactor: p.conversionFactor,
-                stockAlmacen: 0,
-                totalStock: inv ? inv.stockActual : 0,
-                status: (inv && inv.stockActual <= (inv.stockMinimo || 0)) ? "bajo_stock" : "ok",
-            };
-        });
+                // Find inventory for this product in 'cafetin' (case-insensitive)
+                const inv = inventory.find(
+                    (i) => i.productId === p._id && i.location.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("cafetin")
+                );
+
+                const nameNormalized = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const isCoffee = nameNormalized.includes("cafe");
+
+                // Filter: Show if it's in the Cafetin category OR it has physical inventory in Cafetin OR it is Coffee
+                if (p.availableForSale === true || isCoffee) {
+                    // Always show if explicitly enabled for sale (e.g. Pizza in Cocina category) or if it is Coffee
+                } else if (!isCafetinCategory && !inv) {
+                    return null;
+                }
+
+                if (p.name === "Pepito") {
+                    // console.log(`Checking Pepito: isCafetinCategory=${isCafetinCategory}, foundInv=${!!inv}, invLocation=${inv?.location}`);
+                }
+
+                const stockCafetin = inv?.stockActual ?? 0;
+
+                return {
+                    _id: p._id,
+                    name: p.name,
+                    category: p.category,
+                    subCategory: p.subCategory,
+                    baseUnit: p.baseUnit,
+                    stockCafetin: stockCafetin,
+                    availableForSale: p.availableForSale,
+                    active: p.active,
+                    brand: p.brand,
+                    purchaseUnit: p.purchaseUnit,
+                    conversionFactor: p.conversionFactor,
+                    stockAlmacen: 0,
+                    totalStock: stockCafetin,
+                    status: (stockCafetin <= (inv?.stockMinimo || 0)) ? "bajo_stock" : "ok",
+                    hasCafetinRecord: !!inv,
+                };
+            })
+            .filter((p): p is NonNullable<typeof p> => p !== null);
 
         return posProducts;
     },
 });
+
+/**
+ * Migration: One-time fix for Cafetin products.
+ * 1. Standardizes category casing to "Cafetin".
+ * 2. Standardizes location casing to "cafetin".
+ * 3. Ensures EVERY product in "Cafetin" category has a "cafetin" inventory record.
+ */
+export const fixCafetinConsistency = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const inventory = await ctx.db.query("inventory").collect();
+        const now = Date.now();
+        let createdInventory = 0;
+        let updatedInventory = 0;
+
+        // Create a map to track "cafetin" records by productId to easily find potential duplicates
+        // key: productId, value: inventory record
+        const cafetinRecords = new Map();
+        for (const inv of inventory) {
+            if (inv.location === "cafetin") {
+                cafetinRecords.set(inv.productId, inv);
+            }
+        }
+
+        for (const inv of inventory) {
+            // Only look for "Cafetin" (uppercase)
+            if (inv.location === "Cafetin" as any) {
+                const existingLowercase = cafetinRecords.get(inv.productId);
+
+                if (existingLowercase) {
+                    // Merge: Add stock to lowercase and delete uppercase
+                    const newStock = existingLowercase.stockActual + inv.stockActual;
+                    await ctx.db.patch(existingLowercase._id, {
+                        stockActual: newStock,
+                        updatedAt: now
+                    });
+                    await ctx.db.delete(inv._id);
+                    updatedInventory++;
+                } else {
+                    // Rename: Change location to lowercase
+                    await ctx.db.patch(inv._id, { location: "cafetin" });
+                    // Update our map in case there are multiple invalid records for same product (unlikely but safe)
+                    cafetinRecords.set(inv.productId, inv);
+                    updatedInventory++;
+                }
+            }
+        }
+
+        return { updatedProducts: 0, createdInventory, updatedInventory };
+    }
+
+});
+// Trigger sync

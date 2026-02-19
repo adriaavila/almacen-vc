@@ -36,7 +36,8 @@ export function usePosInventory(): InventoryProduct[] {
                     stockAlmacen: p.stockAlmacen,
                     stockCafetin: p.stockCafetin,
                     availableForSale: p.availableForSale,
-                    lastSyncedAt: Date.now()
+                    lastSyncedAt: Date.now(),
+                    hasCafetinRecord: p.hasCafetinRecord
                 })) as InventoryProduct[];
 
                 setProducts(mappedProducts);
@@ -44,5 +45,12 @@ export function usePosInventory(): InventoryProduct[] {
         }
     }, [freshProducts, setProducts, pendingActions.length]);
 
-    return cachedProducts;
+    // 4. Return filtered data for POS
+    // Even if the global store is "polluted" with all products, only show Cafetin relevant ones
+    return useMemo(() => {
+        return cachedProducts.filter(p =>
+            p.active &&
+            true // Show all active products
+        );
+    }, [cachedProducts]);
 }

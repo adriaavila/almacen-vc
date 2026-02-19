@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useQuery, useMutation } from 'convex/react';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useMutation, useConvex } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -84,6 +84,29 @@ function CrearPedidoView() {
 
     const [quantities, setQuantities] = useState<Record<string, number>>({});
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Persistence key
+    const QUANTITIES_STORAGE_KEY = 'admin_order_quantities_v1';
+
+    // Load quantities from localStorage on mount
+    useEffect(() => {
+        const savedQuantities = localStorage.getItem(QUANTITIES_STORAGE_KEY);
+        if (savedQuantities) {
+            try {
+                const parsed = JSON.parse(savedQuantities);
+                if (typeof parsed === 'object' && parsed !== null) {
+                    setQuantities(parsed);
+                }
+            } catch (e) {
+                console.error('Error parsing saved quantities:', e);
+            }
+        }
+    }, []);
+
+    // Save quantities to localStorage on change
+    useEffect(() => {
+        localStorage.setItem(QUANTITIES_STORAGE_KEY, JSON.stringify(quantities));
+    }, [quantities]);
     const debouncedSearch = useDebounce(searchQuery, 300);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -226,8 +249,9 @@ function CrearPedidoView() {
                 isOpen: true,
             });
 
-            // Clear form
+            // Clear form and storage
             setQuantities({});
+            localStorage.removeItem(QUANTITIES_STORAGE_KEY);
         } catch (error) {
             console.error('Error creating order:', error);
             setToast({
@@ -492,6 +516,32 @@ type PendingOrder = {
 function RecepcionesPendientesView() {
     const pendingOrders = useQuery(api.procurement.listPendingOrders);
     const [selectedOrderId, setSelectedOrderId] = useState<Id<"supplier_orders"> | null>(null);
+    const convex = useConvex();
+
+    const handleFollowUp = async (e: React.MouseEvent, order: PendingOrder) => {
+        e.stopPropagation();
+
+        // Fetch full order details to get all products
+        const fullOrder = await convex.query(api.procurement.getOrderWithItems, { orderId: order._id });
+
+        if (!fullOrder || !fullOrder.items) return;
+
+        const dateStr = new Date(order.createdAt).toLocaleDateString('es-VE', {
+            day: 'numeric',
+            month: 'long'
+        });
+
+        let message = `Hola, quisiera hacer seguimiento al pedido realizado el ${dateStr} con ${order.itemCount} productos:\n\n`;
+
+        // Add product list
+        fullOrder.items.forEach(item => {
+            if (item.product) {
+                message += `- ${item.cantidadSolicitada} ${item.product.purchaseUnit} ${item.product.name}\n`;
+            }
+        });
+
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    };
 
     if (pendingOrders === undefined) {
         return <ProductListSkeleton count={3} />;
@@ -541,15 +591,7 @@ function RecepcionesPendientesView() {
                             <Button
                                 variant="secondary"
                                 size="sm"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    const dateStr = new Date(order.createdAt).toLocaleDateString('es-VE', {
-                                        day: 'numeric',
-                                        month: 'long'
-                                    });
-                                    const message = `Hola, quisiera hacer seguimiento al pedido realizado el ${dateStr} con ${order.itemCount} productos.`;
-                                    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-                                }}
+                                onClick={(e) => handleFollowUp(e, order)}
                                 className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
                             >
                                 <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 24 24">

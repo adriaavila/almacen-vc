@@ -124,7 +124,7 @@ export default defineSchema({
   // 2. STOCK ACTUAL: Cuánto hay y dónde
   inventory: defineTable({
     productId: v.id("products"),
-    location: v.union(v.literal("almacen"), v.literal("cafetin")),
+    location: v.union(v.literal("almacen"), v.literal("cafetin"), v.literal("Cafetin")),
     stockActual: v.number(),       // SIEMPRE expresado en baseUnit
     stockMinimo: v.number(),       // Alerta de reorden
     updatedAt: v.number(),

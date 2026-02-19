@@ -531,3 +531,23 @@ export const setAllCafetinStockToOne = mutation({
     };
   },
 });
+
+// Migration to fix capitalization of existing inventory locations
+export const fixInventoryLocations = mutation({
+  handler: async (ctx) => {
+    const inventory = await ctx.db.query("inventory").collect();
+    let updatedCount = 0;
+
+    for (const record of inventory) {
+      if (record.location === "Cafetin" as any) {
+        await ctx.db.patch(record._id, { location: "cafetin" });
+        updatedCount++;
+      }
+    }
+
+    return {
+      total: inventory.length,
+      updated: updatedCount,
+    };
+  },
+});

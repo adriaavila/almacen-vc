@@ -61,6 +61,47 @@ export default function POSPage() {
   const [ticketOpen, setTicketOpen] = useState(false);
   const [localSalesOffset, setLocalSalesOffset] = useState(0);
 
+  // Persistence keys
+  const SLOTS_STORAGE_KEY = 'pos_slots_v1';
+  const ACTIVE_SLOT_STORAGE_KEY = 'pos_active_slot_id';
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const savedSlots = localStorage.getItem(SLOTS_STORAGE_KEY);
+    const savedActiveSlotId = localStorage.getItem(ACTIVE_SLOT_STORAGE_KEY);
+
+    if (savedSlots) {
+      try {
+        const parsedSlots = JSON.parse(savedSlots);
+        if (Array.isArray(parsedSlots) && parsedSlots.length > 0) {
+          setSlots(parsedSlots);
+        }
+      } catch (e) {
+        console.error('Error parsing saved slots:', e);
+      }
+    }
+
+    if (savedActiveSlotId) {
+      try {
+        const parsedId = parseInt(savedActiveSlotId, 10);
+        if (!isNaN(parsedId)) {
+          setActiveSlotId(parsedId);
+        }
+      } catch (e) {
+        console.error('Error parsing saved active slot ID:', e);
+      }
+    }
+  }, []);
+
+  // Save state to localStorage on change
+  useEffect(() => {
+    localStorage.setItem(SLOTS_STORAGE_KEY, JSON.stringify(slots));
+  }, [slots]);
+
+  useEffect(() => {
+    localStorage.setItem(ACTIVE_SLOT_STORAGE_KEY, activeSlotId.toString());
+  }, [activeSlotId]);
+
   // Global POS order number (server count + local optimistic offset)
   const posSalesCount = (serverPosSalesCount ?? 0) + localSalesOffset;
 
@@ -109,7 +150,6 @@ export default function POSPage() {
 
     let result = products.filter(product =>
       product.active &&
-      product.stockCafetin > 0 &&
       product.availableForSale !== false
     );
 
@@ -139,7 +179,7 @@ export default function POSPage() {
     if (!products) return [];
     const cats = new Set<string>();
     products.forEach(p => {
-      if (p.active && p.stockCafetin > 0 && p.availableForSale !== false) {
+      if (p.active && p.availableForSale !== false) {
         cats.add(p.subCategory?.trim() || 'Otros');
       }
     });
@@ -164,7 +204,6 @@ export default function POSPage() {
   }, [slots, pacientes]);
 
   const handleGhostAddCoffeeForSlot = useCallback((slotId: number) => {
-    setActiveSlotId(slotId); // Ensure slot is active so ticket bar shows
 
     if (!coffeeProductId || !products) return;
 
@@ -500,6 +539,11 @@ export default function POSPage() {
                 key={product._id}
                 name={product.name}
                 unit={product.baseUnit}
+                stock={
+                  (product.name.toLowerCase().includes('cafe') || product.name.toLowerCase().includes('café'))
+                    ? 9999
+                    : product.stockCafetin
+                }
                 onAdd={() => handleAddProduct(product)}
               />
             ))}

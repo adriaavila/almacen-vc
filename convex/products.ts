@@ -169,6 +169,7 @@ export const listWithInventory = query({
         stockMinimoAlmacen: productInventory.find((i) => i.location === "almacen")?.stockMinimo || 0,
         stockCafetin: productInventory.find((i) => i.location === "cafetin")?.stockActual || 0,
         status: (totalStock <= minStock ? "bajo_stock" : "ok") as "ok" | "bajo_stock",
+        hasCafetinRecord: !!productInventory.find((i) => i.location.toLowerCase() === "cafetin"),
       };
     });
   },

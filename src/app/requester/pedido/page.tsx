@@ -553,14 +553,15 @@ function CreateOrderPageContent() {
                             return (
                               <div
                                 key={product._id}
-                                className={`py-1.5 px-2 md:px-3 flex flex-row items-center justify-between gap-2 md:gap-3 transition-colors ${isDisabled
+                                className={`py-2 px-2 md:px-3 flex flex-row items-center justify-between gap-3 transition-colors border-b border-gray-100 last:border-0 ${isDisabled
                                   ? 'opacity-50 cursor-not-allowed'
                                   : 'hover:bg-gray-50'
                                   }`}
                               >
-                                <div className="flex-1 min-w-0">
-                                  <div className="mb-0">
-                                    <span className={`text-sm font-semibold truncate block ${isDisabled ? 'text-gray-400' : 'text-gray-900'
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <div className="mb-0.5">
+                                    <span className={`text-sm font-semibold block ${isDisabled ? 'text-gray-400' : 'text-gray-900'
+                                      } ${selectedArea === 'Cafetin' ? 'line-clamp-2 leading-tight' : 'truncate'
                                       }`}>
                                       {product.name}
                                     </span>

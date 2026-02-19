@@ -124,19 +124,10 @@ function StockPageContent() {
       // Show only inactive products (regardless of stock or availableForSale)
       filtered = filtered.filter(p => !p.active);
     } else {
-      // Default behavior: Active + Stock > 0 + Available for Sale
-      // But if filtering by specific status (like bajo_stock or out_of_stock), we might want to respect that within active products
-      // Original logic: p.active && p.stockCafetin > 0 && p.availableForSale !== false
-
-      // If out_of_stock is selected, we want stockCafetin === 0, so we can't filter by stockCafetin > 0 initially for that case
-      // Let's refine based on status FIRST or adjust initial filter
-
+      // Default behavior: Active + Available for Sale
       filtered = filtered.filter(p => p.active && p.availableForSale !== false);
-
-      // Apply stock filter unless specific status overrides it
-      if (selectedStatus !== 'out_of_stock') {
-        filtered = filtered.filter(p => p.stockCafetin > 0);
-      }
+      // Only show products belonging to the Cafetin category (even if stock is 0)
+      filtered = filtered.filter(p => p.category.toLowerCase() === 'cafetin');
     }
 
     // Filter by subcategory
