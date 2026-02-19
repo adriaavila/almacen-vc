@@ -536,7 +536,9 @@ function RecepcionesPendientesView() {
         // Add product list
         fullOrder.items.forEach(item => {
             if (item.product) {
-                message += `- ${item.cantidadSolicitada} ${item.product.purchaseUnit} ${item.product.name}\n`;
+                const unit = pluralizeUnit(item.product.purchaseUnit, item.cantidadSolicitada);
+                const brandInfo = item.product.brand ? ` (${item.product.brand})` : '';
+                message += `- ${item.cantidadSolicitada} ${unit} de ${item.product.name}${brandInfo}\n`;
             }
         });
 

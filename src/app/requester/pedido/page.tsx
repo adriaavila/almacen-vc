@@ -601,19 +601,20 @@ function CreateOrderPageContent() {
 
       {/* Fixed Bottom Bar with Dropdown and Submit Button */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-2 md:px-6 py-2 md:py-3">
+          <div className="flex items-center gap-2 md:gap-3">
             {/* Selected Products Dropdown - Left Side */}
             {selectedProducts.length > 0 && (
               <div className="relative flex-1" ref={dropdownRef}>
                 <button
                   type="button"
                   onClick={() => setSummaryExpanded(!summaryExpanded)}
-                  className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-md transition-colors"
+                  className="w-full flex items-center justify-between p-1.5 md:p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-md transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-900">Seleccionados</span>
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
+                    <span className="text-sm font-semibold text-gray-900 hidden sm:inline">Seleccionados</span>
+                    <span className="text-sm font-semibold text-gray-900 sm:hidden">Selec.</span>
+                    <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
                       {selectedProducts.length}
                     </span>
                   </div>
@@ -627,7 +628,7 @@ function CreateOrderPageContent() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
+                      d="M19 9l-7 7-7 7"
                     />
                   </svg>
                 </button>
@@ -659,7 +660,7 @@ function CreateOrderPageContent() {
                 <Button
                   type="button"
                   onClick={handleWhatsAppOrder}
-                  className="w-full h-full py-3 min-w-[50px] bg-[#25D366] hover:bg-[#128C7E] text-white border-transparent focus:ring-[#128C7E]"
+                  className="w-full h-full py-2 md:py-3 px-3 min-w-[40px] md:min-w-[50px] bg-[#25D366] hover:bg-[#128C7E] text-white border-transparent focus:ring-[#128C7E]"
                   variant="primary" // Overridden by className
                 >
                   <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
@@ -676,7 +677,7 @@ function CreateOrderPageContent() {
                 form="pedido-form"
                 variant="primary"
                 disabled={isSubmitting}
-                className="w-full h-full py-3 min-w-[120px]"
+                className="w-full h-full py-2 md:py-3 min-w-[80px] md:min-w-[120px]"
               >
                 {isSubmitting ? 'Enviando...' : 'Enviar'}
               </Button>
