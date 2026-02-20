@@ -30,6 +30,7 @@ import type * as telegram from "../telegram.js";
 import type * as trabajosMantenimiento from "../trabajosMantenimiento.js";
 import type * as uiConfig from "../uiConfig.js";
 import type * as users from "../users.js";
+import type * as verify_procurement_script from "../verify_procurement_script.js";
 
 import type {
   ApiFromModules,
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   trabajosMantenimiento: typeof trabajosMantenimiento;
   uiConfig: typeof uiConfig;
   users: typeof users;
+  verify_procurement_script: typeof verify_procurement_script;
 }>;
 
 /**

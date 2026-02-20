@@ -635,6 +635,7 @@ function ReceiveOrderModal({
     const orderData = useQuery(api.procurement.getOrderWithItems, { orderId });
     const allProducts = useQuery(api.products.listWithInventory);
     const receiveOrder = useMutation(api.procurement.receiveOrder);
+    const cancelOrder = useMutation(api.procurement.cancelOrder);
 
     const [receivedQuantities, setReceivedQuantities] = useState<Record<string, number>>({});
     const [extraItems, setExtraItems] = useState<ProductWithStock[]>([]);
@@ -752,6 +753,29 @@ function ReceiveOrderModal({
                 isOpen: true,
             });
         } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleCancelOrder = async () => {
+        if (!window.confirm('¿Está seguro de que desea eliminar este pedido?')) return;
+
+        setIsSubmitting(true);
+        try {
+            await cancelOrder({ orderId });
+            setToast({
+                message: 'Pedido eliminado correctamente',
+                type: 'success',
+                isOpen: true,
+            });
+            setTimeout(() => onClose(), 1500);
+        } catch (error) {
+            console.error('Error canceling order:', error);
+            setToast({
+                message: 'Error al eliminar el pedido',
+                type: 'error',
+                isOpen: true,
+            });
             setIsSubmitting(false);
         }
     };
@@ -975,12 +999,21 @@ function ReceiveOrderModal({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-gray-200">
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-gray-200 items-center">
+                        <Button
+                            variant="destructive"
+                            onClick={handleCancelOrder}
+                            disabled={isSubmitting}
+                            className="w-full sm:w-auto"
+                        >
+                            Eliminar
+                        </Button>
+                        <div className="hidden sm:block flex-1" />
                         <Button
                             variant="secondary"
                             onClick={onClose}
                             disabled={isSubmitting}
-                            className="w-full sm:flex-1"
+                            className="w-full sm:w-auto"
                         >
                             Cancelar
                         </Button>
@@ -988,7 +1021,7 @@ function ReceiveOrderModal({
                             variant="primary"
                             onClick={handleConfirm}
                             disabled={isSubmitting}
-                            className="w-full sm:flex-1"
+                            className="w-full sm:w-auto"
                         >
                             {isSubmitting ? 'Procesando...' : '✓ Confirmar Recepción'}
                         </Button>
