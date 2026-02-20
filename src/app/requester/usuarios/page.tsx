@@ -164,9 +164,13 @@ export default function UsuariosPage() {
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{user.nombre}</div>
+                    <tr
+                      key={user._id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleEditClick(user)}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900 break-words whitespace-pre-wrap">{user.nombre}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{formatDate(user.fechaIngreso)}</div>
@@ -183,14 +187,20 @@ export default function UsuariosPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleEditClick(user)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditClick(user);
+                            }}
                             className="text-emerald-600 hover:text-emerald-900 p-1 rounded-full hover:bg-emerald-50 transition-colors"
                             title="Editar"
                           >
                             <PencilIcon size={18} />
                           </button>
                           <button
-                            onClick={() => handleArchiveClick(user._id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchiveClick(user._id);
+                            }}
                             className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-colors"
                             title="Archivar"
                           >

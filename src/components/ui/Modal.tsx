@@ -21,10 +21,10 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     if (isOpen) {
       // Store the previously focused element
       previousFocusRef.current = document.activeElement as HTMLElement;
-      
+
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
-      
+
       // Focus trap: focus the modal when it opens
       setTimeout(() => {
         modalRef.current?.focus();
@@ -34,13 +34,14 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
-      
+
       // Restore focus to the previously focused element
       if (previousFocusRef.current) {
         previousFocusRef.current.focus();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]); // Removed onClose to prevent focus loss on input changes that re-create onClose
+
 
   // Focus trap: keep focus within modal
   useEffect(() => {
