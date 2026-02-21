@@ -34,6 +34,7 @@ type ConvexProduct = {
   availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
+  stockMinimoAlmacen?: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
 };
@@ -118,9 +119,9 @@ export default function InventoryPage() {
       // Show if:
       // 1. showCafetin is checked
       // 2. OR category is NOT Cafetin
-      // 3. OR category IS Cafetin but has Almacen stock (mixed stock product)
-      const isCafetin = p.category.toLowerCase() === 'cafetin';
-      if (!showCafetin && isCafetin && p.stockAlmacen === 0) return false;
+      // 3. OR category IS Cafetin but has Almacen stock or Almacen minimum stock configured
+      const isCafetin = p.category.toLowerCase() === 'cafetin' || p.category.toLowerCase() === 'cafetín';
+      if (!showCafetin && isCafetin && p.stockAlmacen === 0 && (p.stockMinimoAlmacen || 0) === 0) return false;
 
       return true;
     });

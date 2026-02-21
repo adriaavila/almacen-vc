@@ -17,6 +17,7 @@ type ConvexProduct = {
   availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
+  stockMinimoAlmacen?: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
   hasCafetinRecord?: boolean;

@@ -47,6 +47,7 @@ function BulkRegistrationContent() {
 
     const [movementType, setMovementType] = useState<'ingreso' | 'entrega'>(defaultType);
     const [motivoIngreso, setMotivoIngreso] = useState<'compra' | 'ajuste'>('compra');
+    const [ubicacionIngreso, setUbicacionIngreso] = useState<'almacen' | 'cafetin'>('almacen');
     const [referencia, setReferencia] = useState('');
     const [areaDestino, setAreaDestino] = useState('');
 
@@ -151,15 +152,16 @@ function BulkRegistrationContent() {
                     if (motivoIngreso === 'compra') {
                         await registerCompra({
                             productId: item.productId,
-                            location: 'almacen',
+                            location: ubicacionIngreso,
                             quantity: item.cantidad,
                             user: 'admin',
                         });
                     } else {
-                        const newStock = (item.product.stockAlmacen || 0) + item.cantidad;
+                        const currentStock = ubicacionIngreso === 'almacen' ? (item.product.stockAlmacen || 0) : (item.product.stockCafetin || 0);
+                        const newStock = currentStock + item.cantidad;
                         await registerAjuste({
                             productId: item.productId,
-                            location: 'almacen',
+                            location: ubicacionIngreso,
                             newStock: newStock,
                             user: 'admin',
                             reason: referencia.trim() || 'Ajuste de inventario',
@@ -241,8 +243,8 @@ function BulkRegistrationContent() {
                         <button
                             onClick={() => setMovementType('ingreso')}
                             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${isIngreso
-                                    ? 'bg-white text-emerald-700 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-emerald-700 shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             Ingresos
@@ -250,8 +252,8 @@ function BulkRegistrationContent() {
                         <button
                             onClick={() => setMovementType('entrega')}
                             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${!isIngreso
-                                    ? 'bg-white text-red-700 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-red-700 shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             Entregas
@@ -269,6 +271,20 @@ function BulkRegistrationContent() {
 
                         {isIngreso ? (
                             <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Ubicación de Ingreso *
+                                    </label>
+                                    <select
+                                        value={ubicacionIngreso}
+                                        onChange={(e) => setUbicacionIngreso(e.target.value as 'almacen' | 'cafetin')}
+                                        className="block w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    >
+                                        <option value="almacen">Almacén Principal</option>
+                                        <option value="cafetin">Cafetín</option>
+                                    </select>
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Motivo *
@@ -383,7 +399,9 @@ function BulkRegistrationContent() {
                                 </div>
                                 {selectedProduct && (
                                     <p className="mt-2 text-xs text-gray-500 text-center">
-                                        Stock actual: <span className="font-medium">{selectedProduct.stockAlmacen} {selectedProduct.baseUnit}</span>
+                                        Stock actual: <span className="font-medium">
+                                            {isIngreso && ubicacionIngreso === 'cafetin' ? selectedProduct.stockCafetin : selectedProduct.stockAlmacen} {selectedProduct.baseUnit}
+                                        </span>
                                     </p>
                                 )}
                             </div>
@@ -486,8 +504,8 @@ function BulkRegistrationContent() {
                         onClick={handleSubmit}
                         disabled={isSubmitting || pendingItems.length === 0}
                         className={`w-full h-14 text-lg shadow-md ${isIngreso
-                                ? 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500'
-                                : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                            ? 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500'
+                            : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
                             }`}
                     >
                         {isSubmitting ? 'Registrando...' : 'Confirmar y Registrar'}
