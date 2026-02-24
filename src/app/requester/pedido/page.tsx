@@ -240,14 +240,14 @@ function CreateOrderPageContent() {
       // Check if order was queued (offline mode)
       const wasQueued = typeof result === 'object' && 'queued' in result && result.queued;
 
-      // Immediate feedback
-      setToast({
-        message: wasQueued
-          ? 'Pedido guardado (se sincronizará cuando vuelva la conexión)'
-          : 'Pedido enviado correctamente',
-        type: wasQueued ? 'info' : 'success',
-        isOpen: true,
-      });
+      if (!wasQueued) {
+        // Immediate feedback, only if not queued
+        setToast({
+          message: 'Pedido enviado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      }
       setIsSubmitting(false);
 
       // Clear form

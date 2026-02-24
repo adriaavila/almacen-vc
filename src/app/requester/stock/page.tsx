@@ -204,8 +204,8 @@ function StockPageContent() {
       if (delta !== undefined) {
         setAdjustValue(delta > 0 ? '1' : '0');
       } else {
-        // Initialize with current stock so user can modify it directly
-        setAdjustValue(currentStock.toString());
+        // Initialize with empty string so user can input new value directly
+        setAdjustValue('');
       }
     }
   };
@@ -230,11 +230,7 @@ function StockPageContent() {
 
       // Si la acción fue encolada (offline), mostrar mensaje diferente
       if (result && 'queued' in result && result.queued) {
-        setToast({
-          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
-          type: 'info',
-          isOpen: true,
-        });
+        // No mostrar toast para acciones encoladas porque ya hay un indicador visual
       } else {
         setToast({
           message: 'Stock actualizado correctamente',
@@ -272,15 +268,11 @@ function StockPageContent() {
       });
 
       setAdjustingId(null);
-      setAdjustValue('0');
+      setAdjustValue('');
 
       // Si la acción fue encolada (offline), mostrar mensaje diferente
       if (result && 'queued' in result && result.queued) {
-        setToast({
-          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
-          type: 'info',
-          isOpen: true,
-        });
+        // No mostrar toast para acciones encoladas porque ya hay un indicador visual
       } else {
         setToast({
           message: 'Stock actualizado correctamente',
@@ -300,14 +292,14 @@ function StockPageContent() {
 
   const handleCancelAdjustment = () => {
     setAdjustingId(null);
-    setAdjustValue('0');
+    setAdjustValue('');
   };
 
   const handleDirectEdit = (product: ConvexProduct) => {
     setEditingProduct(product);
     // Always use cafetin location
     const currentStock = product.stockCafetin;
-    setEditValue(currentStock.toString());
+    setEditValue('');
   };
 
   const handleSaveDirectEdit = async () => {
@@ -328,11 +320,7 @@ function StockPageContent() {
 
         // Si la acción fue encolada (offline), mostrar mensaje diferente
         if (result && 'queued' in result && result.queued) {
-          setToast({
-            message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
-            type: 'info',
-            isOpen: true,
-          });
+          // No mostrar toast para acciones encoladas
         } else {
           setToast({
             message: 'Stock actualizado correctamente',

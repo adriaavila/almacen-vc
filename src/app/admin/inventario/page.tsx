@@ -54,8 +54,6 @@ export default function InventoryPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [showCafetin, setShowCafetin] = useState(false); // New filter
-  const [showInactive, setShowInactive] = useState(false); // New filter
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [editMode, setEditMode] = useState(false);
   const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
@@ -113,15 +111,7 @@ export default function InventoryPage() {
     // Base filter: Active status and Category exclusion
     let filtered = products.filter(p => {
       // Filter by Active status
-      if (!showInactive && !p.active) return false;
-
-      // Filter by Cafetin category
-      // Show if:
-      // 1. showCafetin is checked
-      // 2. OR category is NOT Cafetin
-      // 3. OR category IS Cafetin but has Almacen stock or Almacen minimum stock configured
-      const isCafetin = p.category.toLowerCase() === 'cafetin' || p.category.toLowerCase() === 'cafetín';
-      if (!showCafetin && isCafetin && p.stockAlmacen === 0 && (p.stockMinimoAlmacen || 0) === 0) return false;
+      if (!p.active) return false;
 
       return true;
     });
@@ -205,8 +195,8 @@ export default function InventoryPage() {
       if (delta !== undefined) {
         setAdjustValue(delta > 0 ? '1' : '0');
       } else {
-        // Initialize with current stock so user can modify it directly
-        setAdjustValue(currentStock.toString());
+        // Initialize with empty string so user can input new value directly
+        setAdjustValue('');
       }
     }
   };
@@ -231,11 +221,7 @@ export default function InventoryPage() {
 
       // Si la acción fue encolada (offline), mostrar mensaje diferente
       if (result && 'queued' in result && result.queued) {
-        setToast({
-          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
-          type: 'info',
-          isOpen: true,
-        });
+        // No mostrar toast para acciones encoladas porque ya hay un indicador visual
       } else {
         setToast({
           message: 'Stock actualizado correctamente',
@@ -273,15 +259,11 @@ export default function InventoryPage() {
       });
 
       setAdjustingId(null);
-      setAdjustValue('0');
+      setAdjustValue('');
 
       // Si la acción fue encolada (offline), mostrar mensaje diferente
       if (result && 'queued' in result && result.queued) {
-        setToast({
-          message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
-          type: 'info',
-          isOpen: true,
-        });
+        // No mostrar toast para acciones encoladas porque ya hay un indicador visual
       } else {
         setToast({
           message: 'Stock actualizado correctamente',
@@ -301,14 +283,14 @@ export default function InventoryPage() {
 
   const handleCancelAdjustment = () => {
     setAdjustingId(null);
-    setAdjustValue('0');
+    setAdjustValue('');
   };
 
   const handleDirectEdit = (product: ConvexProduct) => {
     setEditingProduct(product);
     // Always use almacen location
     const currentStock = product.stockAlmacen;
-    setEditValue(currentStock.toString());
+    setEditValue('');
   };
 
   const handleSaveDirectEdit = async () => {
@@ -329,11 +311,7 @@ export default function InventoryPage() {
 
         // Si la acción fue encolada (offline), mostrar mensaje diferente
         if (result && 'queued' in result && result.queued) {
-          setToast({
-            message: 'Stock actualizado (se sincronizará cuando vuelva la conexión)',
-            type: 'info',
-            isOpen: true,
-          });
+          // No mostrar toast para acciones encoladas porque ya hay un indicador visual
         } else {
           setToast({
             message: 'Stock actualizado correctamente',
@@ -437,27 +415,6 @@ export default function InventoryPage() {
           </div>
 
           {/* Advanced Filters */}
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showCafetin}
-                onChange={(e) => setShowCafetin(e.target.checked)}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 bg-white shadow-sm"
-              />
-              <span className="text-sm text-gray-700">Incluir Cafetin</span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={(e) => setShowInactive(e.target.checked)}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 bg-white shadow-sm"
-              />
-              <span className="text-sm text-gray-700">Mostrar Inactivos</span>
-            </label>
-          </div>
-
           {/* Selectors */}
           <div className="w-full">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
