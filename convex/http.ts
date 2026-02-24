@@ -52,10 +52,17 @@ http.route({
                     internal.inventory.internalListInventoryWithProducts
                 );
 
-                // Filter low stock items
-                const lowStockItems = inventoryWithProducts.filter(
-                    (inv: any) => inv.stockActual <= inv.stockMinimo
-                );
+                // Filter low stock items (excluding Cafetin category)
+                const lowStockItems = inventoryWithProducts.filter((inv: any) => {
+                    const isLowStock = inv.stockActual <= inv.stockMinimo;
+                    const categoryNormalized = (inv.product?.category || "")
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "");
+                    const isCafetinProduct = categoryNormalized === "cafetin";
+
+                    return isLowStock && !isCafetinProduct;
+                });
 
                 if (lowStockItems.length === 0) {
                     responseText = "✅ Todo el stock está por encima del mínimo operativo.";

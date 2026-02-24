@@ -101,6 +101,16 @@ export const markSalesAsSent = internalMutation({
 });
 
 /**
+ * Mutation: Delete a sale record from the report.
+ */
+export const deleteSale = mutation({
+    args: { id: v.id("cafetin_sales") },
+    handler: async (ctx, { id }) => {
+        await ctx.db.delete(id);
+    },
+});
+
+/**
  * Core logic: Send unsent sales to n8n webhook.
  * Used by both the daily cron and the manual trigger.
  */

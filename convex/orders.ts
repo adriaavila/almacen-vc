@@ -498,12 +498,19 @@ async function processProductDelivery(
   });
 
   if (isLowStock) {
-    lowStockItems.push({
-      itemId: productId,
-      nombre: product.name,
-      stock_actual: newAlmacenStock,
-      stock_minimo: almacenMinStock,
-    });
+    const isCafetinProduct = (product?.category || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") === "cafetin";
+
+    if (!isCafetinProduct) {
+      lowStockItems.push({
+        itemId: productId,
+        nombre: product.name,
+        stock_actual: newAlmacenStock,
+        stock_minimo: almacenMinStock,
+      });
+    }
   }
 }
 

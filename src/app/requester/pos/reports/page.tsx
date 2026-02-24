@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery, useAction } from 'convex/react';
+import { useQuery, useAction, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, Trash2 } from 'lucide-react';
 
 export default function ReportsPage() {
     // View Mode State
@@ -85,6 +85,17 @@ export default function ReportsPage() {
 
     // Action to trigger daily send
     const triggerDailySend = useAction(api.billing.triggerDailySend);
+    const deleteSale = useMutation(api.billing.deleteSale);
+
+    const handleDeleteSale = async (id: any) => {
+        if (!confirm("¿Seguro que deseas eliminar este registro del reporte?")) return;
+        try {
+            await deleteSale({ id });
+        } catch (error) {
+            console.error("Error al eliminar el registro:", error);
+            alert("Error al eliminar el registro");
+        }
+    };
 
     const handleDailyClose = async () => {
         if (!confirm("¿Seguro que deseas cerrar el día y enviar el reporte?")) {
@@ -233,6 +244,8 @@ export default function ReportsPage() {
                                                     <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                                                         Estado
                                                     </th>
+                                                    <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
@@ -260,6 +273,15 @@ export default function ReportsPage() {
                                                                     Pendiente
                                                                 </span>
                                                             )}
+                                                        </td>
+                                                        <td className="px-3 py-2 whitespace-nowrap text-center">
+                                                            <button
+                                                                onClick={() => handleDeleteSale(sale._id)}
+                                                                className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50"
+                                                                title="Eliminar registro"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
                                                         </td>
                                                     </tr>
                                                 ))}

@@ -132,8 +132,8 @@ export const getLowStock = query({
     // Filter low stock
     const lowStock = inventory.filter((inv) => inv.stockActual <= inv.stockMinimo);
 
-    // Populate product info
-    const lowStockWithProducts = await Promise.all(
+    // Populate product info and exclude Cafetin category
+    const lowStockWithProductsRaw = await Promise.all(
       lowStock.map(async (inv) => {
         const product = await ctx.db.get(inv.productId);
         return {
@@ -142,6 +142,16 @@ export const getLowStock = query({
         };
       })
     );
+
+    // Filter out products that belong to the "Cafetin" category (case-insensitive)
+    const lowStockWithProducts = lowStockWithProductsRaw.filter((inv) => {
+      if (!inv.product || !inv.product.category) return true;
+      const categoryNormalized = inv.product.category
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      return categoryNormalized !== "cafetin";
+    });
 
     return lowStockWithProducts;
   },
@@ -273,9 +283,16 @@ export const updateStock = mutation({
     // Check for low stock alert (Transition: prev > min -> new <= min)
     const stockMinimo = inventory?.stockMinimo || 0;
 
+    // Check category to exclude Cafetin products from low stock alerts
+    const categoryNormalized = (product?.category || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    const isCafetinProduct = categoryNormalized === "cafetin";
+
     // Alert logic:
     // Ensure we capture the case where we *just* crossed the threshold.
-    if (args.location === "almacen" && prevStock > stockMinimo && args.newStock <= stockMinimo) {
+    if (!isCafetinProduct && args.location === "almacen" && prevStock > stockMinimo && args.newStock <= stockMinimo) {
       const productName = product?.name || "Producto";
       const unit = product?.baseUnit || "u";
 
