@@ -357,8 +357,14 @@ export default function POSPage() {
         pacienteIdToUse = currentSliderPacienteId;
       }
 
+      if (!pacienteIdToUse) {
+        alert("Debe asignar un usuario a la venta.");
+        setIsRegistering(false);
+        return;
+      }
+
       await createOrder({
-        patientId: pacienteIdToUse ? (pacienteIdToUse as Id<"users">) : undefined,
+        patientId: pacienteIdToUse as Id<"users">,
         items: activeSlot.items.map(item => ({
           productId: item.productId,
           cantidad: item.cantidad,

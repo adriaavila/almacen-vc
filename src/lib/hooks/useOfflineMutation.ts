@@ -32,7 +32,7 @@ type CreateOrderArgs = {
 };
 
 type PosSaleArgs = {
-  patientId?: Id<"users">;
+  patientId: Id<"users">;
   items: Array<{ productId: Id<"products">; cantidad: number }>;
 };
 

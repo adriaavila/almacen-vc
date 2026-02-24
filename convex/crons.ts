@@ -13,11 +13,11 @@ crons.weekly(
 );
 
 // Daily Cafetin RAW Export to n8n
-// Every day at 4:00 PM VET (Venezuela Time is UTC-4)
-// Cron uses UTC. 4:00 PM VET + 4 hours = 8:00 PM (20:00) UTC.
+// Every day at 3:00 PM VET (Venezuela Time is UTC-4)
+// Cron uses UTC. 3:00 PM VET + 4 hours = 7:00 PM (19:00) UTC.
 crons.daily(
     "Daily Cafetin RAW Export",
-    { hourUTC: 20, minuteUTC: 0 },
+    { hourUTC: 19, minuteUTC: 0 },
     internal.billing.sendDailyRawData,
 );
 

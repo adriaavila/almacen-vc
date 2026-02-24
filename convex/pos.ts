@@ -40,7 +40,7 @@ export const todayPosSalesCount = query({
  */
 export const registerSale = mutation({
     args: {
-        patientId: v.optional(v.id("users")),
+        patientId: v.id("users"),
         items: v.array(
             v.object({
                 productId: v.id("products"),
@@ -57,11 +57,11 @@ export const registerSale = mutation({
         }
 
         // Resolve patient name
-        let patientName = "Sin Asignar";
-        if (args.patientId) {
-            const patient = await ctx.db.get(args.patientId);
-            patientName = patient?.nombre || "Sin Asignar";
+        const patient = await ctx.db.get(args.patientId);
+        if (!patient) {
+            throw new Error(`Usuario con ID ${args.patientId} no encontrado`);
         }
+        const patientName = patient.nombre;
 
         const now = Date.now();
 

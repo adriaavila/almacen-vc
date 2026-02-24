@@ -101,12 +101,12 @@ export function OfflineSyncManager() {
             });
             break;
           case 'posSale':
-            if (!Array.isArray(action.args.items)) {
+            if (!action.args.patientId || !Array.isArray(action.args.items)) {
               console.error('OfflineSyncManager: Invalid posSale args:', action.args);
               continue;
             }
             result = await registerPosSale(action.args as {
-              patientId?: Id<"users">;
+              patientId: Id<"users">;
               items: Array<{ productId: Id<"products">; cantidad: number }>;
             });
             break;
