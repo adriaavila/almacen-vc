@@ -122,7 +122,11 @@ export const getLowStock = query({
         .withIndex("by_location", (q) => q.eq("location", args.location!))
         .collect();
     } else {
-      inventory = await ctx.db.query("inventory").collect();
+      // Si no se especifica ubicación, solo traer de almacen (ignorar cafetin)
+      inventory = await ctx.db
+        .query("inventory")
+        .withIndex("by_location", (q) => q.eq("location", "almacen"))
+        .collect();
     }
 
     // Filter low stock
@@ -271,7 +275,7 @@ export const updateStock = mutation({
 
     // Alert logic:
     // Ensure we capture the case where we *just* crossed the threshold.
-    if (prevStock > stockMinimo && args.newStock <= stockMinimo) {
+    if (args.location === "almacen" && prevStock > stockMinimo && args.newStock <= stockMinimo) {
       const productName = product?.name || "Producto";
       const unit = product?.baseUnit || "u";
 
