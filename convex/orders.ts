@@ -1,6 +1,6 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
@@ -44,7 +44,17 @@ export const getById = query({
 
         const product = await ctx.db.get(oi.productId);
         if (!product) {
-          return null;
+          return {
+            _id: oi.productId,
+            orderItemId: oi._id,
+            nombre: "Producto Eliminado (No Registrado)",
+            categoria: "Desconocida",
+            subcategoria: undefined,
+            marca: undefined,
+            unidad: "unidades", // Fallback
+            cantidad: oi.cantidad,
+            isDeleted: true,
+          };
         }
 
         return {
@@ -56,13 +66,14 @@ export const getById = query({
           marca: product.brand,
           unidad: product.baseUnit,
           cantidad: oi.cantidad,
+          isDeleted: false,
         };
       })
     );
 
     return {
       ...order,
-      items: items.filter((item) => item !== null),
+      items: items,
     };
   },
 });
@@ -141,7 +152,53 @@ export const create = mutation({
     const validItems = args.items.filter((item) => item.cantidad > 0);
 
     if (validItems.length === 0) {
-      throw new Error("El pedido debe incluir al menos un ítem");
+      throw new ConvexError("El pedido debe incluir al menos un ítem");
+    }
+
+    // Compute allocations dynamically for validation
+    const pendingOrders = await ctx.db.query("orders")
+      .withIndex("by_status_createdAt", q => q.eq("status", "pendiente"))
+      .collect();
+    const allocatedByProduct = new Map<string, number>();
+    for (const order of pendingOrders) {
+      const items = await ctx.db.query("orderItems")
+        .withIndex("by_orderId", q => q.eq("orderId", order._id))
+        .collect();
+      for (const item of items) {
+        if (item.productId) {
+          const pid = item.productId.toString();
+          allocatedByProduct.set(pid, (allocatedByProduct.get(pid) || 0) + item.cantidad);
+        }
+      }
+    }
+
+    // Array para construir los items de la notificación
+    const notificationItems: Array<{ name: string; quantity: number }> = [];
+
+    // Validar el stock primero
+    for (const item of validItems) {
+      if (item.cantidad <= 0) continue;
+
+      const product = await ctx.db.get(item.productId);
+      if (!product) {
+        throw new ConvexError(`Producto con ID ${item.productId} no encontrado`);
+      }
+
+      const isCafetinSupplier = args.area === "Cafetin" && isCafetinCategory(product.category ?? "");
+
+      if (!isCafetinSupplier) {
+        const almacenInventory = await ctx.db.query("inventory")
+          .withIndex("by_product_location", q => q.eq("productId", item.productId).eq("location", "almacen"))
+          .first();
+
+        const actualStock = almacenInventory?.stockActual || 0;
+        const allocated = allocatedByProduct.get(item.productId.toString()) || 0;
+        const available = actualStock - allocated;
+
+        if (item.cantidad > available) {
+          throw new ConvexError(`Stock y/o cantidad disponible insuficiente para ${product.name}. Solicitado: ${item.cantidad} ${product.baseUnit}, Disponible (sin reservar): ${available > 0 ? available : 0} ${product.baseUnit}`);
+        }
+      }
     }
 
     // Create the order
@@ -153,19 +210,12 @@ export const create = mutation({
       patientId: args.patientId,
     });
 
-    // Array para construir los items de la notificación
-    const notificationItems: Array<{ name: string; quantity: number }> = [];
-
     // Create orderItems
     for (const item of validItems) {
-      if (item.cantidad <= 0) {
-        continue;
-      }
+      if (item.cantidad <= 0) continue;
 
       const product = await ctx.db.get(item.productId);
-      if (!product) {
-        throw new Error(`Producto con ID ${item.productId} no encontrado`);
-      }
+      if (!product) continue;
 
       // Insert orderItem
       await ctx.db.insert("orderItems", {
@@ -206,21 +256,21 @@ export const updateItems = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) {
-      throw new Error(`Pedido con ID ${args.orderId} no encontrado`);
+      throw new ConvexError(`Pedido con ID ${args.orderId} no encontrado`);
     }
 
     if (order.status !== "pendiente") {
-      throw new Error("Solo se pueden modificar pedidos pendientes");
+      throw new ConvexError("Solo se pueden modificar pedidos pendientes");
     }
 
     for (const item of args.items) {
       const orderItem = await ctx.db.get(item.orderItemId);
       if (!orderItem) {
-        throw new Error(`Item con ID ${item.orderItemId} no encontrado`);
+        throw new ConvexError(`Item con ID ${item.orderItemId} no encontrado`);
       }
 
       if (orderItem.orderId !== args.orderId) {
-        throw new Error(`El item ${item.orderItemId} no pertenece al pedido ${args.orderId}`);
+        throw new ConvexError(`El item ${item.orderItemId} no pertenece al pedido ${args.orderId}`);
       }
 
       // Update quantity
@@ -245,11 +295,11 @@ export const deliver = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.id);
     if (!order) {
-      throw new Error(`Pedido con ID ${args.id} no encontrado`);
+      throw new ConvexError(`Pedido con ID ${args.id} no encontrado`);
     }
 
     if (order.status === "entregado") {
-      throw new Error("El pedido ya fue entregado");
+      throw new ConvexError("El pedido ya fue entregado");
     }
 
     // Get orderItems for this order
@@ -259,7 +309,7 @@ export const deliver = mutation({
       .collect();
 
     if (orderItems.length === 0) {
-      throw new Error("El pedido no tiene ítems");
+      throw new ConvexError("El pedido no tiene ítems");
     }
 
     const deliveredItems: Array<{
@@ -272,6 +322,10 @@ export const deliver = mutation({
       nombre: string;
       stock_actual: number;
       stock_minimo: number;
+    }> = [];
+    const skippedItems: Array<{
+      itemId: string;
+      reason: string;
     }> = [];
     const movementIds: Array<string> = [];
 
@@ -293,6 +347,7 @@ export const deliver = mutation({
         args.id,
         deliveredItems,
         lowStockItems,
+        skippedItems,
         movementIds
       );
     }
@@ -305,6 +360,7 @@ export const deliver = mutation({
     return {
       deliveredItems,
       lowStockItems,
+      skippedItems,
       movementIds,
     };
   },
@@ -337,16 +393,24 @@ async function processProductDelivery(
     stock_actual: number;
     stock_minimo: number;
   }>,
+  skippedItems: Array<{
+    itemId: string;
+    reason: string;
+  }>,
   movementIds: Array<string>
 ) {
   // Validate that orderId is provided (required for movements from order delivery)
   if (!orderId) {
-    throw new Error("orderId es requerido para crear movimientos desde entrega de pedidos");
+    throw new ConvexError("orderId es requerido para crear movimientos desde entrega de pedidos");
   }
 
   const product = await ctx.db.get(productId);
   if (!product) {
-    throw new Error(`Producto con ID ${productId} no encontrado`);
+    skippedItems.push({
+      itemId: productId,
+      reason: "Producto eliminado de la base de datos",
+    });
+    return; // Skip this item instead of failing the whole delivery transaction
   }
 
   // Get almacen inventory
@@ -414,7 +478,7 @@ async function processProductDelivery(
   // Require stock in almacen for Cocina/Limpieza (or Cafetin when almacen had enough — handled above)
   if (!almacenInventory || almacenInventory.stockActual < cantidad) {
     const disponible = almacenInventory?.stockActual ?? 0;
-    throw new Error(
+    throw new ConvexError(
       `Stock insuficiente en almacén para ${product.name}. Disponible: ${disponible} ${product.baseUnit}, Solicitado: ${cantidad} ${product.baseUnit}`
     );
   }
@@ -523,7 +587,7 @@ export const updateStatus = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.id);
     if (!order) {
-      throw new Error(`Pedido con ID ${args.id} no encontrado`);
+      throw new ConvexError(`Pedido con ID ${args.id} no encontrado`);
     }
 
     await ctx.db.patch(args.id, {
@@ -540,7 +604,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.id);
     if (!order) {
-      throw new Error(`Pedido con ID ${args.id} no encontrado`);
+      throw new ConvexError(`Pedido con ID ${args.id} no encontrado`);
     }
 
     // Get all orderItems for this order
@@ -609,7 +673,7 @@ export const migrateOrderItemToProduct = mutation({
   handler: async (ctx, args) => {
     const orderItem = await ctx.db.get(args.orderItemId);
     if (!orderItem) {
-      throw new Error(`OrderItem con ID ${args.orderItemId} no encontrado`);
+      throw new ConvexError(`OrderItem con ID ${args.orderItemId} no encontrado`);
     }
 
     // If already has productId, return success
@@ -623,7 +687,7 @@ export const migrateOrderItemToProduct = mutation({
     }
 
     // Cannot migrate without productId - items table no longer exists
-    throw new Error(
+    throw new ConvexError(
       `OrderItem no tiene productId y la tabla items ya no existe. Este orderItem necesita ser recreado con productId.`
     );
   },
@@ -697,11 +761,11 @@ export const reprocessDeliveredOrder = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) {
-      throw new Error(`Pedido con ID ${args.orderId} no encontrado`);
+      throw new ConvexError(`Pedido con ID ${args.orderId} no encontrado`);
     }
 
     if (order.status !== "entregado") {
-      throw new Error("Solo se pueden reprocesar pedidos entregados");
+      throw new ConvexError("Solo se pueden reprocesar pedidos entregados");
     }
 
     // Get orderItems
@@ -711,7 +775,7 @@ export const reprocessDeliveredOrder = mutation({
       .collect();
 
     if (orderItems.length === 0) {
-      throw new Error("El pedido no tiene ítems");
+      throw new ConvexError("El pedido no tiene ítems");
     }
 
     const processedItems: Array<{

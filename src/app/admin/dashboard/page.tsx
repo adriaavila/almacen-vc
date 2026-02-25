@@ -45,7 +45,7 @@ export default function DashboardPage() {
       : 0;
 
     // Count active products
-    const activeProducts = products.filter(p => p.active);
+    const activeProducts = products.filter(p => p.active && p.category?.toLowerCase() !== 'cafetin');
 
     return {
       totalProducts: activeProducts.length,

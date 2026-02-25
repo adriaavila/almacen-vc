@@ -125,7 +125,7 @@ export default function ItemsEditorPage() {
   // This is efficient for typical dataset sizes. Can be optimized later with location-specific queries if needed.
   const inventoryList = useQuery(api.inventory.list);
   const movements = useQuery(api.movements.list, { limit: 500 });
-  
+
   const updateProduct = useMutation(api.products.update);
   const createProduct = useMutation(api.products.create);
   const deleteProduct = useMutation(api.products.deleteProduct);
@@ -133,19 +133,19 @@ export default function ItemsEditorPage() {
   const updateStock = useMutation(api.inventory.updateStock);
   const setMinStock = useMutation(api.inventory.setMinStock);
   const bulkImport = useMutation(api.products.bulkImport);
-  
+
   // uiConfig availability check
   const [uiConfigAvailable, setUiConfigAvailable] = useState(false);
-  
+
   const config = useQuery(
     uiConfigAvailable ? api.uiConfig.getConfig : ('skip' as any),
     uiConfigAvailable ? { userId: 'admin', page: 'items_editor' } : ('skip' as any)
   );
-  
+
   const saveConfig = useMutation(
     uiConfigAvailable ? api.uiConfig.saveConfig : ('skip' as any)
   );
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
@@ -156,7 +156,7 @@ export default function ItemsEditorPage() {
         // Functions not available
       }
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -243,7 +243,8 @@ export default function ItemsEditorPage() {
   // Get unique categories
   const categories = useMemo(() => {
     if (!products || products.length === 0) return [];
-    const cats = Array.from(new Set(products.map((product) => product.category)));
+    const activeProducts = products.filter(p => !p.category || p.category.toLowerCase() !== 'cafetin');
+    const cats = Array.from(new Set(activeProducts.map((product) => product.category)));
     return cats.sort();
   }, [products]);
 
@@ -281,12 +282,15 @@ export default function ItemsEditorPage() {
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     let filtered = products;
-    
+
+    // Exclude Cafetin products
+    filtered = filtered.filter((product) => !product.category || product.category.toLowerCase() !== 'cafetin');
+
     // Apply showOnlyActive filter
     if (showOnlyActive) {
       filtered = filtered.filter((product) => product.active);
     }
-    
+
     // Apply filter status
     if (filterStatus === 'active') {
       filtered = filtered.filter((product) => product.active);
@@ -295,16 +299,16 @@ export default function ItemsEditorPage() {
     } else if (filterStatus === 'low_stock') {
       filtered = filtered.filter((product) => product.status === 'bajo_stock');
     }
-    
+
     // Apply category filters
     if (selectedCategories.length > 0) {
       filtered = filtered.filter((product) => selectedCategories.includes(product.category));
     }
-    
+
     // Apply search query
     if (searchQuery.trim()) {
       const query = normalizeSearchText(searchQuery.trim());
-      filtered = filtered.filter((product) => 
+      filtered = filtered.filter((product) =>
         normalizeSearchText(product.name).includes(query) ||
         normalizeSearchText(product.category).includes(query) ||
         (product.subCategory && normalizeSearchText(product.subCategory).includes(query)) ||
@@ -323,13 +327,13 @@ export default function ItemsEditorPage() {
     }
 
     if (columnFilters.subCategory && columnFilters.subCategory.length > 0) {
-      filtered = filtered.filter((product) => 
+      filtered = filtered.filter((product) =>
         product.subCategory && columnFilters.subCategory!.includes(product.subCategory)
       );
     }
 
     if (columnFilters.brand && columnFilters.brand.length > 0) {
-      filtered = filtered.filter((product) => 
+      filtered = filtered.filter((product) =>
         product.brand && columnFilters.brand!.includes(product.brand)
       );
     }
@@ -339,14 +343,14 @@ export default function ItemsEditorPage() {
     }
 
     if (columnFilters.purchaseUnit && columnFilters.purchaseUnit.length > 0) {
-      filtered = filtered.filter((product) => 
+      filtered = filtered.filter((product) =>
         product.purchaseUnit && columnFilters.purchaseUnit!.includes(product.purchaseUnit)
       );
     }
 
     if (columnFilters.conversionFactor) {
       const query = normalizeSearchText(columnFilters.conversionFactor);
-      filtered = filtered.filter((product) => 
+      filtered = filtered.filter((product) =>
         product.conversionFactor.toString().includes(query)
       );
     }
@@ -360,14 +364,14 @@ export default function ItemsEditorPage() {
         return columnFilters.active!.includes(product.active);
       });
     }
-    
+
     // Sort alphabetically by name
     filtered.sort((a, b) => {
       const nameA = normalizeSearchText(a.name);
       const nameB = normalizeSearchText(b.name);
       return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
     });
-    
+
     return filtered;
   }, [products, showOnlyActive, filterStatus, selectedCategories, searchQuery, columnFilters]);
 
@@ -375,16 +379,19 @@ export default function ItemsEditorPage() {
   const filteredInventory = useMemo(() => {
     if (!inventoryList) return [];
     let filtered = inventoryList;
-    
+
+    // Exclude Cafetin products
+    filtered = filtered.filter((inv) => !inv.product?.category || inv.product.category.toLowerCase() !== 'cafetin');
+
     // Apply location filter
     if (selectedLocation !== 'all') {
       filtered = filtered.filter((inv) => inv.location === selectedLocation);
     }
-    
+
     // Apply search query
     if (searchQuery.trim()) {
       const query = normalizeSearchText(searchQuery.trim());
-      filtered = filtered.filter((inv) => 
+      filtered = filtered.filter((inv) =>
         inv.product && (
           normalizeSearchText(inv.product.name).includes(query) ||
           normalizeSearchText(inv.product.category || '').includes(query) ||
@@ -392,12 +399,12 @@ export default function ItemsEditorPage() {
         )
       );
     }
-    
+
     // Apply filter status
     if (filterStatus === 'low_stock') {
       filtered = filtered.filter((inv) => inv.stockActual <= inv.stockMinimo);
     }
-    
+
     return filtered;
   }, [inventoryList, selectedLocation, searchQuery, filterStatus]);
 
@@ -405,15 +412,18 @@ export default function ItemsEditorPage() {
   const filteredMovements = useMemo(() => {
     if (!movements) return [];
     let filtered = movements;
-    
+
+    // Exclude Cafetin products
+    filtered = filtered.filter((mov) => !mov.product?.category || mov.product.category.toLowerCase() !== 'cafetin');
+
     // Apply search query
     if (searchQuery.trim()) {
       const query = normalizeSearchText(searchQuery.trim());
-      filtered = filtered.filter((mov) => 
+      filtered = filtered.filter((mov) =>
         mov.product && normalizeSearchText(mov.product.name).includes(query)
       );
     }
-    
+
     return filtered;
   }, [movements, searchQuery]);
 
@@ -565,7 +575,7 @@ export default function ItemsEditorPage() {
           conversionFactor: data.conversionFactor || 1,
           active: data.active ?? true,
         });
-        
+
         // Initialize inventory for the product (only if it doesn't exist in this location)
         // If product already existed, this will add inventory in almacen location
         try {
@@ -582,7 +592,7 @@ export default function ItemsEditorPage() {
             throw error;
           }
         }
-        
+
         setToast({
           message: 'Producto creado correctamente',
           type: 'success',
@@ -638,7 +648,7 @@ export default function ItemsEditorPage() {
       });
       return;
     }
-    
+
     try {
       await saveConfig({
         userId: 'admin',
@@ -780,7 +790,7 @@ export default function ItemsEditorPage() {
       const csvContent = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
-      
+
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
       link.setAttribute('download', filename);
@@ -788,7 +798,7 @@ export default function ItemsEditorPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       setToast({
         message: `Exportado ${count} registros a CSV`,
         type: 'success',
@@ -814,7 +824,7 @@ export default function ItemsEditorPage() {
       const parseResult = await parseCSVFile(file, true);
       const csvRows = parseResult.rows;
       const parsingErrors = parseResult.errors;
-      
+
       if (csvRows.length === 0 && parsingErrors.length === 0) {
         setImportResult({
           totalRows: 0,
@@ -833,7 +843,7 @@ export default function ItemsEditorPage() {
       for (let i = 0; i < csvRows.length; i++) {
         const row = csvRows[i];
         const validation = validateCSVProductRow(row, i);
-        
+
         if (!validation.isValid) {
           validation.errors.forEach((error) => {
             validationErrors.push({
@@ -970,110 +980,109 @@ export default function ItemsEditorPage() {
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 w-full max-w-full animate-fade-in overflow-x-hidden">
-        {/* Header with Stats, Search and Filters */}
-        <EditorHeader
-          totalItems={stats.totalItems}
-          activeItems={stats.activeItems}
-          lowStockItems={stats.lowStockItems}
-          filteredItems={getFilteredItemsCount()}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filterStatus={filterStatus}
-          onFilterChange={setFilterStatus}
-          selectedCategories={selectedCategories}
-          onCategoryToggle={handleCategoryToggle}
-          availableCategories={categories}
-          onExportCSV={handleExportCSV}
-          onImportCSV={handleImportCSV}
-          isSidebarOpen={isSidebarOpen}
-          onToggleSidebar={toggleSidebar}
-          selectedTable={selectedTable}
-          selectedLocation={selectedLocation}
-          onLocationChange={setSelectedLocation}
-        />
+      {/* Header with Stats, Search and Filters */}
+      <EditorHeader
+        totalItems={stats.totalItems}
+        activeItems={stats.activeItems}
+        lowStockItems={stats.lowStockItems}
+        filteredItems={getFilteredItemsCount()}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        filterStatus={filterStatus}
+        onFilterChange={setFilterStatus}
+        selectedCategories={selectedCategories}
+        onCategoryToggle={handleCategoryToggle}
+        availableCategories={categories}
+        onExportCSV={handleExportCSV}
+        onImportCSV={handleImportCSV}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={toggleSidebar}
+        selectedTable={selectedTable}
+        selectedLocation={selectedLocation}
+        onLocationChange={setSelectedLocation}
+      />
 
-        {/* Table Selector */}
-        <TableSelector
-          selectedTable={selectedTable}
-          onTableChange={setSelectedTable}
-        />
+      {/* Table Selector */}
+      <TableSelector
+        selectedTable={selectedTable}
+        onTableChange={setSelectedTable}
+      />
 
-        {!uiConfigAvailable && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800 flex items-center gap-2">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span>Nota: La configuración de columnas no se guardará hasta que ejecutes <code className="bg-yellow-100 px-1 rounded">npx convex dev</code></span>
-          </div>
-        )}
+      {!uiConfigAvailable && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800 flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>Nota: La configuración de columnas no se guardará hasta que ejecutes <code className="bg-yellow-100 px-1 rounded">npx convex dev</code></span>
+        </div>
+      )}
 
-        {/* Main Layout */}
-        <div className="flex relative gap-4">
-          {/* Table Section */}
-          <div className="flex-1 min-w-0 max-w-full overflow-hidden">
-            {selectedTable === 'products' && (
-              <ItemsTable
-                items={filteredProducts as ConvexProduct[]}
-                columns={columns}
-                onItemClick={handleItemClick}
-                onFieldUpdate={handleFieldUpdate}
-                onDelete={handleDeleteProduct}
-                categories={categories}
-                subcategories={subcategories}
-                columnFilters={columnFilters}
-                onColumnFilterChange={handleColumnFilterChange}
-                columnFilterOptions={columnFilterOptions}
-                onClearAllColumnFilters={clearAllColumnFilters}
-                tableType="products"
-              />
-            )}
-            {selectedTable === 'inventory' && inventoryList && (
-              <ItemsTable
-                items={filteredInventory as any[]}
-                columns={columns}
-                onItemClick={handleItemClick}
-                onFieldUpdate={handleFieldUpdate}
-                categories={categories}
-                subcategories={subcategories}
-                columnFilters={columnFilters}
-                onColumnFilterChange={handleColumnFilterChange}
-                columnFilterOptions={columnFilterOptions}
-                onClearAllColumnFilters={clearAllColumnFilters}
-                tableType="inventory"
-              />
-            )}
-            {selectedTable === 'movements' && movements && (
-              <ItemsTable
-                items={filteredMovements as any[]}
-                columns={columns}
-                onItemClick={handleItemClick}
-                onFieldUpdate={handleFieldUpdate}
-                categories={categories}
-                subcategories={subcategories}
-                columnFilters={columnFilters}
-                onColumnFilterChange={handleColumnFilterChange}
-                columnFilterOptions={columnFilterOptions}
-                onClearAllColumnFilters={clearAllColumnFilters}
-                tableType="movements"
-              />
-            )}
-          </div>
+      {/* Main Layout */}
+      <div className="flex relative gap-4">
+        {/* Table Section */}
+        <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+          {selectedTable === 'products' && (
+            <ItemsTable
+              items={filteredProducts as ConvexProduct[]}
+              columns={columns}
+              onItemClick={handleItemClick}
+              onFieldUpdate={handleFieldUpdate}
+              onDelete={handleDeleteProduct}
+              categories={categories}
+              subcategories={subcategories}
+              columnFilters={columnFilters}
+              onColumnFilterChange={handleColumnFilterChange}
+              columnFilterOptions={columnFilterOptions}
+              onClearAllColumnFilters={clearAllColumnFilters}
+              tableType="products"
+            />
+          )}
+          {selectedTable === 'inventory' && inventoryList && (
+            <ItemsTable
+              items={filteredInventory as any[]}
+              columns={columns}
+              onItemClick={handleItemClick}
+              onFieldUpdate={handleFieldUpdate}
+              categories={categories}
+              subcategories={subcategories}
+              columnFilters={columnFilters}
+              onColumnFilterChange={handleColumnFilterChange}
+              columnFilterOptions={columnFilterOptions}
+              onClearAllColumnFilters={clearAllColumnFilters}
+              tableType="inventory"
+            />
+          )}
+          {selectedTable === 'movements' && movements && (
+            <ItemsTable
+              items={filteredMovements as any[]}
+              columns={columns}
+              onItemClick={handleItemClick}
+              onFieldUpdate={handleFieldUpdate}
+              categories={categories}
+              subcategories={subcategories}
+              columnFilters={columnFilters}
+              onColumnFilterChange={handleColumnFilterChange}
+              columnFilterOptions={columnFilterOptions}
+              onClearAllColumnFilters={clearAllColumnFilters}
+              tableType="movements"
+            />
+          )}
+        </div>
 
-          {/* Side Panel - Desktop only */}
-          <div
-            className={`transition-all duration-300 ease-in-out shrink-0 hidden lg:block ${
-              isSidebarOpen ? 'w-80 opacity-100' : 'w-0 opacity-0 overflow-hidden'
+        {/* Side Panel - Desktop only */}
+        <div
+          className={`transition-all duration-300 ease-in-out shrink-0 hidden lg:block ${isSidebarOpen ? 'w-80 opacity-100' : 'w-0 opacity-0 overflow-hidden'
             }`}
-          >
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm h-fit">
-              <QuickActions
-                onCreateNew={handleCreateNew}
-                showOnlyActive={showOnlyActive}
-                onToggleShowOnlyActive={handleToggleShowOnlyActive}
-              />
-            </div>
+        >
+          <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm h-fit">
+            <QuickActions
+              onCreateNew={handleCreateNew}
+              showOnlyActive={showOnlyActive}
+              onToggleShowOnlyActive={handleToggleShowOnlyActive}
+            />
           </div>
         </div>
+      </div>
 
       {/* Drawer */}
       <ItemDrawer

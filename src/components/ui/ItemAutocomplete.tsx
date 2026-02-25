@@ -16,6 +16,7 @@ interface ItemAutocompleteProps {
   autoFocus?: boolean;
   showCreateOption?: boolean;
   onCreateNew?: () => void;
+  categoryFilter?: string | string[]; // Added category filter
 }
 
 type ConvexProduct = {
@@ -42,6 +43,7 @@ export function ItemAutocomplete({
   autoFocus = false,
   showCreateOption = true,
   onCreateNew,
+  categoryFilter,
 }: ItemAutocompleteProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -51,7 +53,7 @@ export function ItemAutocomplete({
 
   // Sincronizar datos de Convex al store de Zustand
   useInventorySync();
-  
+
   // Obtener datos híbridos (Convex o cache)
   const products = useInventoryData();
 
@@ -64,10 +66,16 @@ export function ItemAutocomplete({
   // Filter products based on search query
   const filteredProducts = useMemo(() => {
     if (!products) return [];
-    
+
     // Only show active products
-    const activeProducts = products.filter((p) => p.active);
-    
+    let activeProducts = products.filter((p) => p.active);
+
+    // Apply category filter if provided
+    if (categoryFilter) {
+      const filters = Array.isArray(categoryFilter) ? categoryFilter : [categoryFilter];
+      activeProducts = activeProducts.filter(p => filters.some(f => p.category.toLowerCase() === f.toLowerCase()));
+    }
+
     if (!searchQuery.trim()) {
       return activeProducts;
     }
@@ -81,7 +89,7 @@ export function ItemAutocomplete({
 
       return nameMatch || categoryMatch || subCategoryMatch || brandMatch;
     });
-  }, [products, searchQuery]);
+  }, [products, searchQuery, categoryFilter]);
 
   // Handle product selection
   const handleSelect = (product: ConvexProduct) => {
@@ -204,8 +212,31 @@ export function ItemAutocomplete({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="block w-full h-12 pl-10 pr-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base"
+          className="block w-full h-12 pl-10 pr-10 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base"
         />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery('');
+              if (value) {
+                onChange(null, null);
+              }
+              inputRef.current?.focus();
+            }}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+            title="Limpiar búsqueda"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Dropdown */}
@@ -219,11 +250,9 @@ export function ItemAutocomplete({
               key={product._id}
               type="button"
               onClick={() => handleSelect(product)}
-              className={`w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors ${
-                index === selectedIndex ? 'bg-gray-50' : ''
-              } ${
-                product.status === 'bajo_stock' ? 'border-l-4 border-l-red-500' : ''
-              }`}
+              className={`w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors ${index === selectedIndex ? 'bg-gray-50' : ''
+                } ${product.status === 'bajo_stock' ? 'border-l-4 border-l-red-500' : ''
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
@@ -257,7 +286,7 @@ export function ItemAutocomplete({
               </div>
             </button>
           ))}
-          
+
           {/* Create new product button */}
           {showCreateOption && onCreateNew && (
             <button
@@ -267,9 +296,8 @@ export function ItemAutocomplete({
                 setIsOpen(false);
                 setSelectedIndex(-1);
               }}
-              className={`w-full text-left px-4 py-3 border-t border-gray-200 bg-gray-50 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${
-                createButtonIndex === selectedIndex ? 'bg-gray-100' : ''
-              }`}
+              className={`w-full text-left px-4 py-3 border-t border-gray-200 bg-gray-50 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${createButtonIndex === selectedIndex ? 'bg-gray-100' : ''
+                }`}
             >
               <div className="flex items-center gap-2">
                 <span className="text-lg">➕</span>

@@ -18,6 +18,8 @@ type ConvexProduct = {
   totalStock: number;
   stockAlmacen: number;
   stockMinimoAlmacen?: number;
+  stockReservado?: number;
+  stockDisponible?: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
   hasCafetinRecord?: boolean;

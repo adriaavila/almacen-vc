@@ -91,11 +91,9 @@ export default function InventoryPage() {
     const cats = Array.from(
       new Set(
         activeProducts
+          .filter(p => !p.category || p.category.toLowerCase() !== 'cafetin')
           .map(product => {
-            const cat = product.category;
-            // Normalize cafetin to Cafetin for display/filtering
-            if (cat && cat.toLowerCase() === 'cafetin') return 'Cafetin';
-            return cat;
+            return product.category;
           })
           .filter((cat): cat is string => !!cat && cat.trim() !== '')
       )
@@ -112,6 +110,9 @@ export default function InventoryPage() {
     let filtered = products.filter(p => {
       // Filter by Active status
       if (!p.active) return false;
+
+      // Exclude Cafetin products
+      if (p.category && p.category.toLowerCase() === 'cafetin') return false;
 
       return true;
     });

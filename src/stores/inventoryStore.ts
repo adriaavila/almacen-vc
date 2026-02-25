@@ -15,6 +15,8 @@ export type InventoryProduct = {
   availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
+  stockReservado?: number;
+  stockDisponible?: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
   lastSyncedAt?: number; // Timestamp de última sincronización

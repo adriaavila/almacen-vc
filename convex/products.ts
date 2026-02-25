@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
 const capitalize = (s: string) => {
@@ -147,6 +147,24 @@ export const listWithInventory = query({
     const products = await ctx.db.query("products").collect();
     const inventory = await ctx.db.query("inventory").collect();
 
+    // Calculate pending allocations
+    const pendingOrders = await ctx.db.query("orders")
+      .withIndex("by_status_createdAt", q => q.eq("status", "pendiente"))
+      .collect();
+
+    const allocatedByProduct = new Map<string, number>();
+    for (const order of pendingOrders) {
+      const items = await ctx.db.query("orderItems")
+        .withIndex("by_orderId", q => q.eq("orderId", order._id))
+        .collect();
+      for (const item of items) {
+        if (item.productId) {
+          const pid = item.productId.toString();
+          allocatedByProduct.set(pid, (allocatedByProduct.get(pid) || 0) + item.cantidad);
+        }
+      }
+    }
+
     // Group inventory by product
     const inventoryByProduct = new Map<string, typeof inventory>();
     for (const inv of inventory) {
@@ -162,11 +180,17 @@ export const listWithInventory = query({
       const totalStock = productInventory.reduce((sum, inv) => sum + inv.stockActual, 0);
       const minStock = productInventory.reduce((sum, inv) => sum + inv.stockMinimo, 0);
 
+      const stockAlmacen = productInventory.find((i) => i.location === "almacen")?.stockActual || 0;
+      const stockReservado = allocatedByProduct.get(product._id.toString()) || 0;
+      const stockDisponible = Math.max(0, stockAlmacen - stockReservado);
+
       return {
         ...product,
         totalStock,
-        stockAlmacen: productInventory.find((i) => i.location === "almacen")?.stockActual || 0,
+        stockAlmacen,
         stockMinimoAlmacen: productInventory.find((i) => i.location === "almacen")?.stockMinimo || 0,
+        stockReservado,
+        stockDisponible,
         stockCafetin: productInventory.find((i) => i.location === "cafetin")?.stockActual || 0,
         status: (totalStock <= minStock ? "bajo_stock" : "ok") as "ok" | "bajo_stock",
         hasCafetinRecord: !!productInventory.find((i) => i.location.toLowerCase() === "cafetin"),

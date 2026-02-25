@@ -87,8 +87,8 @@ export default function OrderDetailPage() {
         isOpen: true
       });
       setIsEditing(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error al actualizar cantidades';
+    } catch (err: any) {
+      const message = err.data || (err instanceof Error ? err.message : 'Error al actualizar cantidades');
       setToast({
         message,
         type: 'error',
@@ -108,15 +108,25 @@ export default function OrderDetailPage() {
       const result = await deliverOrder({ id: orderId });
       setDeliveryResult(result);
       setIsDelivered(true);
-      setToast({
-        message: 'Pedido entregado correctamente',
-        type: 'success',
-        isOpen: true,
-      });
+      // Optionally notify about skipped items (e.g. deleted products)
+      if (result.skippedItems && result.skippedItems.length > 0) {
+        setToast({
+          message: `Pedido entregado (con advertencias). Se omitieron ${result.skippedItems.length} producto(s) porque ya no existen en el sistema.`,
+          type: 'error', // Use error type to grab attention that it was partial
+          isOpen: true,
+        });
+      } else {
+        setToast({
+          message: 'Pedido entregado correctamente',
+          type: 'success',
+          isOpen: true,
+        });
+      }
+
       setIsDelivering(false);
-    } catch (err) {
+    } catch (err: any) {
       const message =
-        err instanceof Error ? err.message : 'No se pudo entregar el pedido. Intente de nuevo.';
+        err.data || (err instanceof Error ? err.message : 'No se pudo entregar el pedido. Intente de nuevo.');
       setToast({
         message,
         type: 'error',
@@ -246,7 +256,8 @@ export default function OrderDetailPage() {
                   const currentQty = isEditing
                     ? (editedQuantities[item.orderItemId] ?? item.cantidad)
                     : item.cantidad;
-                  const isDeleted = isEditing && currentQty === 0;
+                  const isQtyZero = isEditing && currentQty === 0;
+                  const isDeleted = item.isDeleted || isQtyZero;
 
                   return (
                     <div
@@ -265,14 +276,19 @@ export default function OrderDetailPage() {
 
                       <div className="flex items-center justify-between gap-4">
                         <div className={`flex-1 ${isDeleted ? 'opacity-50' : ''}`}>
-                          <div className="mb-1">
-                            <span className="text-base font-semibold text-gray-900">{item.nombre}</span>
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className={`text-base font-semibold ${item.isDeleted ? 'text-red-700' : 'text-gray-900'}`}>{item.nombre}</span>
+                            {item.isDeleted && (
+                              <span className="inline-flex items-center rounded-md bg-red-50 py-0.5 px-2 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">
+                                Eliminado
+                              </span>
+                            )}
                           </div>
                           <span className="text-xs text-gray-500">{item.categoria}</span>
                         </div>
 
                         <div className="flex items-center gap-3">
-                          {isEditing ? (
+                          {isEditing && !item.isDeleted ? (
                             <div className="flex items-center gap-2">
                               <div className={`flex items-center bg-gray-50 rounded-lg border border-gray-200 ${isDeleted ? 'opacity-50' : ''}`}>
                                 <button

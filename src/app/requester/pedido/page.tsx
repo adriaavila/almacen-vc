@@ -34,6 +34,8 @@ type ConvexProduct = {
   availableForSale?: boolean;
   totalStock: number;
   stockAlmacen: number;
+  stockReservado?: number;
+  stockDisponible?: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
 };
@@ -204,17 +206,19 @@ function CreateOrderPageContent() {
         return;
       }
 
-      // Validate stock before submitting (except for Cafetin - they order directly from supplier)
+      // Validate stock before submitting
       const stockErrors: string[] = [];
-      if (selectedArea !== 'Cafetin') {
-        for (const [productId, displayQty] of Object.entries(quantities)) {
-          if (displayQty > 0) {
-            const product = areaProducts.find(p => p._id === productId);
-            if (product) {
+      for (const [productId, displayQty] of Object.entries(quantities)) {
+        if (displayQty > 0) {
+          const product = areaProducts.find(p => p._id === productId);
+          if (product) {
+            const isCafetinSupplier = selectedArea === 'Cafetin' && (product.category === 'Cafetin' || product.category === 'cafetin');
+            if (!isCafetinSupplier) {
               const cantidadBase = toBaseUnitQuantity(product, displayQty, selectedArea);
-              if (cantidadBase > product.stockAlmacen) {
+              const disponible = product.stockDisponible ?? product.stockAlmacen;
+              if (cantidadBase > disponible) {
                 stockErrors.push(
-                  `${product.name}: solicitado ${cantidadBase} ${product.baseUnit}, disponible ${product.stockAlmacen} ${product.baseUnit}`
+                  `${product.name}: solicitado ${cantidadBase} ${product.baseUnit}, disponible ${disponible > 0 ? disponible : 0} ${product.baseUnit}`
                 );
               }
             }
@@ -224,7 +228,7 @@ function CreateOrderPageContent() {
 
       if (stockErrors.length > 0) {
         setToast({
-          message: `Stock insuficiente:\n${stockErrors.join('\n')}`,
+          message: `Stock o cantidad disponible insuficiente:\n${stockErrors.join('\n')}`,
           type: 'error',
           isOpen: true,
         });
@@ -426,6 +430,21 @@ function CreateOrderPageContent() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <PageContainer>
+        {selectedArea === 'Cafetin' && (
+          <div className="flex justify-end mb-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => router.push('/requester/cafetin/ingreso')}
+              className="flex items-center gap-2 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300 shadow-sm"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Registrar Ingresos Cafetín
+            </Button>
+          </div>
+        )}
         <form id="pedido-form" onSubmit={handleSubmit} className="space-y-4">
           {/* Search and Filter Section */}
           <div className="bg-white rounded-md shadow-sm border border-gray-200 p-3 mb-4">
@@ -533,22 +552,21 @@ function CreateOrderPageContent() {
                       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                         <div className="divide-y divide-gray-200">
                           {categoryProducts.map((product) => {
-                            const hasStock = product.stockAlmacen > 0;
-                            // Para Cafetin, nunca deshabilitar por falta de stock (se pide directo del proveedor)
-                            // Para otras áreas, deshabilitar si no hay stock
-                            const isDisabled = selectedArea !== 'Cafetin' && !hasStock;
+                            const stockAvailable = product.stockDisponible ?? product.stockAlmacen;
+                            const hasStock = stockAvailable > 0;
+                            // Direct purchase from supplier only if category matches
+                            const isCafetinSupplier = selectedArea === 'Cafetin' && (product.category === 'Cafetin' || product.category === 'cafetin');
 
-                            // Para Cafetin: si tiene stock, límite en unidad de visualización (compra o base); si no, sin límite
-                            // Para otras áreas: siempre límite en base unit
+                            // Disable if NOT a direct supplier request and NO stock is available
+                            const isDisabled = !isCafetinSupplier && !hasStock;
+
+                            // Limit for quantity based on stock
                             const isLeche = product.name.toLowerCase().includes('leche');
                             const usePurchaseUnit = selectedArea === 'Cafetin' && (product.category === 'Cafetin' || isLeche) && product.availableForSale !== false;
-                            const maxQuantity = selectedArea === 'Cafetin'
-                              ? (hasStock
-                                ? (usePurchaseUnit
-                                  ? Math.floor(product.stockAlmacen / product.conversionFactor)
-                                  : product.stockAlmacen)
-                                : undefined)
-                              : product.stockAlmacen;
+
+                            const maxQuantity = isCafetinSupplier
+                              ? undefined
+                              : (usePurchaseUnit ? Math.floor(stockAvailable / product.conversionFactor) : stockAvailable);
 
                             return (
                               <div
