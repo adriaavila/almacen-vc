@@ -7,6 +7,7 @@ export type CachedUser = {
     nombre: string;
     estado: "Interno" | "Casas" | "Mantenimiento" | "Desconocido";
     fechaIngreso?: number;
+    isArchived?: boolean;
     lastSyncedAt?: number;
 };
 

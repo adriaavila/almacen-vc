@@ -184,6 +184,7 @@ export default defineSchema({
   // Supplier Orders - Orders to external providers
   supplier_orders: defineTable({
     providerName: v.optional(v.string()),
+    destination: v.optional(v.union(v.literal("almacen"), v.literal("cafetin"))),
     status: v.union(v.literal("pendiente"), v.literal("recibido"), v.literal("cancelado")),
     totalItems: v.number(),
     notes: v.optional(v.string()),

@@ -232,6 +232,7 @@ function CrearPedidoView() {
         try {
             // Save order to DB
             await createOrder({
+                destination: 'almacen',
                 items: selectedItems.map((item) => ({
                     productId: item.product._id,
                     cantidad: item.cantidad,
@@ -514,7 +515,7 @@ type PendingOrder = {
 };
 
 function RecepcionesPendientesView() {
-    const pendingOrders = useQuery(api.procurement.listPendingOrders);
+    const pendingOrders = useQuery(api.procurement.listPendingOrders, { destinationFilter: 'almacen' });
     const [selectedOrderId, setSelectedOrderId] = useState<Id<"supplier_orders"> | null>(null);
     const convex = useConvex();
 

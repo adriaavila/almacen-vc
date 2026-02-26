@@ -111,6 +111,30 @@ export const deleteSale = mutation({
 });
 
 /**
+ * Mutation: Update the patient (user) for an entire ticket (sales with exactly the same timestamp).
+ */
+export const updateTicketUser = mutation({
+    args: {
+        fecha: v.number(),
+        newPaciente: v.string()
+    },
+    handler: async (ctx, { fecha, newPaciente }) => {
+        // Find all records with this exact timestamp
+        const sales = await ctx.db
+            .query("cafetin_sales")
+            .withIndex("by_fecha", (q) => q.eq("fecha", fecha))
+            .collect();
+
+        // Update the paciente field for all matching records
+        for (const sale of sales) {
+            await ctx.db.patch(sale._id, {
+                paciente: newPaciente.trim()
+            });
+        }
+    }
+});
+
+/**
  * Core logic: Send unsent sales to n8n webhook.
  * Used by both the daily cron and the manual trigger.
  */

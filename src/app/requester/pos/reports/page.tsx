@@ -5,11 +5,12 @@ import { useQuery, useAction, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { RequesterHeader } from '@/components/requester/RequesterHeader';
 import { Button } from '@/components/ui/Button';
-import { Copy, Check, Trash2 } from 'lucide-react';
+import { Copy, Check, Trash2, Edit2, X, Save } from 'lucide-react';
+import { useUsersData } from '@/lib/hooks/useUsersData';
 
 export default function ReportsPage() {
     // View Mode State
-    const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
+    const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('weekly');
 
     // Date State
     const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -21,6 +22,16 @@ export default function ReportsPage() {
 
     const [isSendingDaily, setIsSendingDaily] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+    const [editingTicketId, setEditingTicketId] = useState<number | null>(null);
+    const [editPatientName, setEditPatientName] = useState<string>('');
+    const [isSavingPatient, setIsSavingPatient] = useState(false);
+
+    // Fetch Users for Dropdown
+    const users = useUsersData();
+    const activeUsers = useMemo(() => {
+        if (!users) return [];
+        return users.filter(u => !u.isArchived).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    }, [users]);
 
     // Calculate Date Range based on View Mode
     const dateRange = useMemo(() => {
@@ -63,29 +74,80 @@ export default function ReportsPage() {
     const weeklyAggregated = useMemo(() => {
         if (viewMode !== 'weekly' || !salesReport) return [];
 
-        const aggregation = new Map<string, { totalQty: number; products: Map<string, number> }>();
+        const aggregation = new Map<string, {
+            totalQty: number;
+            products: Map<string, number>;
+            tickets: { fecha: number; items: { producto: string; cantidad: number }[] }[];
+        }>();
 
         salesReport.forEach(sale => {
             if (!aggregation.has(sale.paciente)) {
-                aggregation.set(sale.paciente, { totalQty: 0, products: new Map() });
+                aggregation.set(sale.paciente, { totalQty: 0, products: new Map(), tickets: [] });
             }
             const patientData = aggregation.get(sale.paciente)!;
             patientData.totalQty += sale.cantidad;
 
             const currentProdQty = patientData.products.get(sale.producto) || 0;
             patientData.products.set(sale.producto, currentProdQty + sale.cantidad);
+
+            // Group by ticket inside the user's data
+            let ticket = patientData.tickets.find(t => t.fecha === sale.fecha);
+            if (!ticket) {
+                ticket = { fecha: sale.fecha, items: [] };
+                patientData.tickets.push(ticket);
+            }
+            ticket.items.push({ producto: sale.producto, cantidad: sale.cantidad });
+        });
+
+        // Sort tickets by date (newest first)
+        aggregation.forEach(data => {
+            data.tickets.sort((a, b) => b.fecha - a.fecha);
         });
 
         return Array.from(aggregation.entries()).map(([paciente, data]) => ({
             paciente,
             totalQty: data.totalQty,
-            products: Array.from(data.products.entries()).map(([name, qty]) => `${name} (${qty})`).join(', ')
+            tickets: data.tickets,
+            products: Array.from(data.products.entries()).map(([name, qty]) => `${name} (${qty})`).join(', ') // For copy
         })).sort((a, b) => a.paciente.localeCompare(b.paciente));
+    }, [salesReport, viewMode]);
+
+    // Group Data for Daily View
+    const dailyGroupedByTicket = useMemo(() => {
+        if (viewMode !== 'daily' || !salesReport) return [];
+
+        const ticketsMap = new Map<number, {
+            fecha: number;
+            paciente: string;
+            sentToN8n: boolean;
+            items: { _id: string; producto: string; cantidad: number }[];
+        }>();
+
+        for (const sale of salesReport) {
+            if (!ticketsMap.has(sale.fecha)) {
+                ticketsMap.set(sale.fecha, {
+                    fecha: sale.fecha,
+                    paciente: sale.paciente,
+                    sentToN8n: sale.sentToN8n,
+                    items: []
+                });
+            }
+            ticketsMap.get(sale.fecha)!.items.push({
+                _id: sale._id,
+                producto: sale.producto,
+                cantidad: sale.cantidad
+            });
+        }
+
+        // Return array sorted by fecha desc
+        return Array.from(ticketsMap.values()).sort((a, b) => b.fecha - a.fecha);
+
     }, [salesReport, viewMode]);
 
     // Action to trigger daily send
     const triggerDailySend = useAction(api.billing.triggerDailySend);
     const deleteSale = useMutation(api.billing.deleteSale);
+    const updateTicketUser = useMutation(api.billing.updateTicketUser);
 
     const handleDeleteSale = async (id: any) => {
         if (!confirm("¿Seguro que deseas eliminar este registro del reporte?")) return;
@@ -94,6 +156,21 @@ export default function ReportsPage() {
         } catch (error) {
             console.error("Error al eliminar el registro:", error);
             alert("Error al eliminar el registro");
+        }
+    };
+
+    const handleSavePatient = async (fecha: number) => {
+        if (!editPatientName) return;
+        setIsSavingPatient(true);
+        try {
+            await updateTicketUser({ fecha, newPaciente: editPatientName });
+            setEditingTicketId(null);
+            setEditPatientName('');
+        } catch (error) {
+            console.error("Error updating patient:", error);
+            alert("Error al actualizar usuario");
+        } finally {
+            setIsSavingPatient(false);
         }
     };
 
@@ -224,125 +301,155 @@ export default function ReportsPage() {
                     ) : (
                         <div className="flex-1 overflow-auto bg-gray-50 p-2 sm:p-4 space-y-4">
                             {viewMode === 'daily' ? (
-                                <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                                                        Hora
-                                                    </th>
-                                                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Paciente
-                                                    </th>
-                                                    <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                                                        Cant.
-                                                    </th>
-                                                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Producto
-                                                    </th>
-                                                    <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                                                        Estado
-                                                    </th>
-                                                    <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {salesReport.map((sale) => (
-                                                    <tr key={sale._id} className="hover:bg-gray-50">
-                                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
-                                                            {new Date(sale.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
-                                                        </td>
-                                                        <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                            {sale.paciente}
-                                                        </td>
-                                                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 font-bold text-right">
-                                                            {sale.cantidad}
-                                                        </td>
-                                                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                                            {sale.producto}
-                                                        </td>
-                                                        <td className="px-3 py-2 whitespace-nowrap text-center">
-                                                            {sale.sentToN8n ? (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
-                                                                    Enviado
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">
-                                                                    Pendiente
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-3 py-2 whitespace-nowrap text-center">
-                                                            <button
-                                                                onClick={() => handleDeleteSale(sale._id)}
-                                                                className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50"
-                                                                title="Eliminar registro"
+                                <div className="space-y-4">
+                                    {dailyGroupedByTicket.map((ticket) => (
+                                        <div key={ticket.fecha} className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
+                                            {/* Ticket Header */}
+                                            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center text-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold text-gray-900">
+                                                        {new Date(ticket.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+
+                                                    {editingTicketId === ticket.fecha ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <select
+                                                                value={editPatientName}
+                                                                onChange={(e) => setEditPatientName(e.target.value)}
+                                                                className="text-xs border-gray-300 rounded p-1 w-40"
+                                                                autoFocus
                                                             >
-                                                                <Trash2 size={16} />
+                                                                <option value="" disabled>Seleccione usuario</option>
+                                                                {activeUsers.map(u => (
+                                                                    <option key={u._id} value={u.nombre}>{u.nombre}</option>
+                                                                ))}
+                                                                {/* Ensure current patient is in list in case they were archived or manually entered */}
+                                                                {!activeUsers.find(u => u.nombre === ticket.paciente) && (
+                                                                    <option value={ticket.paciente}>{ticket.paciente}</option>
+                                                                )}
+                                                            </select>
+                                                            <button
+                                                                onClick={() => handleSavePatient(ticket.fecha)}
+                                                                disabled={isSavingPatient || !editPatientName}
+                                                                className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                                                                title="Guardar"
+                                                            >
+                                                                <Save size={14} />
                                                             </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                            <button
+                                                                onClick={() => { setEditingTicketId(null); setEditPatientName(''); }}
+                                                                className="text-gray-500 hover:text-gray-700"
+                                                                title="Cancelar"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium text-gray-800">{ticket.paciente}</span>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingTicketId(ticket.fecha);
+                                                                    setEditPatientName(ticket.paciente);
+                                                                }}
+                                                                className="text-gray-400 hover:text-emerald-600"
+                                                                title="Editar usuario"
+                                                            >
+                                                                <Edit2 size={12} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    {ticket.sentToN8n ? (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
+                                                            Enviado
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">
+                                                            Pendiente
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {/* Ticket Items */}
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                    <thead className="bg-white">
+                                                        <tr>
+                                                            <th scope="col" className="px-3 py-1.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider w-12 bg-gray-50/50">
+                                                                Ud.
+                                                            </th>
+                                                            <th scope="col" className="px-3 py-1.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider bg-gray-50/50">
+                                                                Producto
+                                                            </th>
+                                                            <th scope="col" className="px-3 py-1.5 text-center text-[11px] font-medium text-gray-500 uppercase tracking-wider w-10 bg-gray-50/50">
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {ticket.items.map((item) => (
+                                                            <tr key={item._id} className="hover:bg-gray-50/50">
+                                                                <td className="px-3 py-1.5 text-sm font-bold text-gray-900 text-right w-12">
+                                                                    {item.cantidad}
+                                                                </td>
+                                                                <td className="px-3 py-1.5 text-sm text-gray-600">
+                                                                    {item.producto}
+                                                                </td>
+                                                                <td className="px-3 py-1.5 whitespace-nowrap text-center p-0">
+                                                                    <button
+                                                                        onClick={() => handleDeleteSale(item._id)}
+                                                                        className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"
+                                                                        title="Eliminar producto"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="space-y-4">
                                     {weeklyAggregated.map((item, idx) => (
                                         <div key={idx} className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
                                             <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center">
-                                                <h3 className="font-bold text-gray-900 text-sm">{item.paciente}</h3>
+                                                <div className="flex flex-col">
+                                                    <h3 className="font-bold text-gray-900 text-sm">{item.paciente}</h3>
+                                                    <span className="text-[10px] text-gray-500">{item.totalQty} items en total</span>
+                                                </div>
                                                 <button
                                                     onClick={() => copyToClipboard(`${item.totalQty} ${item.products}`, idx)}
-                                                    className="text-gray-400 hover:text-emerald-600 p-1 rounded hover:bg-emerald-50 transition-colors"
-                                                    title="Copiar consumo"
+                                                    className="text-gray-400 hover:text-emerald-600 p-1.5 rounded hover:bg-emerald-50 transition-colors bg-white border border-gray-200 shadow-sm"
+                                                    title="Copiar consumo general"
                                                 >
-                                                    {copiedIndex === idx ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                                                    {copiedIndex === idx ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                                                 </button>
                                             </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="min-w-full divide-y divide-gray-200">
-                                                    <thead className="bg-white">
-                                                        <tr>
-                                                            <th scope="col" className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16 bg-gray-50/50">
-                                                                Cant.
-                                                            </th>
-                                                            <th scope="col" className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50/50">
-                                                                Producto
-                                                            </th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-100">
-                                                        {/* Parse the product string back to rows for display */}
-                                                        {item.products.split(', ').map((prodStr, i) => {
-                                                            const match = prodStr.match(/(.*) \((\d+)\)/);
-                                                            if (match) {
-                                                                return (
-                                                                    <tr key={i}>
-                                                                        <td className="px-3 py-1.5 text-sm font-bold text-gray-900 text-right w-16">
-                                                                            {match[2]}
-                                                                        </td>
-                                                                        <td className="px-3 py-1.5 text-sm text-gray-600">
-                                                                            {match[1]}
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            }
-                                                            return null;
-                                                        })}
-                                                        <tr className="bg-gray-50/30 border-t border-gray-200">
-                                                            <td className="px-3 py-1.5 text-sm font-black text-gray-900 text-right w-16">
-                                                                {item.totalQty}
-                                                            </td>
-                                                            <td className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                                Total Items
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
+
+                                            <div className="divide-y divide-gray-100 bg-white">
+                                                {item.tickets.map((ticket, tIdx) => (
+                                                    <div key={tIdx} className="px-3 py-2">
+                                                        <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50/50 inline-block px-1.5 py-0.5 rounded mb-1">
+                                                            {new Intl.DateTimeFormat('es-VE', {
+                                                                weekday: 'short', month: 'short', day: 'numeric',
+                                                                hour: '2-digit', minute: '2-digit'
+                                                            }).format(new Date(ticket.fecha))}
+                                                        </div>
+                                                        <div className="pl-1">
+                                                            {ticket.items.map((tItem, iIdx) => (
+                                                                <div key={iIdx} className="flex justify-between items-center text-sm py-0.5">
+                                                                    <span className="text-gray-600 flex-1">{tItem.producto}</span>
+                                                                    <span className="font-bold text-gray-900 w-8 text-right">{tItem.cantidad}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     ))}

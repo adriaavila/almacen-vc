@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { Button } from '@/components/ui/Button';
@@ -81,10 +81,12 @@ function CreateOrderPageContent() {
   // Sincronizar datos de Convex al store de Zustand
   useInventorySync();
 
-  // Obtener datos híbridos (Convex o cache)
+  // Get data (hybrid or cache)
   const products = useInventoryData();
-  // Use offline-aware mutation for createOrder
+  // Use offline-aware mutation for normal createOrder (internal orders)
   const createOrder = useOfflineMutation('createOrder');
+  // Mutation for creating a supplier order (Cafetin WA orders)
+  const createSupplierOrder = useMutation(api.procurement.createOrder);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -160,21 +162,50 @@ function CreateOrderPageContent() {
     }));
   };
 
-  const handleWhatsAppOrder = () => {
+  const handleWhatsAppOrder = async () => {
     if (selectedProducts.length === 0) return;
 
-    let message = `*Pedido para Cafetín*\n\n`;
-    selectedProducts.forEach(p => {
-      const unit = getOrderUnit(p, selectedArea);
-      const unitPlural = pluralizeUnit(unit, p.cantidad);
-      message += `• ${p.cantidad} ${unitPlural} de ${p.name}\n`;
-    });
+    setIsSubmitting(true);
+    try {
+      // Create supplier order targeting Cafetin
+      await createSupplierOrder({
+        destination: 'cafetin',
+        items: selectedProducts.map(p => ({
+          productId: p._id,
+          cantidad: p.cantidad
+        }))
+      });
 
-    message += `\nEnviado desde Almacén VC`;
+      let message = `*Pedido para Cafetín*\n\n`;
+      selectedProducts.forEach(p => {
+        const unit = getOrderUnit(p, selectedArea);
+        const unitPlural = pluralizeUnit(unit, p.cantidad);
+        message += `• ${p.cantidad} ${unitPlural} de ${p.name}\n`;
+      });
 
-    // Encode for URL
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+      message += `\nEnviado desde Almacén VC`;
+
+      // Encode for URL
+      const encodedMessage = encodeURIComponent(message);
+      window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+
+      setToast({
+        message: 'Pedido guardado como Pendiente. Abriendo WhatsApp...',
+        type: 'success',
+        isOpen: true
+      });
+      // Clear cart
+      setQuantities({});
+    } catch (err) {
+      console.error('Error creando pedido al proveedor:', err);
+      setToast({
+        message: 'Error al procesar el pedido de proveedor.',
+        type: 'error',
+        isOpen: true
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

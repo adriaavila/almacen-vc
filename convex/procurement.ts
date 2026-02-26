@@ -7,12 +7,22 @@ import { v } from "convex/values";
 
 // List all pending supplier orders
 export const listPendingOrders = query({
-    handler: async (ctx) => {
-        const orders = await ctx.db
+    args: {
+        destinationFilter: v.optional(v.union(v.literal("almacen"), v.literal("cafetin"))),
+    },
+    handler: async (ctx, args) => {
+        let orders = await ctx.db
             .query("supplier_orders")
             .withIndex("by_status", (q) => q.eq("status", "pendiente"))
             .order("desc")
             .collect();
+
+        if (args.destinationFilter) {
+            orders = orders.filter(o => {
+                const dest = o.destination || "almacen";
+                return dest === args.destinationFilter;
+            });
+        }
 
         // Enrich with item count and first few product names
         const enrichedOrders = await Promise.all(
@@ -111,6 +121,7 @@ export const getOrderWithItems = query({
 export const createOrder = mutation({
     args: {
         providerName: v.optional(v.string()),
+        destination: v.optional(v.union(v.literal("almacen"), v.literal("cafetin"))),
         items: v.array(
             v.object({
                 productId: v.id("products"),
@@ -143,6 +154,7 @@ export const createOrder = mutation({
         // Create the order
         const orderId = await ctx.db.insert("supplier_orders", {
             providerName: args.providerName,
+            destination: args.destination || "almacen",
             status: "pendiente",
             totalItems: args.items.length,
             notes: args.notes,
@@ -208,7 +220,7 @@ export const receiveOrder = mutation({
                 cantidadRecibida: item.cantidadRecibida,
             });
 
-            await processInventoryUpdate(ctx, item.productId, item.cantidadRecibida, args.supplierOrderId);
+            await processInventoryUpdate(ctx, item.productId, item.cantidadRecibida, args.supplierOrderId, order.destination || "almacen");
         }
 
         // 2. Process EXTRA items
@@ -222,7 +234,7 @@ export const receiveOrder = mutation({
                     cantidadRecibida: item.cantidadRecibida,
                 });
 
-                await processInventoryUpdate(ctx, item.productId, item.cantidadRecibida, args.supplierOrderId);
+                await processInventoryUpdate(ctx, item.productId, item.cantidadRecibida, args.supplierOrderId, order.destination || "almacen");
             }
         }
 
@@ -235,7 +247,8 @@ async function processInventoryUpdate(
     ctx: any,
     productId: any,
     cantidadRecibida: number,
-    supplierOrderId: any
+    supplierOrderId: any,
+    destination: "almacen" | "cafetin"
 ) {
     if (cantidadRecibida <= 0) return;
 
@@ -247,11 +260,12 @@ async function processInventoryUpdate(
     // e.g., 2 Cajas * 24 units/caja = 48 units
     const quantityToAdd = cantidadRecibida * product.conversionFactor;
 
-    // Find current inventory at ALMACEN
+    // Find current inventory at the destination location (case-sensitive "Cafetin" for older records mostly, but we use "cafetin" or "almacen" as passed)
+    const exactLoc = destination === "cafetin" ? "cafetin" : "almacen";
     const currentInv = await ctx.db
         .query("inventory")
         .withIndex("by_product_location", (q: any) =>
-            q.eq("productId", productId).eq("location", "almacen")
+            q.eq("productId", productId).eq("location", exactLoc)
         )
         .first();
 
@@ -267,7 +281,7 @@ async function processInventoryUpdate(
     } else {
         await ctx.db.insert("inventory", {
             productId: productId,
-            location: "almacen",
+            location: exactLoc,
             stockActual: nextStock,
             stockMinimo: 10, // Default minimum
             updatedAt: Date.now(),
@@ -279,7 +293,7 @@ async function processInventoryUpdate(
         productId: productId,
         type: "COMPRA",
         from: "PROVEEDOR",
-        to: "ALMACEN",
+        to: exactLoc.toUpperCase(),
         quantity: quantityToAdd,
         prevStock,
         nextStock,
