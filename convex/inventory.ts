@@ -492,6 +492,12 @@ export const initialize = mutation({
       updatedAt: Date.now(),
     });
 
+    if (args.location === "cafetin") {
+      await ctx.scheduler.runAfter(0, internal.integrations.notifyNewCafetinProduct, {
+        producto: product.name,
+      });
+    }
+
     return inventoryId;
   },
 });

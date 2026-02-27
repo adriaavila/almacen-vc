@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 const capitalize = (s: string) => {
   if (!s) return s;
@@ -305,6 +306,10 @@ export const bulkImportCafetin = mutation({
             stockMinimo: 0,
             updatedAt: Date.now(),
           });
+
+          await ctx.scheduler.runAfter(0, internal.integrations.notifyNewCafetinProduct, {
+            producto: productData.name,
+          });
         }
 
         results.created++;
@@ -548,6 +553,10 @@ export const bulkImport = mutation({
               stockActual: stockCafetin,
               stockMinimo: stockMinimoCafetin,
               updatedAt: now,
+            });
+
+            await ctx.scheduler.runAfter(0, internal.integrations.notifyNewCafetinProduct, {
+              producto: productData.name,
             });
           }
         }

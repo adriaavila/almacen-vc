@@ -15,6 +15,7 @@ import type * as billing from "../billing.js";
 import type * as cleanup from "../cleanup.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
+import type * as integrations from "../integrations.js";
 import type * as inventory from "../inventory.js";
 import type * as migration from "../migration.js";
 import type * as migrations from "../migrations.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   cleanup: typeof cleanup;
   crons: typeof crons;
   http: typeof http;
+  integrations: typeof integrations;
   inventory: typeof inventory;
   migration: typeof migration;
   migrations: typeof migrations;
