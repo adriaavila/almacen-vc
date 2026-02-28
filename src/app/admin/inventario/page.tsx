@@ -37,6 +37,7 @@ type ConvexProduct = {
   stockMinimoAlmacen?: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
+  isNonStocking?: boolean;
 };
 
 export default function InventoryPage() {

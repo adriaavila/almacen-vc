@@ -48,9 +48,13 @@ export function usePosInventory(): InventoryProduct[] {
     // 4. Return filtered data for POS
     // Even if the global store is "polluted" with all products, only show Cafetin relevant ones
     return useMemo(() => {
-        return cachedProducts.filter(p =>
-            p.active &&
-            true // Show all active products
-        );
+        return cachedProducts.filter(p => {
+            if (!p.active) return false;
+
+            const categoryLower = p.category.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const isCafetinCategory = categoryLower.includes("cafetin");
+
+            return isCafetinCategory;
+        });
     }, [cachedProducts]);
 }

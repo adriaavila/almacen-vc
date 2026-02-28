@@ -88,44 +88,47 @@ export const registerSale = mutation({
 
             const nameNormalized = product.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const isCoffee = nameNormalized.includes("cafe");
+            const isNonStocking = product.isNonStocking || isCoffee;
 
-            // Skip stock check for coffee products as requested by user
-            if (!isCoffee && currentStock < item.cantidad) {
+            // Skip stock check for non-stocking products
+            if (!isNonStocking && currentStock < item.cantidad) {
                 throw new Error(
                     `Stock insuficiente en Cafetín para ${product.name}. Disponible: ${currentStock} ${product.baseUnit ?? "unidades"}`
                 );
             }
 
-            const newStock = currentStock - item.cantidad;
+            if (!isNonStocking) {
+                const newStock = currentStock - item.cantidad;
 
-            // Update Cafetin inventory
-            if (cafetinInventory) {
-                await ctx.db.patch(cafetinInventory._id, {
-                    stockActual: newStock,
-                    updatedAt: now,
-                });
-            } else {
-                await ctx.db.insert("inventory", {
+                // Update Cafetin inventory
+                if (cafetinInventory) {
+                    await ctx.db.patch(cafetinInventory._id, {
+                        stockActual: newStock,
+                        updatedAt: now,
+                    });
+                } else {
+                    await ctx.db.insert("inventory", {
+                        productId: item.productId,
+                        location: "cafetin",
+                        stockActual: newStock,
+                        stockMinimo: 0,
+                        updatedAt: now,
+                    });
+                }
+
+                // Register CONSUMO movement
+                await ctx.db.insert("movements", {
                     productId: item.productId,
-                    location: "cafetin",
-                    stockActual: newStock,
-                    stockMinimo: 0,
-                    updatedAt: now,
+                    type: "CONSUMO",
+                    from: "CAFETIN",
+                    to: "CONSUMO",
+                    quantity: item.cantidad,
+                    prevStock: currentStock,
+                    nextStock: newStock,
+                    user: "pos",
+                    timestamp: now,
                 });
             }
-
-            // Register CONSUMO movement
-            await ctx.db.insert("movements", {
-                productId: item.productId,
-                type: "CONSUMO",
-                from: "CAFETIN",
-                to: "CONSUMO",
-                quantity: item.cantidad,
-                prevStock: currentStock,
-                nextStock: newStock,
-                user: "pos",
-                timestamp: now,
-            });
 
             // Register in cafetin_sales for daily RAW export
             await ctx.db.insert("cafetin_sales", {
@@ -171,11 +174,10 @@ export const listStart = query({
 
                 const nameNormalized = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 const isCoffee = nameNormalized.includes("cafe");
+                const isNonStocking = p.isNonStocking || isCoffee;
 
-                // Filter: Show if it's in the Cafetin category OR it has physical inventory in Cafetin OR it is Coffee
-                if (p.availableForSale === true || isCoffee) {
-                    // Always show if explicitly enabled for sale (e.g. Pizza in Cocina category) or if it is Coffee
-                } else if (!isCafetinCategory && !inv) {
+                // Strict rule: Product MUST belong to the Cafetin category to appear in POS
+                if (!isCafetinCategory) {
                     return null;
                 }
 
@@ -199,8 +201,9 @@ export const listStart = query({
                     conversionFactor: p.conversionFactor,
                     stockAlmacen: 0,
                     totalStock: stockCafetin,
-                    status: (stockCafetin <= (inv?.stockMinimo || 0)) ? "bajo_stock" : "ok",
+                    status: (p.isNonStocking || stockCafetin > (inv?.stockMinimo || 0)) ? "ok" : "bajo_stock",
                     hasCafetinRecord: !!inv,
+                    isNonStocking: p.isNonStocking,
                 };
             })
             .filter((p): p is NonNullable<typeof p> => p !== null);

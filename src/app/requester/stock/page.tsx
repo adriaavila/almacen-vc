@@ -35,6 +35,7 @@ type ConvexProduct = {
   stockAlmacen: number;
   stockCafetin: number;
   status: "ok" | "bajo_stock";
+  isNonStocking?: boolean;
 };
 
 function useMediaQuery(query: string) {
@@ -726,14 +727,18 @@ function StockPageContent() {
                           </span>
                           <span className={`text-lg sm:text-xl font-bold whitespace-nowrap ${lowStock ? 'text-red-600' : 'text-gray-900'
                             }`}>
-                            {product.stockCafetin}
+                            {product.isNonStocking ? '∞' : product.stockCafetin}
                           </span>
                           <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
                             {product.baseUnit}
                           </span>
 
                           {/* Adjustment Controls */}
-                          {isAdjusting && adjustingId === product._id ? (
+                          {product.isNonStocking ? (
+                            <div className="flex items-center ml-auto px-2">
+                              <span className="text-xs text-gray-500 italic font-medium">No aplicable</span>
+                            </div>
+                          ) : isAdjusting && adjustingId === product._id ? (
                             <>
                               <div className="flex items-center gap-2 ml-auto">
                                 <button

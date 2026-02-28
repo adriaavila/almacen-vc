@@ -193,8 +193,9 @@ export const listWithInventory = query({
         stockReservado,
         stockDisponible,
         stockCafetin: productInventory.find((i) => i.location === "cafetin")?.stockActual || 0,
-        status: (totalStock <= minStock ? "bajo_stock" : "ok") as "ok" | "bajo_stock",
+        status: (product.isNonStocking || totalStock > minStock ? "ok" : "bajo_stock") as "ok" | "bajo_stock",
         hasCafetinRecord: !!productInventory.find((i) => i.location.toLowerCase() === "cafetin"),
+        isNonStocking: product.isNonStocking,
       };
     });
   },
@@ -215,6 +216,7 @@ export const create = mutation({
     purchaseUnit: v.string(),
     conversionFactor: v.number(),
     active: v.optional(v.boolean()),
+    isNonStocking: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Check for duplicate name - if exists, return existing product ID
@@ -239,6 +241,7 @@ export const create = mutation({
       purchaseUnit: capitalize(args.purchaseUnit),
       conversionFactor: args.conversionFactor,
       active: args.active ?? true,
+      isNonStocking: args.isNonStocking,
     });
 
     return productId;
@@ -586,6 +589,7 @@ export const update = mutation({
     conversionFactor: v.optional(v.number()),
     active: v.optional(v.boolean()),
     availableForSale: v.optional(v.boolean()),
+    isNonStocking: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

@@ -546,7 +546,7 @@ export default function POSPage() {
                 name={product.name}
                 unit={product.baseUnit}
                 stock={
-                  (product.name.toLowerCase().includes('cafe') || product.name.toLowerCase().includes('café'))
+                  product.isNonStocking || (product.name.toLowerCase().includes('cafe') || product.name.toLowerCase().includes('café'))
                     ? 9999
                     : product.stockCafetin
                 }

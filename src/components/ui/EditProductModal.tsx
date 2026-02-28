@@ -36,6 +36,7 @@ type ProductWithInventory = {
     stockActual: number;
     stockMinimo: number;
   }>;
+  isNonStocking?: boolean;
 };
 
 export function EditProductModal({ isOpen, onClose, productId, onProductUpdated, onProductDeleted, location = 'almacen' }: EditProductModalProps) {
@@ -66,6 +67,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
   const [conversionFactor, setConversionFactor] = useState<string>('1');
   const [stockMinimo, setStockMinimo] = useState<string>('0');
   const [active, setActive] = useState(true);
+  const [isNonStocking, setIsNonStocking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -100,6 +102,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
       setConversionFactor(String(product.conversionFactor || 1));
       setStockMinimo(String(inventory?.stockMinimo || 0));
       setActive(product.active ?? true);
+      setIsNonStocking(product.isNonStocking ?? false);
       setError(null);
     }
   }, [product, isOpen, location, productId]);
@@ -122,6 +125,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
       setConversionFactor('1');
       setStockMinimo('0');
       setActive(true);
+      setIsNonStocking(false);
       setError(null);
     }
   }, [isOpen]);
@@ -182,6 +186,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
           purchaseUnit: finalPurchaseUnit,
           conversionFactor: numConversionFactor,
           active: active,
+          isNonStocking: isNonStocking,
         });
 
         // Update stock mínimo
@@ -207,6 +212,7 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
           purchaseUnit: finalPurchaseUnit,
           conversionFactor: numConversionFactor,
           active: active,
+          isNonStocking: isNonStocking,
         });
 
         // Initialize inventory
@@ -519,8 +525,8 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
             <p className="text-xs text-gray-500 mt-1">Alerta cuando el stock esté por debajo de este valor</p>
           </div>
 
-          {/* Estado Activo */}
-          <div>
+          {/* Estado Activo y No Contabiliza Stock */}
+          <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -529,6 +535,16 @@ export function EditProductModal({ isOpen, onClose, productId, onProductUpdated,
                 className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
               />
               <span className="text-sm font-medium text-gray-700">Activo</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isNonStocking}
+                onChange={(e) => setIsNonStocking(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+              />
+              <span className="text-sm font-medium text-gray-700">No contabiliza stock (solo registra ventas en POS)</span>
             </label>
           </div>
 

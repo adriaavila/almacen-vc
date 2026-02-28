@@ -23,6 +23,7 @@ type ConvexProduct = {
   stockCafetin: number;
   status: "ok" | "bajo_stock";
   hasCafetinRecord?: boolean;
+  isNonStocking?: boolean;
 };
 
 /**

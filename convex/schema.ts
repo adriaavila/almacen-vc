@@ -113,6 +113,8 @@ export default defineSchema({
 
     active: v.boolean(),
     availableForSale: v.optional(v.boolean()), // Available for sale in POS (defaults to true)
+    isNonStocking: v.optional(v.boolean()), // If true, stock is not tracked for this product (e.g. cafe)
+
 
     // Legacy field from migration (optional to support existing data)
     packageSize: v.optional(v.number()),

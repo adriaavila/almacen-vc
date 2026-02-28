@@ -21,6 +21,7 @@ export type InventoryProduct = {
   status: "ok" | "bajo_stock";
   lastSyncedAt?: number; // Timestamp de última sincronización
   hasCafetinRecord?: boolean;
+  isNonStocking?: boolean;
 };
 
 // Tipos para acciones pendientes

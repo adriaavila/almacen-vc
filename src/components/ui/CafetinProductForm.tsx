@@ -32,6 +32,7 @@ type ProductWithInventory = {
         stockActual: number;
         stockMinimo: number;
     }>;
+    isNonStocking?: boolean;
 };
 
 export function CafetinProductForm({
@@ -67,6 +68,7 @@ export function CafetinProductForm({
     const [stockMinimo, setStockMinimo] = useState<string>('0');
     const [active, setActive] = useState(true);
     const [availableForSale, setAvailableForSale] = useState(true);
+    const [isNonStocking, setIsNonStocking] = useState(false);
 
     // Custom input states
     const [isCustomSubCategory, setIsCustomSubCategory] = useState(false);
@@ -121,6 +123,7 @@ export function CafetinProductForm({
             setStockMinimo(String(inventory?.stockMinimo || 0));
             setActive(product.active ?? true);
             setAvailableForSale(product.availableForSale ?? true);
+            setIsNonStocking(product.isNonStocking ?? false);
 
             // Reset custom states
             setIsCustomSubCategory(false);
@@ -147,6 +150,7 @@ export function CafetinProductForm({
             setStockMinimo('0');
             setActive(true);
             setAvailableForSale(true);
+            setIsNonStocking(false);
 
             // Reset custom states
             setIsCustomSubCategory(false);
@@ -219,6 +223,7 @@ export function CafetinProductForm({
                     conversionFactor: numConversionFactor,
                     active: true, // Always reactivate on save (user controls availability via availableForSale)
                     availableForSale: availableForSale,
+                    isNonStocking: isNonStocking,
                 });
 
                 // Update stock minimum
@@ -240,6 +245,7 @@ export function CafetinProductForm({
                     purchaseUnit: capitalizedPurchaseUnit,
                     conversionFactor: numConversionFactor,
                     active: true, // Always active on creation
+                    isNonStocking: isNonStocking,
                 });
 
                 // If we want to support availableForSale on creation, we need to update the schema/mutation or rely on default.
@@ -636,25 +642,42 @@ export function CafetinProductForm({
                 </div>
 
                 {/* Disponible para Venta - para esconder del Cafetin */}
-                {!isCreating && (
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                        <div>
-                            <span className="text-sm font-semibold text-gray-700">Disponible para Venta</span>
-                            <p className="text-xs text-gray-500">Desactiva para ocultar del inventario de Cafetin</p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setAvailableForSale(!availableForSale)}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${availableForSale ? 'bg-emerald-600' : 'bg-gray-200'
-                                }`}
-                        >
-                            <span
-                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${availableForSale ? 'translate-x-5' : 'translate-x-0'
-                                    }`}
-                            />
-                        </button>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                        <span className="text-sm font-semibold text-gray-700">Disponible para Venta</span>
+                        <p className="text-xs text-gray-500">Desactiva para ocultar del inventario de Cafetin</p>
                     </div>
-                )}
+                    <button
+                        type="button"
+                        onClick={() => setAvailableForSale(!availableForSale)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${availableForSale ? 'bg-emerald-600' : 'bg-gray-200'
+                            }`}
+                    >
+                        <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${availableForSale ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                        />
+                    </button>
+                </div>
+
+                {/* No Contabiliza Stock */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                        <span className="text-sm font-semibold text-gray-700">Stock Infinito (Ej: Café)</span>
+                        <p className="text-xs text-gray-500">El producto no descontará stock al enviarse al POS</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsNonStocking(!isNonStocking)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${isNonStocking ? 'bg-emerald-600' : 'bg-gray-200'
+                            }`}
+                    >
+                        <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isNonStocking ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                        />
+                    </button>
+                </div>
 
                 {/* Botones de acción */}
                 <div className="flex gap-3 pt-4 border-t border-gray-100 mt-6 md:sticky md:bottom-0 md:bg-white md:py-4 md:-mx-1 md:z-10">
