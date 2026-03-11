@@ -174,40 +174,49 @@ export const getAverageDeliveryTime = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const allOrders = await ctx.db.query("orders").collect();
-    const deliveredOrders = filterByDateRange(
-      allOrders.filter((o) => o.status === "entregado"),
-      args.startDate,
-      args.endDate
-    );
+    // Optimize: fetch only delivered orders within range using index
+    let ordersQuery = ctx.db.query("orders").withIndex("by_status_createdAt", (q) => {
+      if (args.startDate !== undefined) {
+        return q.eq("status", "entregado").gte("createdAt", args.startDate);
+      }
+      return q.eq("status", "entregado");
+    });
+
+    let deliveredOrders = await ordersQuery.collect();
+    if (args.endDate !== undefined) {
+      deliveredOrders = deliveredOrders.filter(o => o.createdAt <= args.endDate!);
+    }
 
     if (deliveredOrders.length === 0) {
       return { averageHours: 0, averageDays: 0, count: 0 };
     }
 
-    // Calculate delivery time - approximate using order creation vs current time
-    // In a real scenario, we'd track delivery timestamps
+    // Limit to the most recent 500 to avoid computational timeouts or read limits if there are thousands
+    const ordersToProcess = deliveredOrders.slice(-500);
     const times: number[] = [];
 
-    for (const order of deliveredOrders) {
-      // Use movements table - look for CONSUMO or TRASLADO movements related to this order
-      // Note: movements table doesn't have referencia field, so we approximate using timestamp
-      // In production, you'd want to track actual delivery time
-      const movements = await ctx.db
+    for (const order of ordersToProcess) {
+      // Try exact match using orderId first
+      let movement = await ctx.db
         .query("movements")
-        .withIndex("by_timestamp", (q) => q.gte("timestamp", order.createdAt))
-        .collect();
+        .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+        .filter(q => q.or(q.eq(q.field("type"), "CONSUMO"), q.eq(q.field("type"), "TRASLADO")))
+        .first();
 
-      // Find movements that occurred after order creation (approximation)
-      const relevantMovements = movements.filter(m =>
-        (m.type === "CONSUMO" || m.type === "TRASLADO") &&
-        m.timestamp >= order.createdAt &&
-        m.timestamp <= order.createdAt + 7 * 24 * 60 * 60 * 1000 // Within 7 days
-      );
+      if (!movement) {
+        // Fallback approximation: find the first relevant movement after order creation
+        movement = await ctx.db
+          .query("movements")
+          .withIndex("by_timestamp", (q) => q.gte("timestamp", order.createdAt))
+          .filter(q => q.and(
+            q.lte(q.field("timestamp"), order.createdAt + 7 * 24 * 60 * 60 * 1000), // Within 7 days
+            q.or(q.eq(q.field("type"), "CONSUMO"), q.eq(q.field("type"), "TRASLADO"))
+          ))
+          .first();
+      }
 
-      if (relevantMovements.length > 0) {
-        // Use first movement timestamp as delivery time approximation
-        const deliveryTime = relevantMovements[0].timestamp - order.createdAt;
+      if (movement) {
+        const deliveryTime = movement.timestamp - order.createdAt;
         if (deliveryTime > 0) {
           times.push(deliveryTime);
         }
