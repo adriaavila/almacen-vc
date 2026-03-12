@@ -67,7 +67,21 @@ export const getOrderStats = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const allOrders = await ctx.db.query("orders").collect();
+    let allOrders;
+    if (args.startDate !== undefined) {
+      allOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "entregado").gte("createdAt", args.startDate!))
+        .collect();
+      // Also get pending for the stat count
+      const pendingOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "pendiente").gte("createdAt", args.startDate!))
+        .collect();
+      allOrders = [...allOrders, ...pendingOrders];
+    } else {
+      allOrders = await ctx.db.query("orders").collect();
+    }
     const orders = filterByDateRange(allOrders, args.startDate, args.endDate);
 
     const stats = {
@@ -96,7 +110,20 @@ export const getOrderTrends = query({
     groupBy: v.optional(v.union(v.literal("day"), v.literal("week"), v.literal("month"))),
   },
   handler: async (ctx, args) => {
-    const allOrders = await ctx.db.query("orders").collect();
+    let allOrders;
+    if (args.startDate !== undefined) {
+      allOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "entregado").gte("createdAt", args.startDate!))
+        .collect();
+      const pendingOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "pendiente").gte("createdAt", args.startDate!))
+        .collect();
+      allOrders = [...allOrders, ...pendingOrders];
+    } else {
+      allOrders = await ctx.db.query("orders").collect();
+    }
     const orders = filterByDateRange(allOrders, args.startDate, args.endDate);
     const groupBy = args.groupBy || "day";
 
@@ -130,7 +157,16 @@ export const getOrdersByArea = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const allOrders = await ctx.db.query("orders").collect();
+    let allOrders;
+    if (args.startDate !== undefined) {
+      // getOrdersByArea only counts delivered orders inside its loop
+      allOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "entregado").gte("createdAt", args.startDate!))
+        .collect();
+    } else {
+      allOrders = await ctx.db.query("orders").collect();
+    }
     const orders = filterByDateRange(allOrders, args.startDate, args.endDate);
 
     // Get order items to calculate consumption
@@ -196,24 +232,11 @@ export const getAverageDeliveryTime = query({
     const times: number[] = [];
 
     for (const order of ordersToProcess) {
-      // Try exact match using orderId first
       let movement = await ctx.db
         .query("movements")
         .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
         .filter(q => q.or(q.eq(q.field("type"), "CONSUMO"), q.eq(q.field("type"), "TRASLADO")))
         .first();
-
-      if (!movement) {
-        // Fallback approximation: find the first relevant movement after order creation
-        movement = await ctx.db
-          .query("movements")
-          .withIndex("by_timestamp", (q) => q.gte("timestamp", order.createdAt))
-          .filter(q => q.and(
-            q.lte(q.field("timestamp"), order.createdAt + 7 * 24 * 60 * 60 * 1000), // Within 7 days
-            q.or(q.eq(q.field("type"), "CONSUMO"), q.eq(q.field("type"), "TRASLADO"))
-          ))
-          .first();
-      }
 
       if (movement) {
         const deliveryTime = movement.timestamp - order.createdAt;
@@ -347,12 +370,20 @@ export const getMostRequestedItems = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const allOrders = await ctx.db.query("orders").collect();
-    const orders = filterByDateRange(
-      allOrders.filter((o) => o.status === "entregado"),
-      args.startDate,
-      args.endDate
-    );
+    let ordersQuery = ctx.db.query("orders").withIndex("by_status_createdAt", (q) => {
+      if (args.startDate !== undefined) {
+        return q.eq("status", "entregado").gte("createdAt", args.startDate);
+      }
+      return q.eq("status", "entregado");
+    });
+
+    let deliveredOrders = await ordersQuery.collect();
+    if (args.endDate !== undefined) {
+      deliveredOrders = deliveredOrders.filter(o => o.createdAt <= args.endDate!);
+    }
+
+    // Process all if small, otherwise limit to the latest 500 to prevent read limits
+    const orders = deliveredOrders.length > 500 ? deliveredOrders.slice(-500) : deliveredOrders;
 
     const productStats = new Map<
       string,
@@ -484,12 +515,19 @@ export const getConsumptionByArea = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const allOrders = await ctx.db.query("orders").collect();
-    const orders = filterByDateRange(
-      allOrders.filter((o) => o.status === "entregado"),
-      args.startDate,
-      args.endDate
-    );
+    let allOrders;
+    if (args.startDate !== undefined) {
+      allOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "entregado").gte("createdAt", args.startDate!))
+        .collect();
+    } else {
+      allOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status", (q) => q.eq("status", "entregado"))
+        .collect();
+    }
+    const orders = filterByDateRange(allOrders, args.startDate, args.endDate);
 
     // Use ASCII-safe keys for Convex compatibility
     const areaKeyMap: Record<string, "Cocina" | "Cafetin" | "Limpieza" | "Las casas"> = {
@@ -528,12 +566,19 @@ export const getAreaConsumptionTrends = query({
     groupBy: v.optional(v.union(v.literal("day"), v.literal("week"), v.literal("month"))),
   },
   handler: async (ctx, args) => {
-    const allOrders = await ctx.db.query("orders").collect();
-    const orders = filterByDateRange(
-      allOrders.filter((o) => o.status === "entregado"),
-      args.startDate,
-      args.endDate
-    );
+    let allOrders;
+    if (args.startDate !== undefined) {
+      allOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "entregado").gte("createdAt", args.startDate!))
+        .collect();
+    } else {
+      allOrders = await ctx.db
+        .query("orders")
+        .withIndex("by_status", (q) => q.eq("status", "entregado"))
+        .collect();
+    }
+    const orders = filterByDateRange(allOrders, args.startDate, args.endDate);
     const groupBy = args.groupBy || "day";
 
     // Use ASCII-safe keys for Convex compatibility

@@ -243,12 +243,9 @@ export default function DashboardPage() {
                   {topLowStockItems.map((inv) => (
                     <TableRow key={inv._id}>
                       <TableCell>
-                        <Link
-                          href={`/admin/inventario/${inv.productId}`}
-                          className="text-emerald-600 hover:text-emerald-800 font-medium"
-                        >
+                        <span className="text-gray-900 font-medium">
                           {inv.product?.name || 'Producto'}
-                        </Link>
+                        </span>
                       </TableCell>
                       <TableCell className="text-right">
                         <span className="text-red-600 font-semibold">{inv.stockActual}</span>
@@ -358,12 +355,9 @@ export default function DashboardPage() {
                       </TableCell>
                       <TableCell>
                         {movement.product ? (
-                          <Link
-                            href={`/admin/inventario/${movement.productId}`}
-                            className="text-emerald-600 hover:text-emerald-800"
-                          >
+                          <span className="text-gray-900 font-medium">
                             {movement.product.name}
-                          </Link>
+                          </span>
                         ) : (
                           <span className="text-gray-400">Producto eliminado</span>
                         )}

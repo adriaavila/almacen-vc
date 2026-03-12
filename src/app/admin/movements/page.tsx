@@ -98,12 +98,9 @@ function MovementGroup({
                     >
                       <td className="px-4 py-2 whitespace-nowrap text-sm">
                         {movement.product ? (
-                          <Link
-                            href={`/admin/inventario/${movement.productId}`}
-                            className="text-emerald-600 hover:text-emerald-800 font-medium"
-                          >
+                          <span className="text-gray-900 font-medium">
                             {movement.product.name}
-                          </Link>
+                          </span>
                         ) : (
                           <span className="text-gray-500">Producto eliminado</span>
                         )}
@@ -154,12 +151,9 @@ function MovementGroup({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900">
                         {movement.product ? (
-                          <Link
-                            href={`/admin/inventario/${movement.productId}`}
-                            className="text-emerald-600 hover:text-emerald-800"
-                          >
+                          <span className="text-gray-900 font-medium">
                             {movement.product.name}
-                          </Link>
+                          </span>
                         ) : (
                           <span className="text-gray-500">Producto eliminado</span>
                         )}
@@ -329,12 +323,9 @@ export default function MovementsPage() {
         </td>
         <td className="px-4 py-2 whitespace-nowrap text-sm">
           {movement.product ? (
-            <Link
-              href={`/admin/inventario/${movement.productId}`}
-              className="text-emerald-600 hover:text-emerald-800 font-medium"
-            >
+            <span className="text-gray-900 font-medium">
               {movement.product.name}
-            </Link>
+            </span>
           ) : (
             <span className="text-gray-500">Producto eliminado</span>
           )}
@@ -381,12 +372,9 @@ export default function MovementsPage() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900">
               {movement.product ? (
-                <Link
-                  href={`/admin/inventario/${movement.productId}`}
-                  className="text-emerald-600 hover:text-emerald-800"
-                >
+                <span className="text-gray-900 font-medium">
                   {movement.product.name}
-                </Link>
+                </span>
               ) : (
                 <span className="text-gray-500">Producto eliminado</span>
               )}
